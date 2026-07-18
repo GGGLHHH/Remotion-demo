@@ -1,9 +1,12 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
+import type { UndoableState } from '@editor/shared';
 import { config } from './config';
 import { createUploadUrl, deleteObject, ensureBucket } from './s3';
+import { enqueueRender, tasks } from './renderer';
 
-const app = Fastify({ logger: true });
+// bodyLimit: 渲染请求携带完整工程 state（含字幕数组），默认 1MiB 不够
+const app = Fastify({ logger: true, bodyLimit: 25 * 1024 * 1024 });
 
 await app.register(cors, { origin: true });
 
@@ -29,6 +32,23 @@ app.post<{ Body: { key: string } }>('/api/delete-asset', async (req, reply) => {
   }
   await deleteObject(key);
   return { ok: true };
+});
+
+app.post<{ Body: { state: UndoableState; codec: 'mp4' | 'webm' } }>(
+  '/api/render',
+  async (req, reply) => {
+    const { state, codec } = req.body ?? {};
+    if (!state || (codec !== 'mp4' && codec !== 'webm')) {
+      return reply.code(400).send({ error: 'state and codec (mp4|webm) required' });
+    }
+    return { taskId: enqueueRender(state, codec) };
+  },
+);
+
+app.post<{ Body: { taskId: string } }>('/api/progress', async (req, reply) => {
+  const task = tasks.get(req.body?.taskId ?? '');
+  if (!task) return reply.code(404).send({ error: 'unknown taskId' });
+  return task;
 });
 
 await ensureBucket();

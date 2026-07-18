@@ -9,6 +9,15 @@ import {
   type UndoableState,
 } from '@editor/shared';
 
+export type RenderingTask = {
+  id: string;
+  status: 'queued' | 'rendering' | 'done' | 'error';
+  progress: number; // 0-1
+  url?: string;
+  error?: string;
+  codec: string;
+};
+
 export type EditorStore = {
   undoable: UndoableState;
   past: UndoableState[]; // 最近的在末尾
@@ -54,6 +63,9 @@ export type EditorStore = {
   setClipboard: (items: EditorStarterItem[]) => void;
   /** 最近保存的快照（脏标记用） */
   lastSavedState: UndoableState | null;
+  /** 渲染任务（瞬时，随服务端任务表一起丢失） */
+  renderingTasks: RenderingTask[];
+  upsertRenderingTask: (task: RenderingTask) => void;
   loop: boolean;
   toggleLoop: () => void;
   playerMuted: boolean;
@@ -140,6 +152,15 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   clipboard: [],
   setClipboard: (items) => set({ clipboard: items }),
   lastSavedState: null,
+  renderingTasks: [],
+  upsertRenderingTask: (task) =>
+    set((s) => {
+      const i = s.renderingTasks.findIndex((t) => t.id === task.id);
+      if (i === -1) return { renderingTasks: [...s.renderingTasks, task] };
+      const next = [...s.renderingTasks];
+      next[i] = task;
+      return { renderingTasks: next };
+    }),
   loop: true,
   toggleLoop: () => set((s) => ({ loop: !s.loop })),
   playerMuted: false,

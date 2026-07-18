@@ -85,17 +85,20 @@ export default function App() {
   const hasActiveUploads = useEditorStore((s) =>
     Object.values(s.assetStatus).some((st) => st === 'pending-upload' || st === 'in-progress'),
   );
+  const hasActiveRenders = useEditorStore((s) =>
+    s.renderingTasks.some((t) => t.status === 'queued' || t.status === 'rendering'),
+  );
 
-  // 上传未完成时拦截关闭/刷新，避免丢素材
+  // 上传/渲染未完成时拦截关闭/刷新，避免丢素材或丢渲染进度
   useEffect(() => {
-    if (!hasActiveUploads) return;
+    if (!hasActiveUploads && !hasActiveRenders) return;
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
       e.preventDefault();
       e.returnValue = '';
     };
     window.addEventListener('beforeunload', onBeforeUnload);
     return () => window.removeEventListener('beforeunload', onBeforeUnload);
-  }, [hasActiveUploads]);
+  }, [hasActiveUploads, hasActiveRenders]);
 
   return (
     <div className="flex h-screen flex-col bg-zinc-900 text-zinc-100">

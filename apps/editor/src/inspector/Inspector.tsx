@@ -2,10 +2,68 @@ import type React from 'react';
 import { useState } from 'react';
 import type { EditorStarterItem } from '@editor/shared';
 import { useEditorStore } from '../state/store';
+import { startRender } from '../lib/render-client';
 import { NumberField } from './NumberField';
 import { ColorField, Row, Section } from './fields';
 import { TextPanel } from './TextPanel';
 import { MediaPanel } from './MediaPanel';
+
+const RenderSection: React.FC = () => {
+  const renderingTasks = useEditorStore((s) => s.renderingTasks);
+  const [codec, setCodec] = useState<'mp4' | 'webm'>('mp4');
+
+  return (
+    <Section title="渲染">
+      <Row label="格式">
+        <select
+          className="w-full rounded border border-zinc-700 bg-zinc-800 px-2 py-1 text-xs outline-none focus:border-blue-500"
+          value={codec}
+          onChange={(e) => setCodec(e.target.value as 'mp4' | 'webm')}
+        >
+          <option value="mp4">MP4 (H.264)</option>
+          <option value="webm">WebM (VP8)</option>
+        </select>
+      </Row>
+      <button
+        className="rounded border border-zinc-700 px-2 py-1 text-xs hover:bg-zinc-800"
+        onClick={() => void startRender(codec)}
+      >
+        渲染
+      </button>
+      {renderingTasks.map((t) => (
+        <div key={t.id} className="rounded border border-zinc-800 p-2 text-xs">
+          <div className="flex items-center justify-between">
+            <span className="uppercase text-zinc-400">{t.codec}</span>
+            {t.status === 'done' && t.url ? (
+              <a
+                href={t.url}
+                target="_blank"
+                rel="noreferrer"
+                className="text-blue-400 hover:underline"
+              >
+                下载
+              </a>
+            ) : (
+              <span className="tabular-nums text-zinc-500">
+                {t.status === 'error' ? '失败' : `${Math.round(t.progress * 100)}%`}
+              </span>
+            )}
+          </div>
+          {t.status === 'error' ? (
+            <div className="mt-1 break-all text-red-400">{t.error?.slice(0, 200)}</div>
+          ) : (
+            <div className="mt-1 h-1 rounded bg-zinc-800">
+              <div
+                className="h-1 rounded bg-blue-500 transition-[width]"
+                style={{ width: `${Math.round(t.progress * 100)}%` }}
+              />
+            </div>
+          )}
+        </div>
+      ))}
+    </Section>
+  );
+};
 
 const CompositionPanel: React.FC = () => {
   const width = useEditorStore((s) => s.undoable.compositionWidth);
@@ -13,7 +71,8 @@ const CompositionPanel: React.FC = () => {
   const updateUndoable = useEditorStore((s) => s.updateUndoable);
 
   return (
-    <Section title="合成设置">
+    <>
+      <Section title="合成设置">
       <NumberField
         label="宽度"
         value={width}
@@ -38,7 +97,9 @@ const CompositionPanel: React.FC = () => {
       >
         交换尺寸 ⇄
       </button>
-    </Section>
+      </Section>
+      <RenderSection />
+    </>
   );
 };
 

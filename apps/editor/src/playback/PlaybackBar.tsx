@@ -2,7 +2,7 @@ import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { useEditorStore } from '../state/store';
 import { playerRef } from '../canvas/player-ref';
-import { calcDuration } from '../canvas/CanvasView';
+import { calcDuration } from '@editor/shared/composition';
 import { formatTime } from '../timeline/Ruler';
 
 /** M:SS.FF，FF = 帧号 % fps 两位补零 */

@@ -1,21 +1,13 @@
 import type React from 'react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Player } from '@remotion/player';
-import { MainComposition } from '@editor/shared/composition';
+import { MainComposition, calcDuration } from '@editor/shared/composition';
 import { useEditorStore } from '../state/store';
 import { importFiles } from '../lib/import-assets';
 import { playerRef } from './player-ref';
 import { SelectionOverlay } from './SelectionOverlay';
 import { CropOverlay } from './CropOverlay';
 import { TextEditOverlay } from './TextEditOverlay';
-
-export const calcDuration = (items: Record<string, { from: number; durationInFrames: number }>) => {
-  let max = 1;
-  for (const item of Object.values(items)) {
-    max = Math.max(max, item.from + item.durationInFrames);
-  }
-  return max;
-};
 
 export const CanvasView: React.FC = () => {
   const undoable = useEditorStore((s) => s.undoable);

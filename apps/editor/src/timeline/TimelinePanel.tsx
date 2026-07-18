@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { EditorStarterItem, Track, UndoableState } from '@editor/shared';
 import { useEditorStore } from '../state/store';
 import { playerRef } from '../canvas/player-ref';
-import { calcDuration } from '../canvas/CanvasView';
+import { calcDuration } from '@editor/shared/composition';
 import { HEADER_WIDTH, RULER_HEIGHT, SNAP_TOLERANCE_PX, TRACK_HEIGHT } from './constants';
 import { ItemBlock } from './ItemBlock';
 import { Playhead } from './Playhead';
