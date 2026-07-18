@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useEditorStore } from './state/store';
 import { useShortcuts } from './shortcuts/useShortcuts';
 import { CanvasView } from './canvas/CanvasView';
@@ -17,6 +17,42 @@ import {
   saveState,
 } from './persistence/persistence';
 import { buildDemoState } from './demo-state';
+
+/** 文件选择按钮：用 button + ref.click() 触发隐藏 input。
+ * 不用 <label> 包 hidden input——Safari 不会把 label 点击转发给 display:none 的表单控件。 */
+const FileButton: React.FC<{
+  label: string;
+  accept: string;
+  multiple?: boolean;
+  title?: string;
+  onFiles: (files: File[]) => void;
+}> = ({ label, accept, multiple, title, onFiles }) => {
+  const ref = useRef<HTMLInputElement>(null);
+  return (
+    <>
+      <button
+        type="button"
+        className="rounded border border-zinc-700 px-2 py-1 text-xs hover:bg-zinc-800"
+        title={title}
+        onClick={() => ref.current?.click()}
+      >
+        {label}
+      </button>
+      <input
+        ref={ref}
+        type="file"
+        accept={accept}
+        multiple={multiple}
+        className="hidden"
+        onChange={(e) => {
+          const files = Array.from(e.target.files ?? []);
+          e.target.value = '';
+          if (files.length) onFiles(files);
+        }}
+      />
+    </>
+  );
+};
 
 const UploadStatusBadge = () => {
   const assetStatus = useEditorStore((s) => s.assetStatus);
@@ -159,20 +195,12 @@ export default function App() {
         >
           ■ 色块
         </button>
-        <label className="cursor-pointer rounded border border-zinc-700 px-2 py-1 text-xs hover:bg-zinc-800">
-          导入素材
-          <input
-            type="file"
-            multiple
-            accept="video/*,audio/*,image/*"
-            className="hidden"
-            onChange={(e) => {
-              const files = Array.from(e.target.files ?? []);
-              e.target.value = '';
-              if (files.length) void importFiles(files);
-            }}
-          />
-        </label>
+        <FileButton
+          label="导入素材"
+          accept="video/*,audio/*,image/*"
+          multiple
+          onFiles={(files) => void importFiles(files)}
+        />
         <UploadStatusBadge />
         <CaptioningBadge />
         <div className="ml-auto flex items-center gap-2">
@@ -185,22 +213,12 @@ export default function App() {
           >
             下载状态
           </button>
-          <label
-            className="cursor-pointer rounded border border-zinc-700 px-2 py-1 text-xs hover:bg-zinc-800"
+          <FileButton
+            label="导入状态"
+            accept=".json"
             title="从 .json 文件恢复工程"
-          >
-            导入状态
-            <input
-              type="file"
-              accept=".json"
-              className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                e.target.value = '';
-                if (file) void loadStateFromFile(file);
-              }}
-            />
-          </label>
+            onFiles={(files) => void loadStateFromFile(files[0])}
+          />
         </div>
       </header>
       <div className="flex min-h-0 flex-1">
