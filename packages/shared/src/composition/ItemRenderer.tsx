@@ -14,6 +14,8 @@ export type RenderContext = {
   state: UndoableState;
   /** 预览时用本地 blob URL 覆盖远端地址；渲染服务不传 */
   assetUrlOverrides?: Record<string, string>;
+  /** 字体悬停预览（仅编辑器传） */
+  textFontOverride?: { itemId: string; fontFamily: string } | null;
 };
 
 const resolveUrl = (ctx: RenderContext, assetId: string): string | null =>
@@ -28,7 +30,14 @@ const ItemContent: React.FC<{ item: EditorStarterItem; ctx: RenderContext; track
     case 'solid':
       return <SolidItemRenderer item={item} />;
     case 'text':
-      return <TextItemRenderer item={item} />;
+      return (
+        <TextItemRenderer
+          item={item}
+          fontFamilyOverride={
+            ctx.textFontOverride?.itemId === item.id ? ctx.textFontOverride.fontFamily : undefined
+          }
+        />
+      );
     case 'video':
       return (
         <VideoItemRenderer

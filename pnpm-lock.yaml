@@ -20,6 +20,9 @@ importers:
       '@remotion/gif':
         specifier: 4.0.491
         version: 4.0.491(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      '@remotion/google-fonts':
+        specifier: 4.0.491
+        version: 4.0.491(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@remotion/media':
         specifier: 4.0.491
         version: 4.0.491(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
@@ -107,6 +110,9 @@ importers:
   packages/shared:
     dependencies:
       '@remotion/gif':
+        specifier: 4.0.491
+        version: 4.0.491(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      '@remotion/google-fonts':
         specifier: 4.0.491
         version: 4.0.491(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@remotion/media':
@@ -540,6 +546,9 @@ packages:
     peerDependencies:
       react: '>=16.8.0'
       react-dom: '>=16.8.0'
+
+  '@remotion/google-fonts@4.0.491':
+    resolution: {integrity: sha512-dyLBWYxzLggxGU/nNLJNtwqZZxb4Pvzrk37JIbha6sNfdGwFxuAN1TBBFBMgxmaS2hybo7ZkBfXjgNw+EgQjig==}
 
   '@remotion/media@4.0.491':
     resolution: {integrity: sha512-UfmJoRebLtZ2cY5XN6WBov7d+j//otmuzlPqsqA7wQydroChUgitFn7KIEP6bxIt7Xmjlg0rZdc8suzbFmurxA==}
@@ -1948,6 +1957,13 @@ snapshots:
       react: 19.2.7
       react-dom: 19.2.7(react@19.2.7)
       remotion: 4.0.491(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+
+  '@remotion/google-fonts@4.0.491(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
+    dependencies:
+      remotion: 4.0.491(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+    transitivePeerDependencies:
+      - react
+      - react-dom
 
   '@remotion/media@4.0.491(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
     dependencies:

@@ -21,7 +21,15 @@ type DragState =
       starts: Map<string, { from: number; trackIndex: number }>;
       primaryId: string;
     }
-  | { kind: 'trim'; edge: 'start' | 'end'; id: string; startX: number; snapshot: UndoableState }
+  | {
+      kind: 'trim';
+      edge: 'start' | 'end';
+      id: string;
+      startX: number;
+      snapshot: UndoableState;
+      /** Alt+拖：滚动编辑联动的相邻项 */
+      rollingNeighborId: string | null;
+    }
   | { kind: 'marquee'; startX: number; startY: number; curX: number; curY: number };
 
 const TrackHeader: React.FC<{ track: Track }> = ({ track }) => {
@@ -110,12 +118,25 @@ export const TimelinePanel: React.FC = () => {
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
 
     if (mode === 'trim-start' || mode === 'trim-end') {
+      const edge = mode === 'trim-start' ? 'start' : 'end';
+      let rollingNeighborId: string | null = null;
+      if (e.altKey) {
+        const boundary = edge === 'start' ? item.from : item.from + item.durationInFrames;
+        const neighbor = Object.values(store.undoable.items).find(
+          (o) =>
+            o.trackId === item.trackId &&
+            o.id !== item.id &&
+            (edge === 'start' ? o.from + o.durationInFrames === boundary : o.from === boundary),
+        );
+        rollingNeighborId = neighbor?.id ?? null;
+      }
       drag.current = {
         kind: 'trim',
-        edge: mode === 'trim-start' ? 'start' : 'end',
+        edge,
         id: item.id,
         startX: e.clientX,
         snapshot: store.undoable,
+        rollingNeighborId,
       };
       return;
     }
@@ -158,7 +179,21 @@ export const TimelinePanel: React.FC = () => {
 
     if (d.kind === 'trim') {
       const delta = Math.round((e.clientX - d.startX) / zoom);
-      store.updateUndoable(() => trimItem(d.snapshot, d.id, d.edge, delta), { commit: false });
+      store.updateUndoable(
+        () => {
+          if (!d.rollingNeighborId) return trimItem(d.snapshot, d.id, d.edge, delta);
+          // 滚动编辑：先收缩的一侧先算，腾出空间给扩展侧
+          const neighborEdge = d.edge === 'end' ? 'start' : 'end';
+          const itemShrinks = d.edge === 'end' ? delta < 0 : delta > 0;
+          if (itemShrinks) {
+            const st = trimItem(d.snapshot, d.id, d.edge, delta);
+            return trimItem(st, d.rollingNeighborId, neighborEdge, delta);
+          }
+          const st = trimItem(d.snapshot, d.rollingNeighborId, neighborEdge, delta);
+          return trimItem(st, d.id, d.edge, delta);
+        },
+        { commit: false },
+      );
       return;
     }
 

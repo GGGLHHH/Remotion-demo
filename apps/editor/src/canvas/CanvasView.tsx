@@ -6,6 +6,8 @@ import { useEditorStore } from '../state/store';
 import { importFiles } from '../lib/import-assets';
 import { playerRef } from './player-ref';
 import { SelectionOverlay } from './SelectionOverlay';
+import { CropOverlay } from './CropOverlay';
+import { TextEditOverlay } from './TextEditOverlay';
 
 export const calcDuration = (items: Record<string, { from: number; durationInFrames: number }>) => {
   let max = 1;
@@ -20,6 +22,8 @@ export const CanvasView: React.FC = () => {
   const canvasZoom = useEditorStore((s) => s.canvasZoom);
   const setCanvasZoom = useEditorStore((s) => s.setCanvasZoom);
   const localUrls = useEditorStore((s) => s.localUrls);
+  const fontHoverPreview = useEditorStore((s) => s.fontHoverPreview);
+  const cropMode = useEditorStore((s) => s.itemSelectedForCrop !== null);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [fitScale, setFitScale] = useState(0.1);
@@ -97,7 +101,11 @@ export const CanvasView: React.FC = () => {
           <Player
             ref={playerRef}
             component={MainComposition}
-            inputProps={{ state: undoable, assetUrlOverrides: localUrls }}
+            inputProps={{
+              state: undoable,
+              assetUrlOverrides: localUrls,
+              textFontOverride: fontHoverPreview,
+            }}
             durationInFrames={durationInFrames}
             compositionWidth={undoable.compositionWidth}
             compositionHeight={undoable.compositionHeight}
@@ -105,7 +113,9 @@ export const CanvasView: React.FC = () => {
             loop
             style={{ width: '100%', height: '100%' }}
           />
-          <SelectionOverlay scale={scale} frame={frame} />
+          {cropMode ? null : <SelectionOverlay scale={scale} frame={frame} />}
+          <CropOverlay scale={scale} />
+          <TextEditOverlay scale={scale} />
         </div>
       </div>
       <div className="absolute right-3 top-3 flex items-center gap-1 rounded-md bg-zinc-900/90 px-2 py-1 text-xs text-zinc-300">

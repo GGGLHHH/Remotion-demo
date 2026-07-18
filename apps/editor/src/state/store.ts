@@ -5,6 +5,7 @@ import {
   MAX_UNDO_STACK_SIZE,
   createEmptyState,
   type AssetStatus,
+  type EditorStarterItem,
   type UndoableState,
 } from '@editor/shared';
 
@@ -39,6 +40,18 @@ export type EditorStore = {
   /** 本地 blob URL（预览优先用） */
   localUrls: Record<string, string>;
   setLocalUrl: (assetId: string, url: string) => void;
+  /** 画布行内编辑中的文本项 */
+  textItemEditing: string | null;
+  setTextItemEditing: (id: string | null) => void;
+  /** 裁剪模式中的项 */
+  itemSelectedForCrop: string | null;
+  setItemSelectedForCrop: (id: string | null) => void;
+  /** 字体悬停预览 */
+  fontHoverPreview: { itemId: string; fontFamily: string } | null;
+  setFontHoverPreview: (v: { itemId: string; fontFamily: string } | null) => void;
+  /** 内部剪贴板 */
+  clipboard: EditorStarterItem[];
+  setClipboard: (items: EditorStarterItem[]) => void;
 };
 
 // 拖拽类高频操作的撤销基线：首次 commit:false 更新前的快照。
@@ -112,6 +125,14 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     set((s) => ({ assetStatus: { ...s.assetStatus, [assetId]: status } })),
   localUrls: {},
   setLocalUrl: (assetId, url) => set((s) => ({ localUrls: { ...s.localUrls, [assetId]: url } })),
+  textItemEditing: null,
+  setTextItemEditing: (id) => set({ textItemEditing: id }),
+  itemSelectedForCrop: null,
+  setItemSelectedForCrop: (id) => set({ itemSelectedForCrop: id }),
+  fontHoverPreview: null,
+  setFontHoverPreview: (v) => set({ fontHoverPreview: v }),
+  clipboard: [],
+  setClipboard: (items) => set({ clipboard: items }),
 
   deleteSelected: () => {
     const { selectedItemIds, updateUndoable } = get();
