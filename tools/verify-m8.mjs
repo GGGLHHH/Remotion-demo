@@ -147,6 +147,25 @@ const dropped = Object.values(s.undoable.items).find(
 if (!dropped) fail('dropped image item not created');
 if (!(dropped.from > 0)) fail(`dropped item frame ${dropped.from}, want > 0`);
 
+// ---- 磁吸开关按钮 ----
+const magnetBtn = page.locator('button[title*="吸附"]');
+const snapBefore = await page.evaluate(() => window.__editorStore.getState().snappingEnabled);
+await magnetBtn.click();
+if ((await page.evaluate(() => window.__editorStore.getState().snappingEnabled)) !== !snapBefore)
+  fail('magnet button did not toggle snapping');
+await magnetBtn.click();
+
+// ---- 剪刀按钮：未选中时分割播放头下所有条目 ----
+await page.evaluate(() => {
+  window.__editorStore.getState().setSelected([]);
+  window.__playerRef.current.pause();
+  window.__playerRef.current.seekTo(10);
+});
+const beforeSplit = await page.evaluate(() => Object.keys(window.__editorStore.getState().undoable.items).length);
+await page.locator('button[title*="在播放头处分割"]').click();
+const afterSplit = await page.evaluate(() => Object.keys(window.__editorStore.getState().undoable.items).length);
+if (!(afterSplit > beforeSplit)) fail(`scissors split created no items (${beforeSplit} -> ${afterSplit})`);
+
 await page.screenshot({ path: process.argv[2] ?? 'm8.png' });
 await browser.close();
 if (errors.length) fail('page errors: ' + errors.join('; '));

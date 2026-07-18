@@ -17,6 +17,7 @@ import {
   moveItems,
   removeEmptyTracks,
   snapFrame,
+  resolveSplitTargets,
   splitItemsAtFrame,
   trimItem,
 } from '../ops';
@@ -171,6 +172,24 @@ describe('splitItemsAtFrame', () => {
     const a = solidAt(state, t1.id, 10, 30);
     expect(splitItemsAtFrame(state, 5, [a.id])).toBe(state);
     expect(splitItemsAtFrame(state, 40, [a.id])).toBe(state);
+  });
+});
+
+describe('resolveSplitTargets', () => {
+  test('有选中直接用选中', () => {
+    const { state, t1 } = build();
+    const a = solidAt(state, t1.id, 0, 30);
+    solidAt(state, t1.id, 40, 30);
+    expect(resolveSplitTargets(state, 50, [a.id])).toEqual([a.id]);
+  });
+  test('未选中取播放头下所有条目（边界帧不算）', () => {
+    const { state, t1, t2 } = build();
+    const a = solidAt(state, t1.id, 0, 30);
+    const b = solidAt(state, t2.id, 10, 30);
+    solidAt(state, t1.id, 40, 30);
+    expect(resolveSplitTargets(state, 15, []).sort()).toEqual([a.id, b.id].sort());
+    // from 与结尾帧正好落在边界的不切
+    expect(resolveSplitTargets(state, 40, [])).toEqual([]);
   });
 });
 

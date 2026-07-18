@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useEditorStore } from '../state/store';
 import { playerRef } from '../canvas/player-ref';
-import { splitItemsAtFrame } from '../timeline/ops';
+import { resolveSplitTargets, splitItemsAtFrame } from '../timeline/ops';
 import { saveState } from '../persistence/persistence';
 import { importFiles } from '../lib/import-assets';
 import {
@@ -113,8 +113,11 @@ export const useShortcuts = () => {
       }
       if (key === 's' && !mod) {
         const frame = playerRef.current?.getCurrentFrame();
-        if (frame !== undefined && store.selectedItemIds.length > 0) {
-          store.updateUndoable((s) => splitItemsAtFrame(s, frame, store.selectedItemIds));
+        if (frame !== undefined) {
+          // 有选中切选中，未选中切播放头下所有条目（与工具栏剪刀按钮一致）
+          store.updateUndoable((s) =>
+            splitItemsAtFrame(s, frame, resolveSplitTargets(s, frame, store.selectedItemIds)),
+          );
         }
       }
     };

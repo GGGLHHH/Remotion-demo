@@ -1,6 +1,6 @@
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { Eye, EyeOff, Magnet, Volume2, VolumeX } from 'lucide-react';
+import { Eye, EyeOff, Magnet, Scissors, Volume2, VolumeX } from 'lucide-react';
 import type { EditorStarterItem, Track, UndoableState } from '@editor/shared';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
@@ -12,7 +12,16 @@ import { HEADER_WIDTH, RULER_HEIGHT, SNAP_TOLERANCE_PX, TRACK_HEIGHT } from './c
 import { ItemBlock } from './ItemBlock';
 import { Playhead } from './Playhead';
 import { Ruler, formatTime } from './Ruler';
-import { addTrack, maxExtendFrames, moveItems, removeEmptyTracks, snapFrame, trimItem } from './ops';
+import {
+  addTrack,
+  maxExtendFrames,
+  moveItems,
+  removeEmptyTracks,
+  resolveSplitTargets,
+  snapFrame,
+  splitItemsAtFrame,
+  trimItem,
+} from './ops';
 import { importFiles } from '../lib/import-assets';
 
 type DragState =
@@ -376,9 +385,45 @@ export const TimelinePanel: React.FC = () => {
         <span className="tabular-nums">
           {formatTime(frame, undoable.fps)} / {formatTime(duration, undoable.fps)}
         </span>
-        <span className={snapping ? 'text-blue-400' : 'text-zinc-600'} title="吸附 (Shift+M)">
-          <Magnet className="size-4" />
-        </span>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className={snapping ? 'text-blue-400 hover:text-blue-400' : 'text-zinc-600 hover:text-zinc-500'}
+                title="吸附 (Shift+M)"
+                aria-pressed={snapping}
+                onClick={() => useEditorStore.getState().toggleSnapping()}
+              />
+            }
+          >
+            <Magnet className="size-4" />
+          </TooltipTrigger>
+          <TooltipContent>吸附开关 (Shift+M)</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="text-zinc-400 hover:text-zinc-200"
+                title="在播放头处分割 (S)"
+                onClick={() => {
+                  const store = useEditorStore.getState();
+                  const f = playerRef.current?.getCurrentFrame() ?? frame;
+                  store.updateUndoable((s) =>
+                    splitItemsAtFrame(s, f, resolveSplitTargets(s, f, store.selectedItemIds)),
+                  );
+                }}
+              />
+            }
+          >
+            <Scissors className="size-4" />
+          </TooltipTrigger>
+          <TooltipContent>在播放头处分割 (S)</TooltipContent>
+        </Tooltip>
         <div className="flex-1" />
         <span>缩放</span>
         <div className="w-32">

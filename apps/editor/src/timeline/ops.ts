@@ -187,6 +187,18 @@ export const splitItemsAtFrame = (
   return changed ? { ...state, items } : state;
 };
 
+/** 分割目标：有选中用选中，否则取播放头下的所有条目 */
+export const resolveSplitTargets = (
+  state: UndoableState,
+  frame: number,
+  selectedIds: string[],
+): string[] =>
+  selectedIds.length > 0
+    ? selectedIds
+    : Object.values(state.items)
+        .filter((i) => frame > i.from && frame < i.from + i.durationInFrames)
+        .map((i) => i.id);
+
 export const snapFrame = (
   state: UndoableState,
   frame: number,
