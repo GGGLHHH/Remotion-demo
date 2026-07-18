@@ -21,6 +21,9 @@ export type EditorStore = {
   redo: () => void;
   setSelected: (ids: string[]) => void;
   deleteSelected: () => void;
+  /** 画布缩放：'fit' 表示适配容器 */
+  canvasZoom: number | 'fit';
+  setCanvasZoom: (zoom: number | 'fit') => void;
 };
 
 // 拖拽类高频操作的撤销基线：首次 commit:false 更新前的快照。
@@ -78,6 +81,10 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   },
 
   setSelected: (ids) => set({ selectedItemIds: ids }),
+
+  canvasZoom: 'fit',
+  setCanvasZoom: (zoom) =>
+    set({ canvasZoom: zoom === 'fit' ? zoom : Math.min(4, Math.max(0.1, zoom)) }),
 
   deleteSelected: () => {
     const { selectedItemIds, updateUndoable } = get();

@@ -1,42 +1,56 @@
-import { Player } from '@remotion/player';
-import { MainComposition } from '@editor/shared/composition';
-import { useMemo, useState } from 'react';
+import { useEditorStore } from './state/store';
+import { useShortcuts } from './shortcuts/useShortcuts';
+import { CanvasView } from './canvas/CanvasView';
+import { playerRef } from './canvas/player-ref';
 import { buildDemoState } from './demo-state';
 
+// 初始状态（M5 持久化后改为 loadState() ?? demo）
+useEditorStore.setState({ undoable: buildDemoState() });
+
+// e2e 测试用（仅开发构建）
+if (import.meta.env.DEV) {
+  (window as unknown as Record<string, unknown>).__editorStore = useEditorStore;
+}
+
 export default function App() {
-  const [state] = useState(buildDemoState);
-  const durationInFrames = useMemo(() => {
-    let max = 1;
-    for (const item of Object.values(state.items)) {
-      max = Math.max(max, item.from + item.durationInFrames);
-    }
-    return max;
-  }, [state]);
+  useShortcuts();
+  const canUndo = useEditorStore((s) => s.past.length > 0);
+  const canRedo = useEditorStore((s) => s.future.length > 0);
+  const undo = useEditorStore((s) => s.undo);
+  const redo = useEditorStore((s) => s.redo);
 
   return (
     <div className="flex h-screen flex-col bg-zinc-900 text-zinc-100">
-      <header className="flex h-12 shrink-0 items-center border-b border-zinc-800 px-4 text-sm">
-        Remotion Editor
+      <header className="flex h-12 shrink-0 items-center gap-2 border-b border-zinc-800 px-4 text-sm">
+        <span className="mr-4 font-medium">Remotion Editor</span>
+        <button
+          className="rounded px-2 py-1 hover:bg-zinc-800 disabled:opacity-30"
+          disabled={!canUndo}
+          onClick={undo}
+          title="撤销 (Cmd+Z)"
+        >
+          ↩
+        </button>
+        <button
+          className="rounded px-2 py-1 hover:bg-zinc-800 disabled:opacity-30"
+          disabled={!canRedo}
+          onClick={redo}
+          title="重做 (Cmd+Y)"
+        >
+          ↪
+        </button>
+        <button
+          className="rounded px-2 py-1 hover:bg-zinc-800"
+          onClick={() => playerRef.current?.toggle()}
+          title="播放/暂停 (空格)"
+        >
+          ⏯
+        </button>
       </header>
       <div className="flex min-h-0 flex-1">
-        <main className="flex min-w-0 flex-1 items-center justify-center bg-zinc-950 p-8">
-          <Player
-            component={MainComposition}
-            inputProps={{ state }}
-            durationInFrames={durationInFrames}
-            compositionWidth={state.compositionWidth}
-            compositionHeight={state.compositionHeight}
-            fps={state.fps}
-            controls
-            loop
-            style={{
-              height: '100%',
-              aspectRatio: `${state.compositionWidth} / ${state.compositionHeight}`,
-            }}
-          />
-        </main>
-        <aside className="w-72 shrink-0 border-l border-zinc-800 p-4 text-sm text-zinc-400">
-          Inspector（M1）
+        <CanvasView />
+        <aside className="w-72 shrink-0 overflow-y-auto border-l border-zinc-800 text-sm">
+          <div className="p-4 text-zinc-400">Inspector（M1-T4）</div>
         </aside>
       </div>
       <footer className="h-56 shrink-0 border-t border-zinc-800 p-4 text-sm text-zinc-400">
