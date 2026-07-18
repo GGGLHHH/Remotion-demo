@@ -1,4 +1,5 @@
 import type React from 'react';
+import { useRef, useState } from 'react';
 import type { TextItem } from '@editor/shared';
 import { useEditorStore } from '../state/store';
 import { NumberField } from './NumberField';
@@ -16,6 +17,12 @@ const WEIGHTS = ['100', '200', '300', '400', '500', '600', '700', '800', '900'];
 
 export const TextPanel: React.FC<{ item: TextItem }> = ({ item }) => {
   const updateUndoable = useEditorStore((s) => s.updateUndoable);
+  const previewItemStyle = useEditorStore((s) => s.previewItemStyle);
+  const cancelItemStylePreview = useEditorStore((s) => s.cancelItemStylePreview);
+  const commitPending = useEditorStore((s) => s.commitPending);
+  const [weightOpen, setWeightOpen] = useState(false);
+  // 悬停预览会把 item.fontStyle 改成预览值，点击时需要预览前的真实值来算切换目标
+  const italicBase = useRef<'normal' | 'italic' | null>(null);
   const patch = (partial: Partial<TextItem>, commit = true) =>
     updateUndoable(
       (s) => {
@@ -43,22 +50,61 @@ export const TextPanel: React.FC<{ item: TextItem }> = ({ item }) => {
           <FontPicker itemId={item.id} value={item.fontFamily} onCommit={(f) => patch({ fontFamily: f })} />
         </Row>
         <Row label="字重">
-          <select
-            className="w-full rounded border border-zinc-700 bg-zinc-800 px-1 py-1 text-xs"
-            value={item.fontWeight}
-            onChange={(e) => patch({ fontWeight: e.target.value })}
-          >
-            {WEIGHTS.map((w) => (
-              <option key={w} value={w}>
-                {w}
-              </option>
-            ))}
-          </select>
+          {/* 自定义下拉：悬停即在画布实时预览字重（commit:false），点击才提交 */}
+          <div className="relative w-full min-w-0">
+            <button
+              className="w-full rounded border border-zinc-700 bg-zinc-800 px-2 py-1 text-left text-xs hover:border-zinc-500"
+              onClick={() => setWeightOpen((o) => !o)}
+            >
+              {item.fontWeight}
+            </button>
+            {weightOpen ? (
+              <div
+                className="absolute z-30 mt-1 w-full rounded border border-zinc-700 bg-zinc-900 shadow-xl"
+                onMouseLeave={cancelItemStylePreview}
+              >
+                {WEIGHTS.map((w) => (
+                  <button
+                    key={w}
+                    className={`block w-full px-2 py-1 text-left text-xs hover:bg-zinc-800 ${
+                      w === item.fontWeight ? 'text-blue-400' : ''
+                    }`}
+                    style={{ fontFamily: item.fontFamily, fontWeight: w }}
+                    onMouseEnter={() => previewItemStyle(item.id, { fontWeight: w })}
+                    onClick={() => {
+                      previewItemStyle(item.id, { fontWeight: w });
+                      commitPending();
+                      setWeightOpen(false);
+                    }}
+                  >
+                    {w}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
           <button
             className={`rounded border px-2 py-1 text-xs italic ${
               item.fontStyle === 'italic' ? 'border-blue-500 text-blue-400' : 'border-zinc-700'
             }`}
-            onClick={() => patch({ fontStyle: item.fontStyle === 'italic' ? 'normal' : 'italic' })}
+            onMouseEnter={() => {
+              italicBase.current = item.fontStyle;
+              previewItemStyle(item.id, {
+                fontStyle: item.fontStyle === 'italic' ? 'normal' : 'italic',
+              });
+            }}
+            onMouseLeave={() => {
+              italicBase.current = null;
+              cancelItemStylePreview();
+            }}
+            onClick={() => {
+              const base = italicBase.current ?? item.fontStyle;
+              previewItemStyle(item.id, {
+                fontStyle: base === 'italic' ? 'normal' : 'italic',
+              });
+              commitPending();
+              italicBase.current = null;
+            }}
           >
             I
           </button>

@@ -1,10 +1,11 @@
 import type React from 'react';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ensureFontLoaded, listFontFamilies } from '@editor/shared/composition';
 import { useEditorStore } from '../state/store';
 
 /** 字体选择器：搜索 + 下拉 + 悬停画布实时预览。
- * ponytail: 下拉项悬停后才加载该字体（官方用子集字体文件预渲染每一项；需要时再升级） */
+ * 下拉项用各自字体渲染（官方 FEATURE_FONT_FAMILY_DROPDOWN_RENDER_IN_FONT）：
+ * IntersectionObserver 在行进入可视区时才懒加载该字体，加载完成前显示回退字体 */
 export const FontPicker: React.FC<{
   itemId: string;
   value: string;
@@ -13,8 +14,7 @@ export const FontPicker: React.FC<{
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const setFontHoverPreview = useEditorStore((s) => s.setFontHoverPreview);
-  const loadedRef = useRef(new Set<string>());
-  const [, bump] = useState(0);
+  const listRef = useRef<HTMLDivElement>(null);
 
   const families = useMemo(() => {
     const all = listFontFamilies();
@@ -22,15 +22,25 @@ export const FontPicker: React.FC<{
     return (q ? all.filter((f) => f.toLowerCase().includes(q)) : all).slice(0, 100);
   }, [query]);
 
-  const hover = (family: string) => {
-    setFontHoverPreview({ itemId, fontFamily: family });
-    if (!loadedRef.current.has(family)) {
-      void ensureFontLoaded(family).then(() => {
-        loadedRef.current.add(family);
-        bump((n) => n + 1);
-      });
-    }
-  };
+  // 可见行才加载字体（ensureFontLoaded 幂等，重复调用返回缓存 Promise）；
+  // 字体就绪后 FontFace 生效，浏览器自动按新字体重排，无需手动触发渲染
+  useEffect(() => {
+    if (!open) return;
+    const root = listRef.current;
+    if (!root) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (!e.isIntersecting) continue;
+          io.unobserve(e.target);
+          void ensureFontLoaded((e.target as HTMLElement).dataset.font ?? '');
+        }
+      },
+      { root, rootMargin: '100px' },
+    );
+    for (const el of root.querySelectorAll<HTMLElement>('[data-font]')) io.observe(el);
+    return () => io.disconnect();
+  }, [open, families]);
 
   return (
     <div className="relative">
@@ -51,17 +61,19 @@ export const FontPicker: React.FC<{
             onChange={(e) => setQuery(e.target.value)}
           />
           <div
+            ref={listRef}
             className="max-h-64 overflow-y-auto"
             onMouseLeave={() => setFontHoverPreview(null)}
           >
             {families.map((f) => (
               <button
                 key={f}
+                data-font={f}
                 className={`block w-full truncate px-2 py-1.5 text-left text-sm hover:bg-zinc-800 ${
                   f === value ? 'text-blue-400' : ''
                 }`}
-                style={{ fontFamily: loadedRef.current.has(f) ? f : undefined }}
-                onMouseEnter={() => hover(f)}
+                style={{ fontFamily: f }}
+                onMouseEnter={() => setFontHoverPreview({ itemId, fontFamily: f })}
                 onClick={() => {
                   onCommit(f);
                   setFontHoverPreview(null);

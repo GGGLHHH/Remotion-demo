@@ -65,6 +65,10 @@ export type EditorStore = {
   /** 字体悬停预览 */
   fontHoverPreview: { itemId: string; fontFamily: string } | null;
   setFontHoverPreview: (v: { itemId: string; fontFamily: string } | null) => void;
+  /** 样式悬停预览：commit:false 直接改 item（画布实时可见），点击时 commitPending 提交 */
+  previewItemStyle: (itemId: string, partial: Partial<EditorStarterItem>) => void;
+  /** 取消样式预览：还原到预览前快照，不进撤销栈 */
+  cancelItemStylePreview: () => void;
   /** 内部剪贴板 */
   clipboard: EditorStarterItem[];
   setClipboard: (items: EditorStarterItem[]) => void;
@@ -159,6 +163,21 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   setItemSelectedForCrop: (id) => set({ itemSelectedForCrop: id }),
   fontHoverPreview: null,
   setFontHoverPreview: (v) => set({ fontHoverPreview: v }),
+  previewItemStyle: (itemId, partial) =>
+    get().updateUndoable(
+      (s) => {
+        const cur = s.items[itemId];
+        if (!cur) return s;
+        return { ...s, items: { ...s.items, [itemId]: { ...cur, ...partial } as EditorStarterItem } };
+      },
+      { commit: false },
+    ),
+  cancelItemStylePreview: () => {
+    if (pendingBase === null) return;
+    const base = pendingBase;
+    pendingBase = null;
+    set({ undoable: base });
+  },
   clipboard: [],
   setClipboard: (items) => set({ clipboard: items }),
   lastSavedState: null,

@@ -1,6 +1,6 @@
 import type React from 'react';
 import { useState } from 'react';
-import type { EditorStarterItem } from '@editor/shared';
+import type { AssetStatus, Crop, EditorStarterAsset, EditorStarterItem } from '@editor/shared';
 import { useEditorStore } from '../state/store';
 import { startRender } from '../lib/render-client';
 import { generateCaptions } from '../lib/captioning';
@@ -125,6 +125,89 @@ const CompositionPanel: React.FC = () => {
   );
 };
 
+/** 字节数转人类可读 */
+const formatBytes = (n: number): string => {
+  if (n <= 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.min(units.length - 1, Math.floor(Math.log2(n) / 10));
+  return `${(n / 1024 ** i).toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
+};
+
+/** 按扩展名猜 mime（asset 未存 contentType） */
+const guessMime = (filename: string): string | null => {
+  const map: Record<string, string> = {
+    mp4: 'video/mp4', mov: 'video/quicktime', webm: 'video/webm', mkv: 'video/x-matroska',
+    mp3: 'audio/mpeg', wav: 'audio/wav', m4a: 'audio/mp4', aac: 'audio/aac', ogg: 'audio/ogg', flac: 'audio/flac',
+    png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', gif: 'image/gif', svg: 'image/svg+xml', avif: 'image/avif',
+  };
+  return map[filename.split('.').pop()?.toLowerCase() ?? ''] ?? null;
+};
+
+const UPLOAD_STATUS_LABEL: Record<AssetStatus, string> = {
+  'pending-upload': '等待上传',
+  'in-progress': '上传中…',
+  uploaded: '已上传',
+  error: '上传失败',
+};
+
+/** 源信息：选中项底层素材的元数据与上传状态（官方 Source info） */
+const SourceInfoSection: React.FC<{ asset: EditorStarterAsset }> = ({ asset }) => {
+  const status = useEditorStore((s) => s.assetStatus[asset.id]);
+  const mime = guessMime(asset.filename);
+  const rows: [string, string][] = [
+    ['文件名', asset.filename],
+    ['大小', formatBytes(asset.sizeInBytes)],
+  ];
+  if (mime) rows.push(['类型', mime]);
+  if (asset.type === 'video' || asset.type === 'image' || asset.type === 'gif') {
+    rows.push(['原始尺寸', `${asset.width}×${asset.height}`]);
+  }
+  if (asset.type === 'video' || asset.type === 'audio' || asset.type === 'gif') {
+    rows.push(['时长', `${asset.durationInSeconds.toFixed(2)}s`]);
+  }
+  rows.push(['上传状态', status ? UPLOAD_STATUS_LABEL[status] : '仅本地']);
+  return (
+    <Section title="源信息">
+      {rows.map(([k, v]) => (
+        <div key={k} className="flex items-start justify-between gap-2 text-xs">
+          <span className="w-14 shrink-0 text-zinc-400">{k}</span>
+          <span className="min-w-0 break-all text-right text-zinc-300">{v}</span>
+        </div>
+      ))}
+    </Section>
+  );
+};
+
+/** 数字裁剪：源素材像素坐标，夹紧到素材边界（官方 Numeric cropping controls） */
+const CropFields: React.FC<{
+  crop: Crop | null;
+  mediaW: number;
+  mediaH: number;
+  onChange: (crop: Crop) => void;
+}> = ({ crop, mediaW, mediaH, onChange }) => {
+  // 未裁剪时按整幅显示，编辑任一字段即建立裁剪
+  const cur = crop ?? { left: 0, top: 0, width: mediaW, height: mediaH };
+  const setPart = (partial: Partial<Crop>) => {
+    const c = { ...cur, ...partial };
+    const left = Math.min(Math.max(0, c.left), mediaW - 1);
+    const top = Math.min(Math.max(0, c.top), mediaH - 1);
+    onChange({
+      left,
+      top,
+      width: Math.min(Math.max(1, c.width), mediaW - left),
+      height: Math.min(Math.max(1, c.height), mediaH - top),
+    });
+  };
+  return (
+    <>
+      <NumberField label="裁剪X" value={Math.round(cur.left)} min={0} max={mediaW - 1} onCommit={(v) => setPart({ left: v })} />
+      <NumberField label="裁剪Y" value={Math.round(cur.top)} min={0} max={mediaH - 1} onCommit={(v) => setPart({ top: v })} />
+      <NumberField label="裁剪宽" value={Math.round(cur.width)} min={1} max={mediaW} onCommit={(v) => setPart({ width: v })} />
+      <NumberField label="裁剪高" value={Math.round(cur.height)} min={1} max={mediaH} onCommit={(v) => setPart({ height: v })} />
+    </>
+  );
+};
+
 const ALIGNS: { key: string; label: string; apply: (compW: number, compH: number, it: EditorStarterItem) => Partial<EditorStarterItem> }[] = [
   { key: 'l', label: '⇤', apply: () => ({ left: 0 }) },
   { key: 'ch', label: '⇹', apply: (w, _h, it) => ({ left: Math.round((w - it.width) / 2) }) },
@@ -157,7 +240,6 @@ const ItemPanel: React.FC<{ item: EditorStarterItem }> = ({ item }) => {
   return (
     <>
       <Section title={`${item.type} 属性`}>
-        {asset ? <div className="truncate text-xs text-zinc-500">{asset.filename}</div> : null}
         {isVisual ? (
           <>
             <NumberField label="X" value={item.left} onCommit={(v) => patch({ left: v })} />
@@ -261,11 +343,13 @@ const ItemPanel: React.FC<{ item: EditorStarterItem }> = ({ item }) => {
       </Section>
       {croppable ? (
         <Section title="裁剪">
-          {'crop' in item && item.crop ? (
-            <div className="text-xs text-zinc-500">
-              {Math.round(item.crop.left)}, {Math.round(item.crop.top)} ·{' '}
-              {Math.round(item.crop.width)}×{Math.round(item.crop.height)}
-            </div>
+          {'crop' in item && asset && (asset.type === 'video' || asset.type === 'image') ? (
+            <CropFields
+              crop={item.crop}
+              mediaW={asset.width}
+              mediaH={asset.height}
+              onChange={(crop) => patch({ crop } as Partial<EditorStarterItem>)}
+            />
           ) : (
             <div className="text-xs text-zinc-600">未裁剪</div>
           )}
@@ -287,6 +371,7 @@ const ItemPanel: React.FC<{ item: EditorStarterItem }> = ({ item }) => {
           </div>
         </Section>
       ) : null}
+      {asset && asset.type !== 'caption' ? <SourceInfoSection asset={asset} /> : null}
       {item.type === 'text' ? <TextPanel item={item} /> : null}
       {item.type === 'solid' ? (
         <Section title="颜色">
