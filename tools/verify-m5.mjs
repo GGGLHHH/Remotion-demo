@@ -10,7 +10,6 @@ const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
 const errors = [];
 page.on('pageerror', (e) => errors.push(e.message));
-page.on('dialog', (d) => d.accept());
 await page.goto('http://localhost:5173', { waitUntil: 'networkidle' });
 
 const S = () =>
@@ -160,8 +159,9 @@ const pickText = async () => {
   let s = await S();
   if (!s.deletedAssets.some((d) => d.assetId === 'e2e-asset')) fail('asset not in deletedAssets');
 
-  // 点清理按钮（dialog 已全局 accept）
+  // 点清理按钮 → AlertDialog 确认
   await page.getByRole('button', { name: /清理素材/ }).click();
+  await page.getByRole('button', { name: '确认删除' }).click();
   await page.waitForFunction(() => {
     const st = window.__editorStore.getState();
     return (

@@ -1,5 +1,8 @@
 import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
+import { Maximize, Pause, Play, Repeat, SkipBack, SkipForward, Volume2, VolumeX } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useEditorStore } from '../state/store';
 import { playerRef } from '../canvas/player-ref';
 import { calcDuration } from '@editor/shared/composition';
@@ -9,19 +12,23 @@ import { formatTime } from '../timeline/Ruler';
 const formatTimecode = (frame: number, fps: number): string =>
   `${formatTime(frame, fps)}.${String(frame % fps).padStart(2, '0')}`;
 
+/** 图标按钮：保留 title（e2e 依赖 getByTitle）+ Tooltip 中文说明 */
 const Btn: React.FC<{
   title: string;
   onClick: () => void;
   active?: boolean;
   children: React.ReactNode;
 }> = ({ title, onClick, active, children }) => (
-  <button
-    className={`rounded px-2 py-0.5 hover:bg-zinc-800 ${active ? 'bg-zinc-700 text-white' : 'text-zinc-300'}`}
-    title={title}
-    onClick={onClick}
-  >
-    {children}
-  </button>
+  <Tooltip>
+    <TooltipTrigger
+      render={
+        <Button variant={active ? 'secondary' : 'ghost'} size="icon-sm" title={title} onClick={onClick} />
+      }
+    >
+      {children}
+    </TooltipTrigger>
+    <TooltipContent>{title}</TooltipContent>
+  </Tooltip>
 );
 
 export const PlaybackBar: React.FC = () => {
@@ -62,25 +69,25 @@ export const PlaybackBar: React.FC = () => {
   return (
     <div className="flex h-10 shrink-0 items-center justify-center gap-1 border-t border-zinc-800 bg-zinc-900 px-4 text-sm">
       <Btn title="跳到开头" onClick={() => playerRef.current?.seekTo(0)}>
-        ⏮
+        <SkipBack />
       </Btn>
       <Btn title="播放/暂停 (空格)" onClick={() => playerRef.current?.toggle()}>
-        {playing ? '⏸' : '▶'}
+        {playing ? <Pause /> : <Play />}
       </Btn>
       <Btn title="跳到结尾" onClick={() => playerRef.current?.seekTo(durationInFrames - 1)}>
-        ⏭
+        <SkipForward />
       </Btn>
       <span className="mx-2 text-xs tabular-nums text-zinc-400" data-timecode>
         {formatTimecode(frame, fps)} / {formatTimecode(durationInFrames, fps)}
       </span>
       <Btn title="静音" active={playerMuted} onClick={togglePlayerMuted}>
-        静音
+        {playerMuted ? <VolumeX /> : <Volume2 />}
       </Btn>
       <Btn title="循环" active={loop} onClick={toggleLoop}>
-        循环
+        <Repeat />
       </Btn>
       <Btn title="全屏" onClick={() => playerRef.current?.requestFullscreen()}>
-        ⛶
+        <Maximize />
       </Btn>
     </div>
   );

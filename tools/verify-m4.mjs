@@ -108,7 +108,8 @@ const selectId = (id) => page.evaluate((i) => window.__editorStore.getState().se
   const trackBefore = s0.items[id].trackId;
   const stage = await page.locator('[data-stage]').boundingBox();
   await page.mouse.click(stage.x + stage.width / 2, stage.y + stage.height / 2, { button: 'right' });
-  await page.getByRole('button', { name: '置于顶层' }).click();
+  // shadcn ContextMenu：条目 role=menuitem
+  await page.getByRole('menuitem', { name: '置于顶层' }).click();
   const s = await S();
   if (s.items[id].trackId === trackBefore) fail('bring-to-front no-op');
   if (s.tracks[0].id !== s.items[id].trackId) fail('solid not on top track');

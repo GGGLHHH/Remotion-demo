@@ -1,6 +1,12 @@
 import type React from 'react';
 import { useRef, useState } from 'react';
 import type { EditorStarterItem } from '@editor/shared';
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from '@/components/ui/context-menu';
 import { useEditorStore } from '../state/store';
 import { addTrack, moveItems, removeEmptyTracks } from '../timeline/ops';
 import { resizeRect, topmostItemAt, type Rect, type ResizeHandle } from './geometry';
@@ -51,7 +57,8 @@ export const SelectionOverlay: React.FC<{ scale: number; frame: number }> = ({ s
   const drag = useRef<DragState | null>(null);
   const [marquee, setMarquee] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const [guides, setGuides] = useState<Guide[]>([]);
-  const [menu, setMenu] = useState<{ x: number; y: number; itemId: string } | null>(null);
+  /** 右键命中的 item（菜单动作目标）；菜单开合由 ContextMenu 组件管理 */
+  const menuItemId = useRef<string | null>(null);
 
   const toComp = (e: React.PointerEvent | React.MouseEvent) => {
     const rect = (e.currentTarget as HTMLElement).closest('[data-stage]')!.getBoundingClientRect();
@@ -59,7 +66,6 @@ export const SelectionOverlay: React.FC<{ scale: number; frame: number }> = ({ s
   };
 
   const onBackgroundPointerDown = (e: React.PointerEvent) => {
-    setMenu(null);
     if (e.button !== 0) return;
     const store = useEditorStore.getState();
     if (store.itemSelectedForCrop) return; // 裁剪模式由 CropOverlay 接管
@@ -100,19 +106,10 @@ export const SelectionOverlay: React.FC<{ scale: number; frame: number }> = ({ s
     else if (hit.type === 'video' || hit.type === 'image') store.setItemSelectedForCrop(hit.id);
   };
 
-  const onContextMenu = (e: React.MouseEvent) => {
-    e.preventDefault();
-    const store = useEditorStore.getState();
-    const { x, y } = toComp(e);
-    const hit = topmostItemAt(store.undoable, frame, x, y);
-    if (!hit) return;
-    store.setSelected([hit.id]);
-    const host = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    setMenu({ x: e.clientX - host.left, y: e.clientY - host.top, itemId: hit.id });
-  };
-
   /** 置顶/置底：移到新建的最上/最下轨道，再清理空轨道 */
-  const reorder = (itemId: string, where: 'front' | 'back') => {
+  const reorder = (where: 'front' | 'back') => {
+    const itemId = menuItemId.current;
+    if (!itemId) return;
     const store = useEditorStore.getState();
     store.updateUndoable((s) => {
       const item = s.items[itemId];
@@ -122,7 +119,6 @@ export const SelectionOverlay: React.FC<{ scale: number; frame: number }> = ({ s
       if (moved === st) return s;
       return removeEmptyTracks(moved);
     });
-    setMenu(null);
   };
 
   const onPointerMove = (e: React.PointerEvent) => {
@@ -262,14 +258,27 @@ export const SelectionOverlay: React.FC<{ scale: number; frame: number }> = ({ s
   const single = selectedVisible.length === 1 ? selectedVisible[0] : null;
 
   return (
-    <div
-      className="absolute inset-0"
-      onPointerDown={onBackgroundPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
-      onDoubleClick={onDoubleClick}
-      onContextMenu={onContextMenu}
-    >
+    <ContextMenu>
+      <ContextMenuTrigger
+        className="absolute inset-0"
+        onPointerDown={onBackgroundPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onDoubleClick={onDoubleClick}
+        onContextMenu={(e) => {
+          // 仅在命中 item 时弹菜单；空白处右键既不弹菜单也不弹系统菜单
+          const store = useEditorStore.getState();
+          const { x, y } = toComp(e);
+          const hit = topmostItemAt(store.undoable, frame, x, y);
+          if (!hit) {
+            e.preventDefault();
+            e.preventBaseUIHandler();
+            return;
+          }
+          store.setSelected([hit.id]);
+          menuItemId.current = hit.id;
+        }}
+      >
       {selectedVisible.map((item) => (
         <div
           key={item.id}
@@ -315,26 +324,11 @@ export const SelectionOverlay: React.FC<{ scale: number; frame: number }> = ({ s
           }}
         />
       ) : null}
-      {menu ? (
-        <div
-          className="absolute z-40 w-28 rounded border border-zinc-700 bg-zinc-900 py-1 text-xs shadow-xl"
-          style={{ left: menu.x, top: menu.y }}
-          onPointerDown={(e) => e.stopPropagation()}
-        >
-          <button
-            className="block w-full px-3 py-1.5 text-left hover:bg-zinc-800"
-            onClick={() => reorder(menu.itemId, 'front')}
-          >
-            置于顶层
-          </button>
-          <button
-            className="block w-full px-3 py-1.5 text-left hover:bg-zinc-800"
-            onClick={() => reorder(menu.itemId, 'back')}
-          >
-            置于底层
-          </button>
-        </div>
-      ) : null}
-    </div>
+      </ContextMenuTrigger>
+      <ContextMenuContent>
+        <ContextMenuItem onClick={() => reorder('front')}>置于顶层</ContextMenuItem>
+        <ContextMenuItem onClick={() => reorder('back')}>置于底层</ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   );
 };

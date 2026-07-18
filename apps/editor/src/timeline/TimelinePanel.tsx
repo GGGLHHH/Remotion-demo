@@ -1,6 +1,10 @@
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
+import { Eye, EyeOff, Magnet, Volume2, VolumeX } from 'lucide-react';
 import type { EditorStarterItem, Track, UndoableState } from '@editor/shared';
+import { Button } from '@/components/ui/button';
+import { Slider } from '@/components/ui/slider';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useEditorStore } from '../state/store';
 import { playerRef } from '../canvas/player-ref';
 import { calcDuration } from '@editor/shared/composition';
@@ -33,6 +37,31 @@ type DragState =
     }
   | { kind: 'marquee'; startX: number; startY: number; curX: number; curY: number };
 
+/** 轨道头图标按钮：保留 title + Tooltip 中文说明 */
+const TrackBtn: React.FC<{
+  title: string;
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}> = ({ title, active, onClick, children }) => (
+  <Tooltip>
+    <TooltipTrigger
+      render={
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          className={active ? 'text-red-400 hover:text-red-400' : 'text-zinc-400'}
+          title={title}
+          onClick={onClick}
+        />
+      }
+    >
+      {children}
+    </TooltipTrigger>
+    <TooltipContent>{title}</TooltipContent>
+  </Tooltip>
+);
+
 const TrackHeader: React.FC<{ track: Track }> = ({ track }) => {
   const updateUndoable = useEditorStore((s) => s.updateUndoable);
   const toggle = (key: 'hidden' | 'muted') =>
@@ -46,20 +75,12 @@ const TrackHeader: React.FC<{ track: Track }> = ({ track }) => {
       style={{ height: TRACK_HEIGHT }}
     >
       <span className="flex-1 truncate">{track.name}</span>
-      <button
-        className={`rounded px-1 hover:bg-zinc-700 ${track.hidden ? 'text-red-400' : ''}`}
-        title="隐藏/显示"
-        onClick={() => toggle('hidden')}
-      >
-        {track.hidden ? '🚫' : '👁'}
-      </button>
-      <button
-        className={`rounded px-1 hover:bg-zinc-700 ${track.muted ? 'text-red-400' : ''}`}
-        title="静音"
-        onClick={() => toggle('muted')}
-      >
-        {track.muted ? '🔇' : '🔊'}
-      </button>
+      <TrackBtn title="隐藏/显示" active={track.hidden} onClick={() => toggle('hidden')}>
+        {track.hidden ? <EyeOff /> : <Eye />}
+      </TrackBtn>
+      <TrackBtn title="静音" active={track.muted} onClick={() => toggle('muted')}>
+        {track.muted ? <VolumeX /> : <Volume2 />}
+      </TrackBtn>
     </div>
   );
 };
@@ -356,19 +377,19 @@ export const TimelinePanel: React.FC = () => {
           {formatTime(frame, undoable.fps)} / {formatTime(duration, undoable.fps)}
         </span>
         <span className={snapping ? 'text-blue-400' : 'text-zinc-600'} title="吸附 (Shift+M)">
-          🧲
+          <Magnet className="size-4" />
         </span>
         <div className="flex-1" />
         <span>缩放</span>
-        <input
-          type="range"
-          min={0.1}
-          max={8}
-          step={0.1}
-          value={zoom}
-          className="w-32"
-          onChange={(e) => setZoom(Number(e.target.value))}
-        />
+        <div className="w-32">
+          <Slider
+            min={0.1}
+            max={8}
+            step={0.1}
+            value={[zoom]}
+            onValueChange={(v) => setZoom(Array.isArray(v) ? v[0] : v)}
+          />
+        </div>
       </div>
       <div className="flex overflow-y-auto" style={{ height: `calc(100% - 2rem)` }}>
         <div className="shrink-0 border-r border-zinc-800" style={{ width: HEADER_WIDTH }}>

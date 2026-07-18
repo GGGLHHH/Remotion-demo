@@ -1,4 +1,30 @@
 import { useEffect, useRef, useState } from 'react';
+import {
+  Download,
+  FolderOpen,
+  Play,
+  Redo2,
+  Save,
+  Square,
+  Trash2,
+  Type,
+  Undo2,
+  Upload,
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { useEditorStore } from './state/store';
 import { useShortcuts } from './shortcuts/useShortcuts';
 import { CanvasView } from './canvas/CanvasView';
@@ -18,6 +44,25 @@ import {
 } from './persistence/persistence';
 import { buildDemoState } from './demo-state';
 
+/** 图标按钮：Tooltip 中文说明 */
+const IconButton: React.FC<{
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+  children: React.ReactNode;
+}> = ({ label, onClick, disabled, children }) => (
+  <Tooltip>
+    <TooltipTrigger
+      render={
+        <Button variant="ghost" size="icon-sm" aria-label={label} disabled={disabled} onClick={onClick} />
+      }
+    >
+      {children}
+    </TooltipTrigger>
+    <TooltipContent>{label}</TooltipContent>
+  </Tooltip>
+);
+
 /** 文件选择按钮：用 button + ref.click() 触发隐藏 input。
  * 不用 <label> 包 hidden input——Safari 不会把 label 点击转发给 display:none 的表单控件。 */
 const FileButton: React.FC<{
@@ -25,19 +70,16 @@ const FileButton: React.FC<{
   accept: string;
   multiple?: boolean;
   title?: string;
+  icon?: React.ReactNode;
   onFiles: (files: File[]) => void;
-}> = ({ label, accept, multiple, title, onFiles }) => {
+}> = ({ label, accept, multiple, title, icon, onFiles }) => {
   const ref = useRef<HTMLInputElement>(null);
   return (
     <>
-      <button
-        type="button"
-        className="rounded border border-zinc-700 px-2 py-1 text-xs hover:bg-zinc-800"
-        title={title}
-        onClick={() => ref.current?.click()}
-      >
+      <Button variant="outline" size="sm" title={title} onClick={() => ref.current?.click()}>
+        {icon}
         {label}
-      </button>
+      </Button>
       <input
         ref={ref}
         type="file"
@@ -62,9 +104,9 @@ const UploadStatusBadge = () => {
   const failed = Object.values(assetStatus).filter((st) => st === 'error').length;
   if (uploading === 0 && failed === 0) return null;
   return (
-    <span className="text-xs text-zinc-400">
-      {uploading > 0 ? `上传中 ${uploading}…` : null}
-      {failed > 0 ? <span className="text-red-400"> 失败 {failed}</span> : null}
+    <span className="flex items-center gap-1">
+      {uploading > 0 ? <Badge variant="secondary">上传中 {uploading}…</Badge> : null}
+      {failed > 0 ? <Badge variant="destructive">失败 {failed}</Badge> : null}
     </span>
   );
 };
@@ -75,9 +117,9 @@ const CaptioningBadge = () => {
   const failed = tasks.filter((t) => t.status === 'error').length;
   if (active === 0 && failed === 0) return null;
   return (
-    <span className="text-xs text-zinc-400">
-      {active > 0 ? `转录中 ${active}…` : null}
-      {failed > 0 ? <span className="text-red-400"> 转录失败 {failed}</span> : null}
+    <span className="flex items-center gap-1">
+      {active > 0 ? <Badge variant="secondary">转录中 {active}…</Badge> : null}
+      {failed > 0 ? <Badge variant="destructive">转录失败 {failed}</Badge> : null}
     </span>
   );
 };
@@ -96,34 +138,50 @@ if (import.meta.env.DEV) {
 const SaveButton = () => {
   const dirty = useEditorStore((s) => s.undoable !== s.lastSavedState);
   return (
-    <button
-      className={`rounded border px-2 py-1 text-xs ${
-        dirty
-          ? 'border-amber-500 text-amber-400 hover:bg-zinc-800'
-          : 'border-zinc-700 text-zinc-400 hover:bg-zinc-800'
-      }`}
+    <Button
+      variant="outline"
+      size="sm"
+      className={dirty ? 'border-amber-500/60 text-amber-400 hover:text-amber-300' : ''}
       onClick={saveState}
       title="保存 (Cmd+S)"
     >
+      <Save />
       保存{dirty ? ' •' : ''}
-    </button>
+    </Button>
   );
 };
 
 const CleanupAssetsButton = () => {
   const count = useEditorStore((s) => s.undoable.deletedAssets.length);
+  const [open, setOpen] = useState(false);
   if (count === 0) return null;
   return (
-    <button
-      className="rounded border border-red-800 px-2 py-1 text-xs text-red-400 hover:bg-zinc-800"
-      onClick={() => {
-        if (confirm(`永久删除 ${count} 个已移除的素材？此操作会清空撤销历史，不可恢复。`)) {
-          void cleanupDeletedAssets();
-        }
-      }}
-    >
-      清理素材({count})
-    </button>
+    <AlertDialog open={open} onOpenChange={setOpen}>
+      <AlertDialogTrigger render={<Button variant="destructive" size="sm" />}>
+        <Trash2 />
+        清理素材({count})
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>永久删除已移除的素材？</AlertDialogTitle>
+          <AlertDialogDescription>
+            将永久删除 {count} 个已移除素材的远端对象与本地缓存，并清空撤销历史。此操作不可恢复。
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>取消</AlertDialogCancel>
+          <AlertDialogAction
+            variant="destructive"
+            onClick={() => {
+              setOpen(false);
+              void cleanupDeletedAssets();
+            }}
+          >
+            确认删除
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 };
 
@@ -168,70 +226,50 @@ export default function App() {
 
   return (
     <div className="flex h-screen flex-col bg-zinc-900 text-zinc-100">
-      <header className="flex h-12 shrink-0 items-center gap-2 border-b border-zinc-800 px-4 text-sm">
+      <header className="flex h-12 shrink-0 items-center gap-1.5 border-b border-zinc-800 px-4 text-sm">
         <span className="mr-4 font-medium">Remotion Editor</span>
-        <button
-          className="rounded px-2 py-1 hover:bg-zinc-800 disabled:opacity-30"
-          disabled={!canUndo}
-          onClick={undo}
-          title="撤销 (Cmd+Z)"
-        >
-          ↩
-        </button>
-        <button
-          className="rounded px-2 py-1 hover:bg-zinc-800 disabled:opacity-30"
-          disabled={!canRedo}
-          onClick={redo}
-          title="重做 (Cmd+Y)"
-        >
-          ↪
-        </button>
-        <button
-          className="rounded px-2 py-1 hover:bg-zinc-800"
-          onClick={() => playerRef.current?.toggle()}
-          title="播放/暂停 (空格)"
-        >
-          ⏯
-        </button>
-        <button
-          className="rounded border border-zinc-700 px-2 py-1 text-xs hover:bg-zinc-800"
-          onClick={addTextItem}
-          title="添加文本"
-        >
-          T 文本
-        </button>
-        <button
-          className={`rounded border px-2 py-1 text-xs ${
-            drawSolidMode
-              ? 'border-blue-500 bg-blue-500/20 text-blue-300'
-              : 'border-zinc-700 hover:bg-zinc-800'
-          }`}
+        <IconButton label="撤销 (Cmd+Z)" disabled={!canUndo} onClick={undo}>
+          <Undo2 />
+        </IconButton>
+        <IconButton label="重做 (Cmd+Y)" disabled={!canRedo} onClick={redo}>
+          <Redo2 />
+        </IconButton>
+        <IconButton label="播放/暂停 (空格)" onClick={() => playerRef.current?.toggle()}>
+          <Play />
+        </IconButton>
+        <Button variant="outline" size="sm" onClick={addTextItem} title="添加文本">
+          <Type />
+          文本
+        </Button>
+        <Button
+          variant={drawSolidMode ? 'secondary' : 'outline'}
+          size="sm"
           onClick={() => setDrawSolidMode((v) => !v)}
           title="绘制色块：在画布上拖拽画框（Esc 取消）"
           aria-pressed={drawSolidMode}
         >
-          ■ 色块
-        </button>
+          <Square />
+          色块
+        </Button>
         <FileButton
           label="导入素材"
+          icon={<Upload />}
           accept="video/*,audio/*,image/*"
           multiple
           onFiles={(files) => void importFiles(files)}
         />
         <UploadStatusBadge />
         <CaptioningBadge />
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-1.5">
           <CleanupAssetsButton />
           <SaveButton />
-          <button
-            className="rounded border border-zinc-700 px-2 py-1 text-xs hover:bg-zinc-800"
-            onClick={downloadStateFile}
-            title="下载工程文件 (.json)"
-          >
+          <Button variant="outline" size="sm" onClick={downloadStateFile} title="下载工程文件 (.json)">
+            <Download />
             下载状态
-          </button>
+          </Button>
           <FileButton
             label="导入状态"
+            icon={<FolderOpen />}
             accept=".json"
             title="从 .json 文件恢复工程"
             onFiles={(files) => void loadStateFromFile(files[0])}
