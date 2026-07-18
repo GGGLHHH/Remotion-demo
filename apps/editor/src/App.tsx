@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useEditorStore } from './state/store';
 import { useShortcuts } from './shortcuts/useShortcuts';
 import { CanvasView } from './canvas/CanvasView';
@@ -7,7 +7,7 @@ import { Inspector } from './inspector/Inspector';
 import { TimelinePanel } from './timeline/TimelinePanel';
 import { PlaybackBar } from './playback/PlaybackBar';
 import { importFiles } from './lib/import-assets';
-import { addSolidItem, addTextItem } from './lib/add-items';
+import { addTextItem } from './lib/add-items';
 import { cleanupDeletedAssets } from './lib/cleanup-assets';
 import {
   downloadStateFile,
@@ -129,6 +129,8 @@ const CleanupAssetsButton = () => {
 
 export default function App() {
   useShortcuts();
+  // 绘制色块模式（瞬时 UI 状态，不进 store）
+  const [drawSolidMode, setDrawSolidMode] = useState(false);
   const canUndo = useEditorStore((s) => s.past.length > 0);
   const canRedo = useEditorStore((s) => s.future.length > 0);
   const undo = useEditorStore((s) => s.undo);
@@ -142,6 +144,16 @@ export default function App() {
   const hasActiveCaptioning = useEditorStore((s) =>
     s.captioningTasks.some((t) => t.status === 'extracting' || t.status === 'transcribing'),
   );
+
+  // Escape 退出绘制色块模式
+  useEffect(() => {
+    if (!drawSolidMode) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setDrawSolidMode(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [drawSolidMode]);
 
   // 上传/渲染/转录未完成时拦截关闭/刷新，避免丢素材或丢进度
   useEffect(() => {
@@ -189,9 +201,14 @@ export default function App() {
           T 文本
         </button>
         <button
-          className="rounded border border-zinc-700 px-2 py-1 text-xs hover:bg-zinc-800"
-          onClick={addSolidItem}
-          title="添加色块"
+          className={`rounded border px-2 py-1 text-xs ${
+            drawSolidMode
+              ? 'border-blue-500 bg-blue-500/20 text-blue-300'
+              : 'border-zinc-700 hover:bg-zinc-800'
+          }`}
+          onClick={() => setDrawSolidMode((v) => !v)}
+          title="绘制色块：在画布上拖拽画框（Esc 取消）"
+          aria-pressed={drawSolidMode}
         >
           ■ 色块
         </button>
@@ -222,7 +239,7 @@ export default function App() {
         </div>
       </header>
       <div className="flex min-h-0 flex-1">
-        <CanvasView />
+        <CanvasView drawSolidMode={drawSolidMode} onExitDrawSolid={() => setDrawSolidMode(false)} />
         <aside className="w-72 shrink-0 overflow-y-auto border-l border-zinc-800 text-sm">
           <Inspector />
         </aside>

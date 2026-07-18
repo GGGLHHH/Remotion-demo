@@ -8,8 +8,13 @@ import { playerRef } from './player-ref';
 import { SelectionOverlay } from './SelectionOverlay';
 import { CropOverlay } from './CropOverlay';
 import { TextEditOverlay } from './TextEditOverlay';
+import { DrawSolidOverlay } from './DrawSolidOverlay';
 
-export const CanvasView: React.FC = () => {
+export const CanvasView: React.FC<{
+  /** 绘制色块模式（状态由 App 持有） */
+  drawSolidMode: boolean;
+  onExitDrawSolid: () => void;
+}> = ({ drawSolidMode, onExitDrawSolid }) => {
   const undoable = useEditorStore((s) => s.undoable);
   const canvasZoom = useEditorStore((s) => s.canvasZoom);
   const setCanvasZoom = useEditorStore((s) => s.setCanvasZoom);
@@ -109,6 +114,7 @@ export const CanvasView: React.FC = () => {
           {cropMode ? null : <SelectionOverlay scale={scale} frame={frame} />}
           <CropOverlay scale={scale} />
           <TextEditOverlay scale={scale} />
+          {drawSolidMode ? <DrawSolidOverlay scale={scale} onDone={onExitDrawSolid} /> : null}
         </div>
       </div>
       <div className="absolute right-3 top-3 flex items-center gap-1 rounded-md bg-zinc-900/90 px-2 py-1 text-xs text-zinc-300">
