@@ -12,6 +12,7 @@ import {
 import {
   addTrack,
   hasOverlap,
+  maxExtendFrames,
   maxItemDurationInFrames,
   moveItems,
   removeEmptyTracks,
@@ -203,6 +204,29 @@ describe('tracks', () => {
     const next = removeEmptyTracks(state);
     expect(next.tracks).toHaveLength(1);
     expect(next.tracks[0].id).toBe(t2.id);
+  });
+});
+
+describe('maxExtendFrames', () => {
+  test('左 = min(trimBefore 换算, from)；右 = 素材剩余', () => {
+    const { state, t1 } = build();
+    // 素材 300 帧；trimBefore=60、from=30、dur=100 ⇒ 左 min(60,30)=30，右 300-60-100=140
+    const { item } = addVideo(state, t1.id, { from: 30, trimBefore: 60, durationInFrames: 100 });
+    expect(maxExtendFrames(state, item.id)).toEqual({ left: 30, right: 140 });
+  });
+  test('playbackRate 换算；非有限媒体 null', () => {
+    const { state, t1 } = build();
+    // 左 floor(60/2)=30；最大时长 floor((300-60)/2)=120 ⇒ 右 120-50=70
+    const { item } = addVideo(state, t1.id, {
+      from: 100,
+      trimBefore: 60,
+      playbackRate: 2,
+      durationInFrames: 50,
+    });
+    expect(maxExtendFrames(state, item.id)).toEqual({ left: 30, right: 70 });
+    const t = createTextItem({ trackId: t1.id, from: 0 });
+    state.items[t.id] = t;
+    expect(maxExtendFrames(state, t.id)).toBeNull();
   });
 });
 

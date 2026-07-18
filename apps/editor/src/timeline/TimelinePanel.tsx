@@ -8,7 +8,8 @@ import { HEADER_WIDTH, RULER_HEIGHT, SNAP_TOLERANCE_PX, TRACK_HEIGHT } from './c
 import { ItemBlock } from './ItemBlock';
 import { Playhead } from './Playhead';
 import { Ruler, formatTime } from './Ruler';
-import { addTrack, moveItems, removeEmptyTracks, snapFrame, trimItem } from './ops';
+import { addTrack, maxExtendFrames, moveItems, removeEmptyTracks, snapFrame, trimItem } from './ops';
+import { importFiles } from '../lib/import-assets';
 
 type DragState =
   | {
@@ -75,6 +76,10 @@ export const TimelinePanel: React.FC = () => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const drag = useRef<DragState | null>(null);
   const [marqueeRect, setMarqueeRect] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  /** 修剪拖拽中的项（用于最大可扩展指示） */
+  const [trimming, setTrimming] = useState<{ id: string; edge: 'start' | 'end' } | null>(null);
+  /** OS 文件拖放悬停位置 */
+  const [dropHint, setDropHint] = useState<{ frame: number; trackIndex: number } | null>(null);
 
   const duration = calcDuration(undoable.items);
   const contentWidth = duration * zoom + 240;
@@ -138,6 +143,7 @@ export const TimelinePanel: React.FC = () => {
         snapshot: store.undoable,
         rollingNeighborId,
       };
+      setTrimming({ id: item.id, edge });
       return;
     }
 
@@ -278,6 +284,7 @@ export const TimelinePanel: React.FC = () => {
     const d = drag.current;
     drag.current = null;
     setMarqueeRect(null);
+    setTrimming(null);
     if (!d) return;
     if (d.kind === 'move' || d.kind === 'trim') {
       useEditorStore.getState().commitPending();
@@ -290,6 +297,39 @@ export const TimelinePanel: React.FC = () => {
     useEditorStore.getState().setSelected([]);
     drag.current = { kind: 'marquee', startX: e.clientX, startY: e.clientY, curX: e.clientX, curY: e.clientY };
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+
+  // ---- OS 文件拖放 ----
+
+  /** clientX/Y → 帧 + 轨道行（考虑滚动与缩放） */
+  const dropInfo = (e: React.DragEvent) => {
+    const host = scrollRef.current!;
+    const rect = host.getBoundingClientRect();
+    const x = e.clientX - rect.left + host.scrollLeft;
+    const y = e.clientY - rect.top;
+    return {
+      frame: Math.max(0, Math.round(x / zoom)),
+      trackIndex: Math.floor((y - RULER_HEIGHT) / TRACK_HEIGHT),
+    };
+  };
+
+  const onDragOver = (e: React.DragEvent) => {
+    if (!e.dataTransfer.types.includes('Files')) return;
+    e.preventDefault();
+    setDropHint(dropInfo(e));
+  };
+
+  const onDragLeave = (e: React.DragEvent) => {
+    if (!(e.currentTarget as HTMLElement).contains(e.relatedTarget as Node | null)) setDropHint(null);
+  };
+
+  const onDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDropHint(null);
+    const files = Array.from(e.dataTransfer.files);
+    if (!files.length) return;
+    const { frame, trackIndex } = dropInfo(e);
+    void importFiles(files, undefined, { frame, trackId: undoable.tracks[trackIndex]?.id });
   };
 
   // 面板高度拖拽
@@ -344,6 +384,9 @@ export const TimelinePanel: React.FC = () => {
             onPointerDown={onBackgroundPointerDown}
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
+            onDragOver={onDragOver}
+            onDragLeave={onDragLeave}
+            onDrop={onDrop}
           >
             <Ruler durationInFrames={duration} fps={undoable.fps} zoom={zoom} onSeek={seekTo} />
             {undoable.tracks.map((track) => (
@@ -360,6 +403,53 @@ export const TimelinePanel: React.FC = () => {
               </div>
             ))}
             <Playhead frame={frame} zoom={zoom} onSeek={seekTo} />
+            {/* 修剪拖拽：媒体最大可扩展范围指示（斜纹） */}
+            {trimming
+              ? (() => {
+                  const it = undoable.items[trimming.id];
+                  const ext = it ? maxExtendFrames(undoable, trimming.id) : null;
+                  if (!it || !ext) return null;
+                  const frames = trimming.edge === 'start' ? ext.left : ext.right;
+                  if (frames <= 0) return null;
+                  const trackIndex = undoable.tracks.findIndex((t) => t.id === it.trackId);
+                  if (trackIndex < 0) return null;
+                  const left =
+                    trimming.edge === 'start'
+                      ? (it.from - frames) * zoom
+                      : (it.from + it.durationInFrames) * zoom;
+                  return (
+                    <div
+                      className="pointer-events-none absolute z-10 rounded border border-dashed border-white/30"
+                      style={{
+                        left,
+                        width: frames * zoom,
+                        top: RULER_HEIGHT + trackIndex * TRACK_HEIGHT + 6,
+                        height: TRACK_HEIGHT - 12,
+                        background:
+                          'repeating-linear-gradient(45deg, rgba(255,255,255,0.12) 0 6px, transparent 6px 12px)',
+                      }}
+                    />
+                  );
+                })()
+              : null}
+            {/* OS 文件拖放指示：落点竖线 + 悬停轨道高亮 */}
+            {dropHint ? (
+              <>
+                <div
+                  className="pointer-events-none absolute inset-y-0 z-20 w-px bg-blue-400"
+                  style={{ left: dropHint.frame * zoom }}
+                />
+                {dropHint.trackIndex >= 0 && dropHint.trackIndex < undoable.tracks.length ? (
+                  <div
+                    className="pointer-events-none absolute left-0 right-0 z-10 bg-blue-400/10"
+                    style={{
+                      top: RULER_HEIGHT + dropHint.trackIndex * TRACK_HEIGHT,
+                      height: TRACK_HEIGHT,
+                    }}
+                  />
+                ) : null}
+              </>
+            ) : null}
             {marqueeRect ? (
               <div
                 className="pointer-events-none absolute z-10 border border-blue-400 bg-blue-400/10"

@@ -24,6 +24,22 @@ export const maxItemDurationInFrames = (state: UndoableState, id: string): numbe
   return Math.floor((total - item.trimBefore) / item.playbackRate);
 };
 
+/** 修剪拖拽时的最大可扩展指示：有限媒体（video/audio）左右各还能扩展多少帧 */
+export const maxExtendFrames = (
+  state: UndoableState,
+  id: string,
+): { left: number; right: number } | null => {
+  const item = state.items[id];
+  if (!item || (item.type !== 'video' && item.type !== 'audio')) return null;
+  const maxDur = maxItemDurationInFrames(state, id);
+  if (maxDur === null) return null;
+  return {
+    // 左侧：素材已修剪掉的部分（换算到时间轴帧），且不能早于 0 帧
+    left: Math.min(Math.floor(item.trimBefore / item.playbackRate), item.from),
+    right: Math.max(0, maxDur - item.durationInFrames),
+  };
+};
+
 export const hasOverlap = (
   state: UndoableState,
   trackId: string,

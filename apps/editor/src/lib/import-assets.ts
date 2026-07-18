@@ -6,7 +6,7 @@ import {
 } from '@editor/shared';
 import { useEditorStore } from '../state/store';
 import { playerRef } from '../canvas/player-ref';
-import { addTrack } from '../timeline/ops';
+import { addTrack, hasOverlap } from '../timeline/ops';
 import { cacheAsset } from '../caching/indexeddb';
 import { probeFile, type ProbeResult } from './probe';
 
@@ -135,7 +135,13 @@ const uploadAsset = async (assetId: string, file: File): Promise<void> => {
   }
 };
 
-export const importFiles = async (files: File[], dropAt?: { x: number; y: number }): Promise<void> => {
+export const importFiles = async (
+  files: File[],
+  dropAt?: { x: number; y: number },
+  /** 时间轴落点：指定帧 + 悬停轨道；多文件从该帧起依次排布 */
+  placement?: { frame: number; trackId?: string },
+): Promise<void> => {
+  let nextFrame = placement ? Math.max(0, Math.round(placement.frame)) : null;
   for (const file of files) {
     if (file.size > MAX_FILE_UPLOAD_SIZE_IN_MB * 1024 * 1024) {
       console.error(`文件过大: ${file.name}`);
@@ -145,27 +151,41 @@ export const importFiles = async (files: File[], dropAt?: { x: number; y: number
       const probe = await probeFile(file);
       const blobUrl = URL.createObjectURL(file);
       const store = useEditorStore.getState();
-      const frame = playerRef.current?.getCurrentFrame() ?? 0;
+      const frame = nextFrame ?? playerRef.current?.getCurrentFrame() ?? 0;
       let created: { asset: EditorStarterAsset; item: EditorStarterItem } | null = null;
       store.updateUndoable((s) => {
-        // 每个素材放入新建顶部轨道，保证无重叠（官方拖放建层行为）
-        const { state: withTrack, trackId } = addTrack(s, 0);
-        created = buildAssetAndItem(probe, file, blobUrl, {
-          trackId,
+        // 先构建 item（时长在此确定），再定轨道：
+        // 悬停轨道放得下就放，否则新建顶部轨道（官方拖放建层行为）
+        const built = buildAssetAndItem(probe, file, blobUrl, {
+          trackId: '',
           from: frame,
           fps: s.fps,
           compW: s.compositionWidth,
           compH: s.compositionHeight,
           dropAt,
         });
+        let st = s;
+        let trackId = placement?.trackId;
+        if (
+          !trackId ||
+          !st.tracks.some((t) => t.id === trackId) ||
+          hasOverlap(st, trackId, frame, built.item.durationInFrames, [])
+        ) {
+          const added = addTrack(st, 0);
+          st = added.state;
+          trackId = added.trackId;
+        }
+        built.item.trackId = trackId;
+        created = built;
         return {
-          ...withTrack,
-          assets: { ...withTrack.assets, [created.asset.id]: created.asset },
-          items: { ...withTrack.items, [created.item.id]: created.item },
+          ...st,
+          assets: { ...st.assets, [built.asset.id]: built.asset },
+          items: { ...st.items, [built.item.id]: built.item },
         };
       });
       if (!created) continue;
       const { asset, item } = created as { asset: EditorStarterAsset; item: EditorStarterItem };
+      if (nextFrame !== null) nextFrame = frame + item.durationInFrames;
       store.setLocalUrl(asset.id, blobUrl);
       store.setAssetStatus(asset.id, 'pending-upload');
       store.setSelected([item.id]);
