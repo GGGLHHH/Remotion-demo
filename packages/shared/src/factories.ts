@@ -58,7 +58,8 @@ export const createSolidItem = (params: {
   trackId: params.trackId,
   from: params.from,
   durationInFrames: DEFAULT_FPS * 3,
-  color: '#3b82f6',
+  // 官方行为：新色块默认白色
+  color: '#ffffff',
   left: 0,
   top: 0,
   width: params.width,

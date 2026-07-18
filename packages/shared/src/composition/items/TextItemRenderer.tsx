@@ -26,7 +26,8 @@ export const TextItemRenderer: React.FC<{ item: TextItem; fontFamilyOverride?: s
         width: '100%',
         height: '100%',
         display: 'flex',
-        alignItems: 'center',
+        // 官方行为：盒子高于内容时文字顶部对齐（与画布行内编辑 textarea 一致）
+        alignItems: 'flex-start',
         justifyContent:
           item.textAlign === 'left'
             ? 'flex-start'
