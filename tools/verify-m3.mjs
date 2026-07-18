@@ -24,7 +24,7 @@ const getStore = () =>
   });
 
 // 导入三个文件
-await page.locator('input[type=file]').setInputFiles([
+await page.locator('input[type=file][accept*="video"]').setInputFiles([
   'tools/fixtures/video.mp4',
   'tools/fixtures/audio.wav',
   'tools/fixtures/image.png',
