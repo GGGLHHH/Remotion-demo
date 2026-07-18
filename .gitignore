@@ -1,6 +1,7 @@
 node_modules/
 dist/
 /m*.png
+/frame*.png
 *.local
 .env
 .DS_Store

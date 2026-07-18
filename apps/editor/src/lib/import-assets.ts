@@ -106,6 +106,21 @@ const buildAssetAndItem = (
   }
 };
 
+/** XHR PUT：fetch 拿不到上传进度，用 XHR 的 upload.onprogress */
+const putWithProgress = (url: string, file: File, contentType: string, onProgress: (pct: number) => void) =>
+  new Promise<void>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', url);
+    xhr.setRequestHeader('content-type', contentType);
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+    };
+    xhr.onload = () =>
+      xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error(`upload PUT failed: ${xhr.status}`));
+    xhr.onerror = () => reject(new Error('upload PUT network error'));
+    xhr.send(file);
+  });
+
 const uploadAsset = async (assetId: string, file: File): Promise<void> => {
   const store = useEditorStore.getState();
   store.setAssetStatus(assetId, 'in-progress');
@@ -117,12 +132,9 @@ const uploadAsset = async (assetId: string, file: File): Promise<void> => {
     });
     if (!res.ok) throw new Error(`upload sign failed: ${res.status}`);
     const { uploadUrl, publicUrl } = (await res.json()) as { uploadUrl: string; publicUrl: string };
-    const put = await fetch(uploadUrl, {
-      method: 'PUT',
-      body: file,
-      headers: { 'content-type': file.type || 'application/octet-stream' },
-    });
-    if (!put.ok) throw new Error(`upload PUT failed: ${put.status}`);
+    await putWithProgress(uploadUrl, file, file.type || 'application/octet-stream', (pct) =>
+      useEditorStore.getState().setUploadProgress(assetId, pct),
+    );
     // 远端地址写回 asset（可撤销代价可接受）
     useEditorStore.getState().updateUndoable((s) => {
       const asset = s.assets[assetId];
@@ -130,10 +142,12 @@ const uploadAsset = async (assetId: string, file: File): Promise<void> => {
       return { ...s, assets: { ...s.assets, [assetId]: { ...asset, url: publicUrl } } };
     });
     useEditorStore.getState().setAssetStatus(assetId, 'uploaded');
+    useEditorStore.getState().setUploadProgress(assetId, null);
   } catch (err) {
     console.error('asset upload failed', err);
     toast.error(`上传失败：${file.name}`);
     useEditorStore.getState().setAssetStatus(assetId, 'error');
+    useEditorStore.getState().setUploadProgress(assetId, null);
   }
 };
 

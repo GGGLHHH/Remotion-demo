@@ -191,6 +191,7 @@ const UPLOAD_STATUS_LABEL: Record<AssetStatus, string> = {
 /** 源信息：选中项底层素材的元数据与上传状态（官方 Source info） */
 const SourceInfoSection: React.FC<{ asset: EditorStarterAsset }> = ({ asset }) => {
   const status = useEditorStore((s) => s.assetStatus[asset.id]);
+  const progress = useEditorStore((s) => s.uploadProgress[asset.id]);
   const mime = guessMime(asset.filename);
   const rows: [string, string][] = [
     ['文件名', asset.filename],
@@ -214,7 +215,11 @@ const SourceInfoSection: React.FC<{ asset: EditorStarterAsset }> = ({ asset }) =
       <div className="flex items-center justify-between gap-2 text-xs">
         <span className="w-14 shrink-0 text-muted-foreground">上传状态</span>
         <Badge variant={status === 'error' ? 'destructive' : 'secondary'}>
-          {status ? UPLOAD_STATUS_LABEL[status] : '仅本地'}
+          {status === 'in-progress' && progress !== undefined
+            ? `上传中 ${progress}%`
+            : status
+              ? UPLOAD_STATUS_LABEL[status]
+              : '仅本地'}
         </Badge>
       </div>
     </Section>

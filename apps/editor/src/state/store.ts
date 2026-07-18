@@ -53,6 +53,9 @@ export type EditorStore = {
   /** 素材上传状态（瞬时） */
   assetStatus: Record<string, AssetStatus>;
   setAssetStatus: (assetId: string, status: AssetStatus) => void;
+  /** 上传进度 0-100（瞬时，完成后清除） */
+  uploadProgress: Record<string, number>;
+  setUploadProgress: (assetId: string, pct: number | null) => void;
   /** 本地 blob URL（预览优先用） */
   localUrls: Record<string, string>;
   setLocalUrl: (assetId: string, url: string) => void;
@@ -155,6 +158,15 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   assetStatus: {},
   setAssetStatus: (assetId, status) =>
     set((s) => ({ assetStatus: { ...s.assetStatus, [assetId]: status } })),
+  uploadProgress: {},
+  setUploadProgress: (assetId, pct) =>
+    set((s) => {
+      if (pct === null) {
+        const { [assetId]: _removed, ...rest } = s.uploadProgress;
+        return { uploadProgress: rest };
+      }
+      return { uploadProgress: { ...s.uploadProgress, [assetId]: pct } };
+    }),
   localUrls: {},
   setLocalUrl: (assetId, url) => set((s) => ({ localUrls: { ...s.localUrls, [assetId]: url } })),
   textItemEditing: null,
