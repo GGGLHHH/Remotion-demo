@@ -3,6 +3,7 @@ import { useShortcuts } from './shortcuts/useShortcuts';
 import { CanvasView } from './canvas/CanvasView';
 import { playerRef } from './canvas/player-ref';
 import { Inspector } from './inspector/Inspector';
+import { TimelinePanel } from './timeline/TimelinePanel';
 import { buildDemoState } from './demo-state';
 
 // 初始状态（M5 持久化后改为 loadState() ?? demo）
@@ -54,9 +55,7 @@ export default function App() {
           <Inspector />
         </aside>
       </div>
-      <footer className="h-56 shrink-0 border-t border-zinc-800 p-4 text-sm text-zinc-400">
-        Timeline（M2）
-      </footer>
+      <TimelinePanel />
     </div>
   );
 }

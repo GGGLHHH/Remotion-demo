@@ -24,6 +24,14 @@ export type EditorStore = {
   /** 画布缩放：'fit' 表示适配容器 */
   canvasZoom: number | 'fit';
   setCanvasZoom: (zoom: number | 'fit') => void;
+  /** 时间轴缩放（px/帧） */
+  timelineZoom: number;
+  setTimelineZoom: (zoom: number) => void;
+  /** 时间轴面板高度（px） */
+  timelineHeight: number;
+  setTimelineHeight: (h: number) => void;
+  snappingEnabled: boolean;
+  toggleSnapping: () => void;
 };
 
 // 拖拽类高频操作的撤销基线：首次 commit:false 更新前的快照。
@@ -85,6 +93,13 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   canvasZoom: 'fit',
   setCanvasZoom: (zoom) =>
     set({ canvasZoom: zoom === 'fit' ? zoom : Math.min(4, Math.max(0.1, zoom)) }),
+
+  timelineZoom: 2,
+  setTimelineZoom: (zoom) => set({ timelineZoom: Math.min(8, Math.max(0.1, zoom)) }),
+  timelineHeight: 224,
+  setTimelineHeight: (h) => set({ timelineHeight: Math.min(500, Math.max(120, h)) }),
+  snappingEnabled: true,
+  toggleSnapping: () => set((s) => ({ snappingEnabled: !s.snappingEnabled })),
 
   deleteSelected: () => {
     const { selectedItemIds, updateUndoable } = get();

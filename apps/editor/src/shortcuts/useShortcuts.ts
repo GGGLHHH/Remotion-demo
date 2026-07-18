@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useEditorStore } from '../state/store';
 import { playerRef } from '../canvas/player-ref';
+import { splitItemsAtFrame } from '../timeline/ops';
 
 const isEditableTarget = (target: EventTarget | null): boolean => {
   if (!(target instanceof HTMLElement)) return false;
@@ -52,6 +53,17 @@ export const useShortcuts = () => {
       }
       if (e.key === '0') {
         store.setCanvasZoom('fit');
+        return;
+      }
+      if (e.shiftKey && e.key.toLowerCase() === 'm') {
+        store.toggleSnapping();
+        return;
+      }
+      if (e.key.toLowerCase() === 's' && !mod) {
+        const frame = playerRef.current?.getCurrentFrame();
+        if (frame !== undefined && store.selectedItemIds.length > 0) {
+          store.updateUndoable((s) => splitItemsAtFrame(s, frame, store.selectedItemIds));
+        }
       }
     };
     window.addEventListener('keydown', onKeyDown);
