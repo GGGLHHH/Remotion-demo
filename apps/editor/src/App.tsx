@@ -4,7 +4,23 @@ import { CanvasView } from './canvas/CanvasView';
 import { playerRef } from './canvas/player-ref';
 import { Inspector } from './inspector/Inspector';
 import { TimelinePanel } from './timeline/TimelinePanel';
+import { importFiles } from './lib/import-assets';
 import { buildDemoState } from './demo-state';
+
+const UploadStatusBadge = () => {
+  const assetStatus = useEditorStore((s) => s.assetStatus);
+  const uploading = Object.values(assetStatus).filter(
+    (st) => st === 'in-progress' || st === 'pending-upload',
+  ).length;
+  const failed = Object.values(assetStatus).filter((st) => st === 'error').length;
+  if (uploading === 0 && failed === 0) return null;
+  return (
+    <span className="text-xs text-zinc-400">
+      {uploading > 0 ? `上传中 ${uploading}…` : null}
+      {failed > 0 ? <span className="text-red-400"> 失败 {failed}</span> : null}
+    </span>
+  );
+};
 
 // 初始状态（M5 持久化后改为 loadState() ?? demo）
 useEditorStore.setState({ undoable: buildDemoState() });
@@ -48,6 +64,21 @@ export default function App() {
         >
           ⏯
         </button>
+        <label className="cursor-pointer rounded border border-zinc-700 px-2 py-1 text-xs hover:bg-zinc-800">
+          导入素材
+          <input
+            type="file"
+            multiple
+            accept="video/*,audio/*,image/*"
+            className="hidden"
+            onChange={(e) => {
+              const files = Array.from(e.target.files ?? []);
+              e.target.value = '';
+              if (files.length) void importFiles(files);
+            }}
+          />
+        </label>
+        <UploadStatusBadge />
       </header>
       <div className="flex min-h-0 flex-1">
         <CanvasView />

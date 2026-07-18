@@ -34,6 +34,7 @@ export const topmostItemAt = (
   const ordered = getOrderedItems(state); // 底层在前
   for (let i = ordered.length - 1; i >= 0; i--) {
     const item = ordered[i];
+    if (item.type === 'audio') continue; // 音频无画面，不参与画布命中
     if (!visibleAtFrame(item, frame)) continue;
     if (hitTest(item, item.rotation, px, py)) return item;
   }

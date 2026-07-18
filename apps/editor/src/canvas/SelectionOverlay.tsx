@@ -131,7 +131,7 @@ export const SelectionOverlay: React.FC<{ scale: number; frame: number }> = ({ s
 
   const selectedVisible = selectedItemIds
     .map((id) => undoable.items[id])
-    .filter((it): it is EditorStarterItem => Boolean(it))
+    .filter((it): it is EditorStarterItem => Boolean(it) && it.type !== 'audio')
     .filter((it) => frame >= it.from && it.from + it.durationInFrames > frame);
 
   const single = selectedVisible.length === 1 ? selectedVisible[0] : null;

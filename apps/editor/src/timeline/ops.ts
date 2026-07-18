@@ -18,6 +18,7 @@ const assetDurationInFrames = (state: UndoableState, item: EditorStarterItem): n
 export const maxItemDurationInFrames = (state: UndoableState, id: string): number | null => {
   const item = state.items[id];
   if (!item) return null;
+  if (item.type === 'gif') return null; // gif 循环播放，不受素材时长限制
   const total = assetDurationInFrames(state, item);
   if (total === null || !isMediaItem(item)) return null;
   return Math.floor((total - item.trimBefore) / item.playbackRate);

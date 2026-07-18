@@ -4,6 +4,7 @@ import {
   DEFAULT_COMPOSITION_WIDTH,
   MAX_UNDO_STACK_SIZE,
   createEmptyState,
+  type AssetStatus,
   type UndoableState,
 } from '@editor/shared';
 
@@ -32,6 +33,12 @@ export type EditorStore = {
   setTimelineHeight: (h: number) => void;
   snappingEnabled: boolean;
   toggleSnapping: () => void;
+  /** 素材上传状态（瞬时） */
+  assetStatus: Record<string, AssetStatus>;
+  setAssetStatus: (assetId: string, status: AssetStatus) => void;
+  /** 本地 blob URL（预览优先用） */
+  localUrls: Record<string, string>;
+  setLocalUrl: (assetId: string, url: string) => void;
 };
 
 // 拖拽类高频操作的撤销基线：首次 commit:false 更新前的快照。
@@ -100,6 +107,11 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   setTimelineHeight: (h) => set({ timelineHeight: Math.min(500, Math.max(120, h)) }),
   snappingEnabled: true,
   toggleSnapping: () => set((s) => ({ snappingEnabled: !s.snappingEnabled })),
+  assetStatus: {},
+  setAssetStatus: (assetId, status) =>
+    set((s) => ({ assetStatus: { ...s.assetStatus, [assetId]: status } })),
+  localUrls: {},
+  setLocalUrl: (assetId, url) => set((s) => ({ localUrls: { ...s.localUrls, [assetId]: url } })),
 
   deleteSelected: () => {
     const { selectedItemIds, updateUndoable } = get();

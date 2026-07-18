@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Player } from '@remotion/player';
 import { MainComposition } from '@editor/shared/composition';
 import { useEditorStore } from '../state/store';
+import { importFiles } from '../lib/import-assets';
 import { playerRef } from './player-ref';
 import { SelectionOverlay } from './SelectionOverlay';
 
@@ -18,6 +19,7 @@ export const CanvasView: React.FC = () => {
   const undoable = useEditorStore((s) => s.undoable);
   const canvasZoom = useEditorStore((s) => s.canvasZoom);
   const setCanvasZoom = useEditorStore((s) => s.setCanvasZoom);
+  const localUrls = useEditorStore((s) => s.localUrls);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [fitScale, setFitScale] = useState(0.1);
@@ -69,7 +71,21 @@ export const CanvasView: React.FC = () => {
 
   return (
     <div className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-zinc-950">
-      <div ref={containerRef} className="flex min-h-0 flex-1 items-center justify-center overflow-auto">
+      <div
+        ref={containerRef}
+        className="flex min-h-0 flex-1 items-center justify-center overflow-auto"
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={(e) => {
+          e.preventDefault();
+          const files = Array.from(e.dataTransfer.files);
+          if (!files.length) return;
+          const stage = e.currentTarget.querySelector('[data-stage]')?.getBoundingClientRect();
+          const dropAt = stage
+            ? { x: (e.clientX - stage.left) / scale, y: (e.clientY - stage.top) / scale }
+            : undefined;
+          void importFiles(files, dropAt);
+        }}
+      >
         <div
           data-stage
           className="relative shrink-0 shadow-2xl"
@@ -81,7 +97,7 @@ export const CanvasView: React.FC = () => {
           <Player
             ref={playerRef}
             component={MainComposition}
-            inputProps={{ state: undoable }}
+            inputProps={{ state: undoable, assetUrlOverrides: localUrls }}
             durationInFrames={durationInFrames}
             compositionWidth={undoable.compositionWidth}
             compositionHeight={undoable.compositionHeight}
