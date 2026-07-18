@@ -1,3 +1,4 @@
+import { toast } from 'sonner';
 import { useEditorStore } from '../state/store';
 
 const post = (url: string, body: unknown) =>
@@ -7,7 +8,8 @@ const post = (url: string, body: unknown) =>
     body: JSON.stringify(body),
   });
 
-/** 发起渲染并轮询进度直到终态；错误落到任务列表而不是抛出 */
+/** 发起渲染并轮询进度直到终态；错误落到任务列表而不是抛出。
+ * toast 只在终态触发一次（每个终态路径都直接 return，不会重复）。 */
 export const startRender = async (codec: 'mp4' | 'webm'): Promise<void> => {
   const { undoable, upsertRenderingTask } = useEditorStore.getState();
   let taskId: string;
@@ -17,6 +19,7 @@ export const startRender = async (codec: 'mp4' | 'webm'): Promise<void> => {
     ({ taskId } = await res.json());
   } catch (err) {
     upsertRenderingTask({ id: `local-${Date.now()}`, status: 'error', progress: 0, error: String(err), codec });
+    toast.error('渲染任务创建失败');
     return;
   }
   upsertRenderingTask({ id: taskId, status: 'queued', progress: 0, codec });
@@ -30,9 +33,17 @@ export const startRender = async (codec: 'mp4' | 'webm'): Promise<void> => {
       task = await res.json();
     } catch (err) {
       useEditorStore.getState().upsertRenderingTask({ id: taskId, status: 'error', progress: 0, error: String(err), codec });
+      toast.error('渲染失败');
       return;
     }
     useEditorStore.getState().upsertRenderingTask({ id: taskId, codec, ...task });
-    if (task.status === 'done' || task.status === 'error') return;
+    if (task.status === 'done') {
+      toast.success('渲染完成，可在渲染面板下载');
+      return;
+    }
+    if (task.status === 'error') {
+      toast.error('渲染失败');
+      return;
+    }
   }
 };

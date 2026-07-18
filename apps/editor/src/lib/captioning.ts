@@ -1,3 +1,4 @@
+import { toast } from 'sonner';
 import { newId, type Caption, type CaptionAsset, type CaptionsItem } from '@editor/shared';
 import { useEditorStore } from '../state/store';
 import { addTrack } from '../timeline/ops';
@@ -97,8 +98,10 @@ export const generateCaptions = async (itemId: string): Promise<void> => {
       };
     });
     upsert('done');
+    toast.success('字幕已生成');
   } catch (err) {
     console.error('生成字幕失败', err);
     upsert('error', String(err));
+    toast.error('字幕生成失败');
   }
 };

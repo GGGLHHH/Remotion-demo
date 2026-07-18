@@ -1,3 +1,4 @@
+import { toast } from 'sonner';
 import {
   MAX_FILE_UPLOAD_SIZE_IN_MB,
   newId,
@@ -131,6 +132,7 @@ const uploadAsset = async (assetId: string, file: File): Promise<void> => {
     useEditorStore.getState().setAssetStatus(assetId, 'uploaded');
   } catch (err) {
     console.error('asset upload failed', err);
+    toast.error(`上传失败：${file.name}`);
     useEditorStore.getState().setAssetStatus(assetId, 'error');
   }
 };
@@ -145,6 +147,7 @@ export const importFiles = async (
   for (const file of files) {
     if (file.size > MAX_FILE_UPLOAD_SIZE_IN_MB * 1024 * 1024) {
       console.error(`文件过大: ${file.name}`);
+      toast.error(`文件过大：${file.name}（上限 ${MAX_FILE_UPLOAD_SIZE_IN_MB}MB）`);
       continue;
     }
     try {
@@ -193,6 +196,7 @@ export const importFiles = async (
       void uploadAsset(asset.id, file);
     } catch (err) {
       console.error(`导入失败: ${file.name}`, err);
+      toast.error(`导入失败：${file.name}`);
     }
   }
 };

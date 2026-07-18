@@ -1,3 +1,4 @@
+import { toast } from 'sonner';
 import type { UndoableState } from '@editor/shared';
 import { useEditorStore } from '../state/store';
 import { getCachedAsset } from '../caching/indexeddb';
@@ -20,6 +21,7 @@ export const saveState = (): void => {
   const { undoable } = useEditorStore.getState();
   localStorage.setItem(STORAGE_KEY, serializeState(undoable));
   useEditorStore.setState({ lastSavedState: undoable });
+  toast.success('已保存');
 };
 
 export const loadSavedState = (): UndoableState | null => {
@@ -53,7 +55,10 @@ export const downloadStateFile = (): void => {
 
 export const loadStateFromFile = async (file: File): Promise<boolean> => {
   const state = deserializeState(await file.text());
-  if (!state) return false;
+  if (!state) {
+    toast.error('工程文件无效，无法恢复');
+    return false;
+  }
   useEditorStore.setState({ undoable: state, past: [], future: [], selectedItemIds: [] });
   void restoreLocalUrls(state);
   return true;
