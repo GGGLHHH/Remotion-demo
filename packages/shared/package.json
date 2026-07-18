@@ -1,0 +1,26 @@
+{
+  "name": "@editor/shared",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./composition": "./src/composition/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "remotion": "4.0.491",
+    "@remotion/media": "4.0.491"
+  },
+  "devDependencies": {
+    "react": "^19.2.0",
+    "@types/react": "^19.2.0",
+    "typescript": "^5.9.0",
+    "vitest": "^3.2.0"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0"
+  }
+}

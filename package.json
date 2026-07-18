@@ -1,0 +1,11 @@
+{
+  "name": "remotion-editor",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm -F editor dev",
+    "typecheck": "pnpm -r --parallel typecheck",
+    "test": "pnpm -r --parallel test"
+  },
+  "packageManager": "pnpm@10.18.3"
+}
