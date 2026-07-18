@@ -1,5 +1,6 @@
 import {
   CreateBucketCommand,
+  DeleteObjectCommand,
   HeadBucketCommand,
   PutBucketPolicyCommand,
   PutObjectCommand,
@@ -42,6 +43,10 @@ export const ensureBucket = async (): Promise<void> => {
       }),
     }),
   );
+};
+
+export const deleteObject = async (key: string): Promise<void> => {
+  await s3.send(new DeleteObjectCommand({ Bucket: config.s3.bucket, Key: key }));
 };
 
 export const createUploadUrl = async (
