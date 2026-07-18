@@ -2,7 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import {
   Download,
   FolderOpen,
+  Maximize,
+  Minus,
   Play,
+  Plus,
   Redo2,
   Save,
   Square,
@@ -27,13 +30,13 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useEditorStore } from './state/store';
 import { useShortcuts } from './shortcuts/useShortcuts';
-import { CanvasView } from './canvas/CanvasView';
+import { CanvasView, type CanvasTool } from './canvas/CanvasView';
 import { playerRef } from './canvas/player-ref';
+import { fitScaleRef } from './canvas/fit-scale';
 import { Inspector } from './inspector/Inspector';
 import { TimelinePanel } from './timeline/TimelinePanel';
 import { PlaybackBar } from './playback/PlaybackBar';
 import { importFiles } from './lib/import-assets';
-import { addTextItem } from './lib/add-items';
 import { cleanupDeletedAssets } from './lib/cleanup-assets';
 import {
   downloadStateFile,
@@ -135,6 +138,31 @@ if (import.meta.env.DEV) {
   (window as unknown as Record<string, unknown>).__playerRef = playerRef;
 }
 
+/** 画布缩放控件：[适应图标(非 fit 时)] [−] [标签] [+]；相对步进（加倍/减半） */
+const ZoomControls = () => {
+  const canvasZoom = useEditorStore((s) => s.canvasZoom);
+  const setCanvasZoom = useEditorStore((s) => s.setCanvasZoom);
+  const effective = () => (canvasZoom === 'fit' ? fitScaleRef.current : canvasZoom);
+  return (
+    <span className="flex items-center gap-0.5">
+      {canvasZoom !== 'fit' ? (
+        <IconButton label="适应画布 (0)" onClick={() => setCanvasZoom('fit')}>
+          <Maximize />
+        </IconButton>
+      ) : null}
+      <IconButton label="缩小 (-)" onClick={() => setCanvasZoom(effective() / 2)}>
+        <Minus />
+      </IconButton>
+      <span className="min-w-11 text-center text-xs tabular-nums text-zinc-300">
+        {canvasZoom === 'fit' ? '适应' : `${Math.round(canvasZoom * 100)}%`}
+      </span>
+      <IconButton label="放大 (+)" onClick={() => setCanvasZoom(effective() * 2)}>
+        <Plus />
+      </IconButton>
+    </span>
+  );
+};
+
 const SaveButton = () => {
   const dirty = useEditorStore((s) => s.undoable !== s.lastSavedState);
   return (
@@ -187,8 +215,8 @@ const CleanupAssetsButton = () => {
 
 export default function App() {
   useShortcuts();
-  // 绘制色块模式（瞬时 UI 状态，不进 store）
-  const [drawSolidMode, setDrawSolidMode] = useState(false);
+  // 画布工具模式：绘制色块 / 点击放置文本（瞬时 UI 状态，不进 store）
+  const [tool, setTool] = useState<CanvasTool>(null);
   const canUndo = useEditorStore((s) => s.past.length > 0);
   const canRedo = useEditorStore((s) => s.future.length > 0);
   const undo = useEditorStore((s) => s.undo);
@@ -203,15 +231,15 @@ export default function App() {
     s.captioningTasks.some((t) => t.status === 'extracting' || t.status === 'transcribing'),
   );
 
-  // Escape 退出绘制色块模式
+  // Escape 退出画布工具模式
   useEffect(() => {
-    if (!drawSolidMode) return;
+    if (!tool) return;
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setDrawSolidMode(false);
+      if (e.key === 'Escape') setTool(null);
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [drawSolidMode]);
+  }, [tool]);
 
   // 上传/渲染/转录未完成时拦截关闭/刷新，避免丢素材或丢进度
   useEffect(() => {
@@ -237,16 +265,22 @@ export default function App() {
         <IconButton label="播放/暂停 (空格)" onClick={() => playerRef.current?.toggle()}>
           <Play />
         </IconButton>
-        <Button variant="outline" size="sm" onClick={addTextItem} title="添加文本">
+        <Button
+          variant={tool === 'text' ? 'secondary' : 'outline'}
+          size="sm"
+          onClick={() => setTool((t) => (t === 'text' ? null : 'text'))}
+          title="添加文本：点击画布放置（Esc 取消）"
+          aria-pressed={tool === 'text'}
+        >
           <Type />
           文本
         </Button>
         <Button
-          variant={drawSolidMode ? 'secondary' : 'outline'}
+          variant={tool === 'solid' ? 'secondary' : 'outline'}
           size="sm"
-          onClick={() => setDrawSolidMode((v) => !v)}
+          onClick={() => setTool((t) => (t === 'solid' ? null : 'solid'))}
           title="绘制色块：在画布上拖拽画框（Esc 取消）"
-          aria-pressed={drawSolidMode}
+          aria-pressed={tool === 'solid'}
         >
           <Square />
           色块
@@ -261,6 +295,7 @@ export default function App() {
         <UploadStatusBadge />
         <CaptioningBadge />
         <div className="ml-auto flex items-center gap-1.5">
+          <ZoomControls />
           <CleanupAssetsButton />
           <SaveButton />
           <Button variant="outline" size="sm" onClick={downloadStateFile} title="下载工程文件 (.json)">
@@ -277,7 +312,7 @@ export default function App() {
         </div>
       </header>
       <div className="flex min-h-0 flex-1">
-        <CanvasView drawSolidMode={drawSolidMode} onExitDrawSolid={() => setDrawSolidMode(false)} />
+        <CanvasView tool={tool} onExitTool={() => setTool(null)} />
         <aside className="w-72 shrink-0 overflow-y-auto border-l border-zinc-800 text-sm">
           <Inspector />
         </aside>

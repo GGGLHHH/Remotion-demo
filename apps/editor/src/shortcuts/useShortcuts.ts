@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useEditorStore } from '../state/store';
 import { playerRef } from '../canvas/player-ref';
+import { fitScaleRef } from '../canvas/fit-scale';
 import { resolveSplitTargets, splitItemsAtFrame } from '../timeline/ops';
 import { saveState } from '../persistence/persistence';
 import { importFiles } from '../lib/import-assets';
@@ -93,14 +94,15 @@ export const useShortcuts = () => {
         p.seekTo(Math.max(0, p.getCurrentFrame() + step));
         return;
       }
+      // 相对步进（官方）：+ 当前缩放加倍，- 减半，0 适应
       if (e.key === '+' || e.key === '=') {
-        const cur = store.canvasZoom === 'fit' ? 1 : store.canvasZoom;
-        store.setCanvasZoom(cur * 1.25);
+        const cur = store.canvasZoom === 'fit' ? fitScaleRef.current : store.canvasZoom;
+        store.setCanvasZoom(cur * 2);
         return;
       }
       if (e.key === '-') {
-        const cur = store.canvasZoom === 'fit' ? 1 : store.canvasZoom;
-        store.setCanvasZoom(cur / 1.25);
+        const cur = store.canvasZoom === 'fit' ? fitScaleRef.current : store.canvasZoom;
+        store.setCanvasZoom(cur / 2);
         return;
       }
       if (e.key === '0') {

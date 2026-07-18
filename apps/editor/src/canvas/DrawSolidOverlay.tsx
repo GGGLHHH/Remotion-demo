@@ -1,13 +1,15 @@
 import type React from 'react';
 import { useRef, useState } from 'react';
-import { useEditorStore } from '../state/store';
 import { addSolidItem } from '../lib/add-items';
+import { CORNERS, SizeBadge } from './SelectionOverlay';
 import type { Rect } from './geometry';
 
 /** 无明显拖拽（<5px）视为单击 */
 const CLICK_THRESHOLD_PX = 5;
+/** 单击创建的默认色块尺寸（官方 100×100） */
+const CLICK_SIZE = 100;
 
-/** 绘制色块模式：在画布上拖拽画框，松开按框创建色块；单击则在点击处创建默认大小色块 */
+/** 绘制色块模式：拖拽中实时渲染真实色块（白色）+ 选中样式 + 尺寸徽章；单击创建 100×100 */
 export const DrawSolidOverlay: React.FC<{ scale: number; onDone: () => void }> = ({
   scale,
   onDone,
@@ -52,11 +54,13 @@ export const DrawSolidOverlay: React.FC<{ scale: number; onDone: () => void }> =
         if (dragged) {
           addSolidItem(dragRect(e, s));
         } else {
-          // 单击：默认大小（画布 1/3），以点击点为中心
-          const { compositionWidth, compositionHeight } = useEditorStore.getState().undoable;
-          const width = Math.round(compositionWidth / 3);
-          const height = Math.round(compositionHeight / 3);
-          addSolidItem({ left: s.x - width / 2, top: s.y - height / 2, width, height });
+          // 单击：100×100，以点击点为中心
+          addSolidItem({
+            left: s.x - CLICK_SIZE / 2,
+            top: s.y - CLICK_SIZE / 2,
+            width: CLICK_SIZE,
+            height: CLICK_SIZE,
+          });
         }
         onDone();
       }}
@@ -66,15 +70,25 @@ export const DrawSolidOverlay: React.FC<{ scale: number; onDone: () => void }> =
       }}
     >
       {preview ? (
+        // 实时渲染真实色块（白色）+ 选中样式（蓝框 + 角手柄）+ 尺寸徽章
         <div
-          className="pointer-events-none absolute border border-blue-400 bg-blue-500/30"
+          className="pointer-events-none absolute border-2 border-blue-500 bg-white"
           style={{
             left: preview.left * scale,
             top: preview.top * scale,
             width: preview.width * scale,
             height: preview.height * scale,
           }}
-        />
+        >
+          {CORNERS.map(({ handle, x, y }) => (
+            <div
+              key={handle}
+              className="absolute size-2 border border-[#0B84F3] bg-white"
+              style={{ left: `calc(${x * 100}% - 4px)`, top: `calc(${y * 100}% - 4px)` }}
+            />
+          ))}
+          <SizeBadge width={preview.width} height={preview.height} />
+        </div>
       ) : null}
     </div>
   );

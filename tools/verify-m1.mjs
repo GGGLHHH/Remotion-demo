@@ -60,9 +60,8 @@ await page.keyboard.press(process.platform === 'darwin' ? 'Meta+z' : 'Control+z'
 s = await getStore();
 if (s.items[titleId].left !== leftBefore) fail('undo did not restore position');
 
-// 4) 手柄缩放（重新选中后拖 se 角）
+// 4) 手柄缩放（重新选中后拖 se 角）：solid 角拖自由缩放（双轴独立，官方行为）
 await page.mouse.click(c.x, c.y);
-const wBefore = (await getStore()).items[titleId].width;
 const item = (await getStore()).items[titleId];
 const se = toScreen(item.left + item.width, item.top + item.height);
 await page.mouse.move(se.x, se.y);
@@ -70,10 +69,13 @@ await page.mouse.down();
 await page.mouse.move(se.x + 60, se.y + 10, { steps: 5 });
 await page.mouse.up();
 s = await getStore();
-if (s.items[titleId].width <= wBefore) fail('resize did not grow width');
-// 等比：高度按 5:1 比例同步
 const it2 = s.items[titleId];
-if (Math.abs(it2.width / it2.height - item.width / item.height) > 0.05) fail('aspect not kept');
+if (Math.abs(it2.width - (item.width + 60 / scale)) > 3) {
+  fail(`free resize width: ${it2.width} vs ${item.width + 60 / scale}`);
+}
+if (Math.abs(it2.height - (item.height + 10 / scale)) > 3) {
+  fail(`free resize height: ${it2.height} vs ${item.height + 10 / scale}`);
+}
 
 // 5) 画布缩放快捷键
 await page.keyboard.press('+');

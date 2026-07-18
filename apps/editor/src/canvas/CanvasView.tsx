@@ -5,19 +5,22 @@ import { MainComposition, calcDuration } from '@editor/shared/composition';
 import { useEditorStore } from '../state/store';
 import { importFiles } from '../lib/import-assets';
 import { playerRef } from './player-ref';
+import { fitScaleRef } from './fit-scale';
 import { SelectionOverlay } from './SelectionOverlay';
 import { CropOverlay } from './CropOverlay';
 import { TextEditOverlay } from './TextEditOverlay';
 import { DrawSolidOverlay } from './DrawSolidOverlay';
+import { TextToolOverlay } from './TextToolOverlay';
+
+/** 画布工具模式（状态由 App 持有）：绘制色块 / 点击放置文本 */
+export type CanvasTool = 'solid' | 'text' | null;
 
 export const CanvasView: React.FC<{
-  /** 绘制色块模式（状态由 App 持有） */
-  drawSolidMode: boolean;
-  onExitDrawSolid: () => void;
-}> = ({ drawSolidMode, onExitDrawSolid }) => {
+  tool: CanvasTool;
+  onExitTool: () => void;
+}> = ({ tool, onExitTool }) => {
   const undoable = useEditorStore((s) => s.undoable);
   const canvasZoom = useEditorStore((s) => s.canvasZoom);
-  const setCanvasZoom = useEditorStore((s) => s.setCanvasZoom);
   const localUrls = useEditorStore((s) => s.localUrls);
   const fontHoverPreview = useEditorStore((s) => s.fontHoverPreview);
   const cropMode = useEditorStore((s) => s.itemSelectedForCrop !== null);
@@ -37,7 +40,9 @@ export const CanvasView: React.FC<{
       const PADDING = 48;
       const w = el.clientWidth - PADDING;
       const h = el.clientHeight - PADDING;
-      setFitScale(Math.max(0.02, Math.min(w / undoable.compositionWidth, h / undoable.compositionHeight)));
+      const s = Math.max(0.02, Math.min(w / undoable.compositionWidth, h / undoable.compositionHeight));
+      fitScaleRef.current = s; // 快捷键/工具栏相对缩放的基准
+      setFitScale(s);
     };
     update();
     const observer = new ResizeObserver(update);
@@ -114,31 +119,9 @@ export const CanvasView: React.FC<{
           {cropMode ? null : <SelectionOverlay scale={scale} frame={frame} />}
           <CropOverlay scale={scale} />
           <TextEditOverlay scale={scale} />
-          {drawSolidMode ? <DrawSolidOverlay scale={scale} onDone={onExitDrawSolid} /> : null}
+          {tool === 'solid' ? <DrawSolidOverlay scale={scale} onDone={onExitTool} /> : null}
+          {tool === 'text' ? <TextToolOverlay scale={scale} onDone={onExitTool} /> : null}
         </div>
-      </div>
-      <div className="absolute right-3 top-3 flex items-center gap-1 rounded-md bg-zinc-900/90 px-2 py-1 text-xs text-zinc-300">
-        <button
-          className="px-1.5 py-0.5 hover:text-white"
-          onClick={() => setCanvasZoom(scale / 1.25)}
-          title="缩小 (-)"
-        >
-          −
-        </button>
-        <button
-          className="min-w-12 tabular-nums hover:text-white"
-          onClick={() => setCanvasZoom('fit')}
-          title="适配 (0)"
-        >
-          {Math.round(scale * 100)}%
-        </button>
-        <button
-          className="px-1.5 py-0.5 hover:text-white"
-          onClick={() => setCanvasZoom(scale * 1.25)}
-          title="放大 (+)"
-        >
-          +
-        </button>
       </div>
     </div>
   );

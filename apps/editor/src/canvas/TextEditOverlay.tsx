@@ -14,10 +14,20 @@ export const TextEditOverlay: React.FC<{ scale: number }> = ({ scale }) => {
     ref.current?.select();
   }, [itemId]);
 
+  // 编辑期间隐藏底层文本项（opacity 预览，不进撤销栈），避免 textarea 后面重影
+  useEffect(() => {
+    if (!itemId) return;
+    const store = useEditorStore.getState();
+    store.previewItemStyle(itemId, { opacity: 0 });
+    return () => store.cancelItemStylePreview();
+  }, [itemId]);
+
   if (!item || item.type !== 'text') return null;
 
   const commit = (text: string) => {
     const store = useEditorStore.getState();
+    // 先还原隐藏预览，再提交文本改动（否则 opacity:0 会被一起提交）
+    store.cancelItemStylePreview();
     if (text !== item.text) {
       store.updateUndoable((s) => {
         const cur = s.items[item.id];

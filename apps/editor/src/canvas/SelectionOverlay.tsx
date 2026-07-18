@@ -5,22 +5,36 @@ import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
+  ContextMenuSeparator,
   ContextMenuTrigger,
 } from '@/components/ui/context-menu';
 import { useEditorStore } from '../state/store';
+import { copySelection, duplicateSelection } from '../lib/clipboard';
 import { addTrack, moveItems, removeEmptyTracks } from '../timeline/ops';
 import { resizeRect, topmostItemAt, type Rect, type ResizeHandle } from './geometry';
 
-const HANDLES: { handle: ResizeHandle; x: number; y: number; cursor: string }[] = [
+/** 官方样式：仅 4 个角手柄（约 8px 白色方块、蓝边） */
+export const CORNERS: { handle: ResizeHandle; x: number; y: number; cursor: string }[] = [
   { handle: 'nw', x: 0, y: 0, cursor: 'nwse-resize' },
-  { handle: 'n', x: 0.5, y: 0, cursor: 'ns-resize' },
   { handle: 'ne', x: 1, y: 0, cursor: 'nesw-resize' },
-  { handle: 'e', x: 1, y: 0.5, cursor: 'ew-resize' },
-  { handle: 'se', x: 1, y: 1, cursor: 'nwse-resize' },
-  { handle: 's', x: 0.5, y: 1, cursor: 'ns-resize' },
   { handle: 'sw', x: 0, y: 1, cursor: 'nesw-resize' },
-  { handle: 'w', x: 0, y: 0.5, cursor: 'ew-resize' },
+  { handle: 'se', x: 1, y: 1, cursor: 'nwse-resize' },
 ];
+
+/** 边缘全长隐形热区（±4px），沿整条边都可拖拽缩放 */
+const EDGES: { handle: ResizeHandle; cursor: string; style: React.CSSProperties }[] = [
+  { handle: 'n', cursor: 'ns-resize', style: { left: 0, right: 0, top: -4, height: 8 } },
+  { handle: 's', cursor: 'ns-resize', style: { left: 0, right: 0, bottom: -4, height: 8 } },
+  { handle: 'w', cursor: 'ew-resize', style: { top: 0, bottom: 0, left: -4, width: 8 } },
+  { handle: 'e', cursor: 'ew-resize', style: { top: 0, bottom: 0, right: -4, width: 8 } },
+];
+
+/** 选中项下方的蓝色 W×H 尺寸徽章（移动/缩放/绘制中实时更新） */
+export const SizeBadge: React.FC<{ width: number; height: number }> = ({ width, height }) => (
+  <div className="pointer-events-none absolute left-1/2 top-full mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-full bg-[#0B84F3] px-2 py-0.5 text-xs font-medium text-white">
+    {Math.round(width)} × {Math.round(height)}
+  </div>
+);
 
 type DragState =
   | { kind: 'move'; startX: number; startY: number; startRects: Map<string, Rect> }
@@ -50,13 +64,19 @@ const snapCandidates = (
   return { xs, ys };
 };
 
+/** 媒体项角拖默认锁比例（官方 Shift 临时解锁）；solid/text/captions 自由缩放 */
+const isMediaItem = (item: EditorStarterItem): boolean =>
+  item.type === 'video' || item.type === 'image' || item.type === 'gif';
+
 export const SelectionOverlay: React.FC<{ scale: number; frame: number }> = ({ scale, frame }) => {
   const undoable = useEditorStore((s) => s.undoable);
   const selectedItemIds = useEditorStore((s) => s.selectedItemIds);
   const snappingEnabled = useEditorStore((s) => s.snappingEnabled);
+  const editingId = useEditorStore((s) => s.textItemEditing);
   const drag = useRef<DragState | null>(null);
   const [marquee, setMarquee] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const [guides, setGuides] = useState<Guide[]>([]);
+  const [hoverId, setHoverId] = useState<string | null>(null);
   /** 右键命中的 item（菜单动作目标）；菜单开合由 ContextMenu 组件管理 */
   const menuItemId = useRef<string | null>(null);
 
@@ -69,6 +89,7 @@ export const SelectionOverlay: React.FC<{ scale: number; frame: number }> = ({ s
     if (e.button !== 0) return;
     const store = useEditorStore.getState();
     if (store.itemSelectedForCrop) return; // 裁剪模式由 CropOverlay 接管
+    setHoverId(null);
     const { x, y } = toComp(e);
     const hit = topmostItemAt(store.undoable, frame, x, y);
     if (!hit) {
@@ -121,10 +142,22 @@ export const SelectionOverlay: React.FC<{ scale: number; frame: number }> = ({ s
     });
   };
 
+  /** 剪切 = 复制到内部剪贴板 + 删除选中（与 Cmd+X 一致） */
+  const cutSelection = () => {
+    copySelection();
+    useEditorStore.getState().deleteSelected();
+  };
+
   const onPointerMove = (e: React.PointerEvent) => {
     const d = drag.current;
-    if (!d) return;
     const store = useEditorStore.getState();
+    if (!d) {
+      // 悬停：未选中项显示 2px 蓝色描边
+      const { x, y } = toComp(e);
+      const hit = topmostItemAt(store.undoable, frame, x, y);
+      setHoverId(hit && !store.selectedItemIds.includes(hit.id) ? hit.id : null);
+      return;
+    }
 
     if (d.kind === 'marquee') {
       const { x, y } = toComp(e);
@@ -133,6 +166,7 @@ export const SelectionOverlay: React.FC<{ scale: number; frame: number }> = ({ s
       const x2 = Math.max(d.startX, x);
       const y2 = Math.max(d.startY, y);
       setMarquee({ x: x1, y: y1, w: x2 - x1, h: y2 - y1 });
+      // 触碰即预选中（松手即为最终选择）
       const hits: string[] = [];
       for (const item of Object.values(store.undoable.items)) {
         if (item.type === 'audio') continue;
@@ -202,8 +236,12 @@ export const SelectionOverlay: React.FC<{ scale: number; frame: number }> = ({ s
         { commit: false },
       );
     } else {
+      const target = store.undoable.items[d.itemId];
+      if (!target) return;
       const isCorner = d.handle.length === 2;
-      const next = resizeRect(d.startRect, d.handle, dx, dy, isCorner && !e.shiftKey);
+      // 官方：媒体角拖默认锁比例，Shift 临时解锁；solid/text/captions 自由缩放
+      const keepAspect = isCorner && isMediaItem(target) && !e.shiftKey;
+      const next = resizeRect(d.startRect, d.handle, dx, dy, keepAspect);
       store.updateUndoable(
         (s) => {
           const it = s.items[d.itemId];
@@ -253,9 +291,21 @@ export const SelectionOverlay: React.FC<{ scale: number; frame: number }> = ({ s
   const selectedVisible = selectedItemIds
     .map((id) => undoable.items[id])
     .filter((it): it is EditorStarterItem => Boolean(it) && it.type !== 'audio')
-    .filter((it) => frame >= it.from && it.from + it.durationInFrames > frame);
+    .filter((it) => frame >= it.from && it.from + it.durationInFrames > frame)
+    // 行内编辑中的项不显示选择框/手柄/徽章（textarea 自带边框）
+    .filter((it) => it.id !== editingId);
 
   const single = selectedVisible.length === 1 ? selectedVisible[0] : null;
+
+  const hoverItem =
+    hoverId && !selectedItemIds.includes(hoverId) ? (undoable.items[hoverId] ?? null) : null;
+  const hoverVisible =
+    hoverItem &&
+    hoverItem.type !== 'audio' &&
+    frame >= hoverItem.from &&
+    hoverItem.from + hoverItem.durationInFrames > frame
+      ? hoverItem
+      : null;
 
   return (
     <ContextMenu>
@@ -264,6 +314,7 @@ export const SelectionOverlay: React.FC<{ scale: number; frame: number }> = ({ s
         onPointerDown={onBackgroundPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
+        onPointerLeave={() => setHoverId(null)}
         onDoubleClick={onDoubleClick}
         onContextMenu={(e) => {
           // 仅在命中 item 时弹菜单；空白处右键既不弹菜单也不弹系统菜单
@@ -275,10 +326,25 @@ export const SelectionOverlay: React.FC<{ scale: number; frame: number }> = ({ s
             e.preventBaseUIHandler();
             return;
           }
-          store.setSelected([hit.id]);
+          // 右键先选中：已在多选中则保持多选，否则只选命中项
+          store.setSelected(
+            store.selectedItemIds.includes(hit.id) ? store.selectedItemIds : [hit.id],
+          );
           menuItemId.current = hit.id;
         }}
       >
+      {hoverVisible ? (
+        <div
+          className="pointer-events-none absolute border-2 border-blue-500"
+          style={{
+            left: hoverVisible.left * scale,
+            top: hoverVisible.top * scale,
+            width: hoverVisible.width * scale,
+            height: hoverVisible.height * scale,
+            rotate: `${hoverVisible.rotation}deg`,
+          }}
+        />
+      ) : null}
       {selectedVisible.map((item) => (
         <div
           key={item.id}
@@ -291,21 +357,33 @@ export const SelectionOverlay: React.FC<{ scale: number; frame: number }> = ({ s
             rotate: `${item.rotation}deg`,
           }}
         >
-          {single?.id === item.id &&
-            HANDLES.map(({ handle, x, y, cursor }) => (
-              <div
-                key={handle}
-                onPointerDown={(e) => onHandlePointerDown(e, item, handle)}
-                className="pointer-events-auto absolute size-2.5 rounded-sm border border-blue-500 bg-white"
-                style={{ left: `calc(${x * 100}% - 5px)`, top: `calc(${y * 100}% - 5px)`, cursor }}
-              />
-            ))}
+          {single?.id === item.id ? (
+            <>
+              {EDGES.map(({ handle, cursor, style }) => (
+                <div
+                  key={handle}
+                  onPointerDown={(e) => onHandlePointerDown(e, item, handle)}
+                  className="pointer-events-auto absolute"
+                  style={{ ...style, cursor }}
+                />
+              ))}
+              {CORNERS.map(({ handle, x, y, cursor }) => (
+                <div
+                  key={handle}
+                  onPointerDown={(e) => onHandlePointerDown(e, item, handle)}
+                  className="pointer-events-auto absolute size-2 border border-[#0B84F3] bg-white"
+                  style={{ left: `calc(${x * 100}% - 4px)`, top: `calc(${y * 100}% - 4px)`, cursor }}
+                />
+              ))}
+            </>
+          ) : null}
+          <SizeBadge width={item.width} height={item.height} />
         </div>
       ))}
       {guides.map((g, i) => (
         <div
           key={i}
-          className="pointer-events-none absolute bg-red-500/80"
+          className="pointer-events-none absolute bg-fuchsia-500"
           style={
             g.axis === 'x'
               ? { left: g.pos * scale, top: 0, bottom: 0, width: 1 }
@@ -315,7 +393,7 @@ export const SelectionOverlay: React.FC<{ scale: number; frame: number }> = ({ s
       ))}
       {marquee ? (
         <div
-          className="pointer-events-none absolute border border-blue-400 bg-blue-400/10"
+          className="pointer-events-none absolute border border-[#0B84F3] bg-[#0B84F3]/10"
           style={{
             left: marquee.x * scale,
             top: marquee.y * scale,
@@ -326,6 +404,10 @@ export const SelectionOverlay: React.FC<{ scale: number; frame: number }> = ({ s
       ) : null}
       </ContextMenuTrigger>
       <ContextMenuContent>
+        <ContextMenuItem onClick={cutSelection}>剪切</ContextMenuItem>
+        <ContextMenuItem onClick={() => copySelection()}>复制</ContextMenuItem>
+        <ContextMenuItem onClick={() => duplicateSelection()}>创建副本</ContextMenuItem>
+        <ContextMenuSeparator />
         <ContextMenuItem onClick={() => reorder('front')}>置于顶层</ContextMenuItem>
         <ContextMenuItem onClick={() => reorder('back')}>置于底层</ContextMenuItem>
       </ContextMenuContent>
