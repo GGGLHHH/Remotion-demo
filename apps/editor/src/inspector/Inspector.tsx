@@ -1,6 +1,33 @@
 import type React from 'react';
 import { useState } from 'react';
+import {
+  AlignCenterHorizontalIcon,
+  AlignCenterVerticalIcon,
+  AlignEndHorizontalIcon,
+  AlignEndVerticalIcon,
+  AlignStartHorizontalIcon,
+  AlignStartVerticalIcon,
+  ArrowLeftRightIcon,
+  CaptionsIcon,
+  ClapperboardIcon,
+  CropIcon,
+  RotateCwIcon,
+  type LucideIcon,
+} from 'lucide-react';
 import type { AssetStatus, Crop, EditorStarterAsset, EditorStarterItem } from '@editor/shared';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Spinner } from '@/components/ui/spinner';
+import { Switch } from '@/components/ui/switch';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useEditorStore } from '../state/store';
 import { startRender } from '../lib/render-client';
 import { generateCaptions } from '../lib/captioning';
@@ -16,18 +43,25 @@ const CaptionsSection: React.FC<{ itemId: string }> = ({ itemId }) => {
   const busy = task?.status === 'extracting' || task?.status === 'transcribing';
   return (
     <Section title="字幕">
-      <button
-        className="rounded border border-zinc-700 px-2 py-1 text-xs hover:bg-zinc-800 disabled:opacity-50"
+      <Button
+        variant="outline"
+        size="sm"
         disabled={busy}
         onClick={() => void generateCaptions(itemId)}
       >
+        {busy ? <Spinner /> : <CaptionsIcon />}
         {busy ? (task.status === 'extracting' ? '抽取音频中…' : '转录中…') : '生成字幕'}
-      </button>
+      </Button>
       {task?.status === 'error' ? (
-        <div className="break-all text-xs text-red-400">{task.error?.slice(0, 200)}</div>
+        <div className="break-all text-xs text-destructive">{task.error?.slice(0, 200)}</div>
       ) : null}
     </Section>
   );
+};
+
+const CODEC_LABELS: Record<'mp4' | 'webm', string> = {
+  mp4: 'MP4 (H.264)',
+  webm: 'WebM (VP8)',
 };
 
 const RenderSection: React.FC = () => {
@@ -37,46 +71,47 @@ const RenderSection: React.FC = () => {
   return (
     <Section title="渲染">
       <Row label="格式">
-        <select
-          className="w-full rounded border border-zinc-700 bg-zinc-800 px-2 py-1 text-xs outline-none focus:border-blue-500"
-          value={codec}
-          onChange={(e) => setCodec(e.target.value as 'mp4' | 'webm')}
-        >
-          <option value="mp4">MP4 (H.264)</option>
-          <option value="webm">WebM (VP8)</option>
-        </select>
+        <Select items={CODEC_LABELS} value={codec} onValueChange={(v) => setCodec(v as 'mp4' | 'webm')}>
+          <SelectTrigger size="sm" className="w-full text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="mp4">{CODEC_LABELS.mp4}</SelectItem>
+            <SelectItem value="webm">{CODEC_LABELS.webm}</SelectItem>
+          </SelectContent>
+        </Select>
       </Row>
-      <button
-        className="rounded border border-zinc-700 px-2 py-1 text-xs hover:bg-zinc-800"
-        onClick={() => void startRender(codec)}
-      >
+      <Button size="sm" onClick={() => void startRender(codec)}>
+        <ClapperboardIcon />
         渲染
-      </button>
+      </Button>
       {renderingTasks.map((t) => (
-        <div key={t.id} className="rounded border border-zinc-800 p-2 text-xs">
+        <div key={t.id} className="rounded-lg border border-border p-2 text-xs">
           <div className="flex items-center justify-between">
-            <span className="uppercase text-zinc-400">{t.codec}</span>
+            <Badge variant="outline" className="uppercase">
+              {t.codec}
+            </Badge>
             {t.status === 'done' && t.url ? (
               <a
                 href={t.url}
                 target="_blank"
                 rel="noreferrer"
-                className="text-blue-400 hover:underline"
+                className="text-primary underline-offset-4 hover:underline"
               >
                 下载
               </a>
             ) : (
-              <span className="tabular-nums text-zinc-500">
+              <span className="tabular-nums text-muted-foreground">
                 {t.status === 'error' ? '失败' : `${Math.round(t.progress * 100)}%`}
               </span>
             )}
           </div>
           {t.status === 'error' ? (
-            <div className="mt-1 break-all text-red-400">{t.error?.slice(0, 200)}</div>
+            <div className="mt-1 break-all text-destructive">{t.error?.slice(0, 200)}</div>
           ) : (
-            <div className="mt-1 h-1 rounded bg-zinc-800">
+            <div className="mt-2 h-1 rounded-full bg-muted">
               <div
-                className="h-1 rounded bg-blue-500 transition-[width]"
+                className="h-1 rounded-full bg-primary transition-[width]"
                 style={{ width: `${Math.round(t.progress * 100)}%` }}
               />
             </div>
@@ -95,30 +130,33 @@ const CompositionPanel: React.FC = () => {
   return (
     <>
       <Section title="合成设置">
-      <NumberField
-        label="宽度"
-        value={width}
-        min={2}
-        onCommit={(v) => updateUndoable((s) => ({ ...s, compositionWidth: Math.round(v / 2) * 2 }))}
-      />
-      <NumberField
-        label="高度"
-        value={height}
-        min={2}
-        onCommit={(v) => updateUndoable((s) => ({ ...s, compositionHeight: Math.round(v / 2) * 2 }))}
-      />
-      <button
-        className="mt-1 rounded border border-zinc-700 px-2 py-1 text-xs hover:bg-zinc-800"
-        onClick={() =>
-          updateUndoable((s) => ({
-            ...s,
-            compositionWidth: s.compositionHeight,
-            compositionHeight: s.compositionWidth,
-          }))
-        }
-      >
-        交换尺寸 ⇄
-      </button>
+        <NumberField
+          label="宽度"
+          value={width}
+          min={2}
+          onCommit={(v) => updateUndoable((s) => ({ ...s, compositionWidth: Math.round(v / 2) * 2 }))}
+        />
+        <NumberField
+          label="高度"
+          value={height}
+          min={2}
+          onCommit={(v) => updateUndoable((s) => ({ ...s, compositionHeight: Math.round(v / 2) * 2 }))}
+        />
+        <Button
+          variant="outline"
+          size="sm"
+          className="mt-1"
+          onClick={() =>
+            updateUndoable((s) => ({
+              ...s,
+              compositionWidth: s.compositionHeight,
+              compositionHeight: s.compositionWidth,
+            }))
+          }
+        >
+          <ArrowLeftRightIcon />
+          交换尺寸
+        </Button>
       </Section>
       <RenderSection />
     </>
@@ -165,15 +203,20 @@ const SourceInfoSection: React.FC<{ asset: EditorStarterAsset }> = ({ asset }) =
   if (asset.type === 'video' || asset.type === 'audio' || asset.type === 'gif') {
     rows.push(['时长', `${asset.durationInSeconds.toFixed(2)}s`]);
   }
-  rows.push(['上传状态', status ? UPLOAD_STATUS_LABEL[status] : '仅本地']);
   return (
     <Section title="源信息">
       {rows.map(([k, v]) => (
         <div key={k} className="flex items-start justify-between gap-2 text-xs">
-          <span className="w-14 shrink-0 text-zinc-400">{k}</span>
-          <span className="min-w-0 break-all text-right text-zinc-300">{v}</span>
+          <span className="w-14 shrink-0 text-muted-foreground">{k}</span>
+          <span className="min-w-0 break-all text-right text-foreground/80">{v}</span>
         </div>
       ))}
+      <div className="flex items-center justify-between gap-2 text-xs">
+        <span className="w-14 shrink-0 text-muted-foreground">上传状态</span>
+        <Badge variant={status === 'error' ? 'destructive' : 'secondary'}>
+          {status ? UPLOAD_STATUS_LABEL[status] : '仅本地'}
+        </Badge>
+      </div>
     </Section>
   );
 };
@@ -208,13 +251,13 @@ const CropFields: React.FC<{
   );
 };
 
-const ALIGNS: { key: string; label: string; apply: (compW: number, compH: number, it: EditorStarterItem) => Partial<EditorStarterItem> }[] = [
-  { key: 'l', label: '⇤', apply: () => ({ left: 0 }) },
-  { key: 'ch', label: '⇹', apply: (w, _h, it) => ({ left: Math.round((w - it.width) / 2) }) },
-  { key: 'r', label: '⇥', apply: (w, _h, it) => ({ left: w - it.width }) },
-  { key: 't', label: '⤒', apply: () => ({ top: 0 }) },
-  { key: 'cv', label: '⇳', apply: (_w, h, it) => ({ top: Math.round((h - it.height) / 2) }) },
-  { key: 'b', label: '⤓', apply: (_w, h, it) => ({ top: h - it.height }) },
+const ALIGNS: { key: string; label: string; icon: LucideIcon; apply: (compW: number, compH: number, it: EditorStarterItem) => Partial<EditorStarterItem> }[] = [
+  { key: 'l', label: '左对齐', icon: AlignStartVerticalIcon, apply: () => ({ left: 0 }) },
+  { key: 'ch', label: '水平居中', icon: AlignCenterVerticalIcon, apply: (w, _h, it) => ({ left: Math.round((w - it.width) / 2) }) },
+  { key: 'r', label: '右对齐', icon: AlignEndVerticalIcon, apply: (w, _h, it) => ({ left: w - it.width }) },
+  { key: 't', label: '顶对齐', icon: AlignStartHorizontalIcon, apply: () => ({ top: 0 }) },
+  { key: 'cv', label: '垂直居中', icon: AlignCenterHorizontalIcon, apply: (_w, h, it) => ({ top: Math.round((h - it.height) / 2) }) },
+  { key: 'b', label: '底对齐', icon: AlignEndHorizontalIcon, apply: (_w, h, it) => ({ top: h - it.height }) },
 ];
 
 const ItemPanel: React.FC<{ item: EditorStarterItem }> = ({ item }) => {
@@ -269,21 +312,24 @@ const ItemPanel: React.FC<{ item: EditorStarterItem }> = ({ item }) => {
               }
             />
             <Row label="锁比例">
-              <input
-                type="checkbox"
-                checked={aspectLocked}
-                onChange={(e) => setAspectLocked(e.target.checked)}
-              />
+              <Switch size="sm" checked={aspectLocked} onCheckedChange={setAspectLocked} />
             </Row>
             <Row label="旋转°">
               <NumberFieldInline value={item.rotation} onCommit={(v) => patch({ rotation: v })} />
-              <button
-                className="rounded border border-zinc-700 px-2 py-1 text-xs hover:bg-zinc-800"
-                title="旋转 90°"
-                onClick={() => patch({ rotation: (item.rotation + 90) % 360 })}
-              >
-                ↻90°
-              </button>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      variant="outline"
+                      size="icon-sm"
+                      onClick={() => patch({ rotation: (item.rotation + 90) % 360 })}
+                    >
+                      <RotateCwIcon />
+                    </Button>
+                  }
+                />
+                <TooltipContent>旋转 90°</TooltipContent>
+              </Tooltip>
             </Row>
             <NumberField
               label="透明%"
@@ -300,28 +346,36 @@ const ItemPanel: React.FC<{ item: EditorStarterItem }> = ({ item }) => {
             />
             <Row label="对齐">
               {ALIGNS.map((a) => (
-                <button
-                  key={a.key}
-                  className="flex-1 rounded border border-zinc-700 px-1 py-1 text-xs hover:bg-zinc-800"
-                  onClick={() =>
-                    updateUndoable((s) => {
-                      const cur = s.items[item.id];
-                      if (!cur) return s;
-                      return {
-                        ...s,
-                        items: {
-                          ...s.items,
-                          [item.id]: {
-                            ...cur,
-                            ...a.apply(s.compositionWidth, s.compositionHeight, cur),
-                          } as EditorStarterItem,
-                        },
-                      };
-                    })
-                  }
-                >
-                  {a.label}
-                </button>
+                <Tooltip key={a.key}>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        variant="outline"
+                        size="icon-sm"
+                        className="flex-1"
+                        onClick={() =>
+                          updateUndoable((s) => {
+                            const cur = s.items[item.id];
+                            if (!cur) return s;
+                            return {
+                              ...s,
+                              items: {
+                                ...s.items,
+                                [item.id]: {
+                                  ...cur,
+                                  ...a.apply(s.compositionWidth, s.compositionHeight, cur),
+                                } as EditorStarterItem,
+                              },
+                            };
+                          })
+                        }
+                      >
+                        <a.icon />
+                      </Button>
+                    }
+                  />
+                  <TooltipContent>{a.label}</TooltipContent>
+                </Tooltip>
               ))}
             </Row>
           </>
@@ -351,22 +405,27 @@ const ItemPanel: React.FC<{ item: EditorStarterItem }> = ({ item }) => {
               onChange={(crop) => patch({ crop } as Partial<EditorStarterItem>)}
             />
           ) : (
-            <div className="text-xs text-zinc-600">未裁剪</div>
+            <div className="text-xs text-muted-foreground">未裁剪</div>
           )}
           <div className="flex gap-2">
-            <button
-              className="flex-1 rounded border border-zinc-700 px-2 py-1 text-xs hover:bg-zinc-800"
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1"
               onClick={() => setItemSelectedForCrop(item.id)}
             >
+              <CropIcon />
               进入裁剪
-            </button>
+            </Button>
             {'crop' in item && item.crop ? (
-              <button
-                className="flex-1 rounded border border-zinc-700 px-2 py-1 text-xs hover:bg-zinc-800"
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1"
                 onClick={() => patch({ crop: null } as Partial<EditorStarterItem>)}
               >
                 重置
-              </button>
+              </Button>
             ) : null}
           </div>
         </Section>
@@ -394,9 +453,9 @@ const NumberFieldInline: React.FC<{ value: number; onCommit: (v: number) => void
   value,
   onCommit,
 }) => (
-  <input
+  <Input
     type="number"
-    className="w-full min-w-0 rounded border border-zinc-700 bg-zinc-800 px-2 py-1 text-right text-xs tabular-nums outline-none focus:border-blue-500"
+    className="h-7 px-2 text-right text-xs tabular-nums md:text-xs"
     defaultValue={value}
     key={value}
     onBlur={(e) => {
@@ -417,7 +476,7 @@ export const Inspector: React.FC = () => {
 
   if (selected.length === 0) return <CompositionPanel />;
   if (selected.length > 1) {
-    return <div className="p-4 text-sm text-zinc-400">已选 {selected.length} 项</div>;
+    return <div className="p-4 text-sm text-muted-foreground">已选 {selected.length} 项</div>;
   }
   return <ItemPanel item={selected[0]} />;
 };

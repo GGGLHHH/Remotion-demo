@@ -1,11 +1,14 @@
 import type React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { ChevronDownIcon, SearchIcon } from 'lucide-react';
 import { ensureFontLoaded, listFontFamilies } from '@editor/shared/composition';
+import { Input } from '@/components/ui/input';
 import { useEditorStore } from '../state/store';
 
 /** 字体选择器：搜索 + 下拉 + 悬停画布实时预览。
  * 下拉项用各自字体渲染（官方 FEATURE_FONT_FAMILY_DROPDOWN_RENDER_IN_FONT）：
- * IntersectionObserver 在行进入可视区时才懒加载该字体，加载完成前显示回退字体 */
+ * IntersectionObserver 在行进入可视区时才懒加载该字体，加载完成前显示回退字体。
+ * 悬停预览依赖每行的 mouseenter 回调，保持自定义下拉，仅按 shadcn popover 风格改样式 */
 export const FontPicker: React.FC<{
   itemId: string;
   value: string;
@@ -43,34 +46,39 @@ export const FontPicker: React.FC<{
   }, [open, families]);
 
   return (
-    <div className="relative">
+    <div className="relative w-full min-w-0">
       <button
-        className="w-full rounded border border-zinc-700 bg-zinc-800 px-2 py-1 text-left text-xs hover:border-zinc-500"
+        className="flex h-7 w-full items-center justify-between gap-1.5 rounded-lg border border-input bg-transparent px-2 text-left text-xs transition-colors outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30 dark:hover:bg-input/50"
         style={{ fontFamily: value }}
         onClick={() => setOpen((o) => !o)}
       >
-        {value}
+        <span className="truncate">{value}</span>
+        <ChevronDownIcon className="size-3.5 shrink-0 text-muted-foreground" />
       </button>
       {open ? (
-        <div className="absolute z-30 mt-1 w-full rounded border border-zinc-700 bg-zinc-900 shadow-xl">
-          <input
-            autoFocus
-            placeholder="搜索字体…"
-            className="w-full border-b border-zinc-700 bg-transparent px-2 py-1.5 text-xs outline-none"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
+        <div className="absolute z-30 mt-1 w-full overflow-hidden rounded-lg bg-popover text-popover-foreground shadow-md ring-1 ring-foreground/10">
+          <div className="relative border-b border-border">
+            <SearchIcon className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              autoFocus
+              placeholder="搜索字体…"
+              className="h-8 rounded-none border-0 bg-transparent pl-7 text-xs focus-visible:ring-0 md:text-xs dark:bg-transparent"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+          </div>
+          {/* e2e 依赖 div.max-h-64 button 选择器，容器 class 保持 */}
           <div
             ref={listRef}
-            className="max-h-64 overflow-y-auto"
+            className="max-h-64 overflow-y-auto p-1"
             onMouseLeave={() => setFontHoverPreview(null)}
           >
             {families.map((f) => (
               <button
                 key={f}
                 data-font={f}
-                className={`block w-full truncate px-2 py-1.5 text-left text-sm hover:bg-zinc-800 ${
-                  f === value ? 'text-blue-400' : ''
+                className={`block w-full truncate rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent hover:text-accent-foreground ${
+                  f === value ? 'bg-accent text-accent-foreground' : ''
                 }`}
                 style={{ fontFamily: f }}
                 onMouseEnter={() => setFontHoverPreview({ itemId, fontFamily: f })}

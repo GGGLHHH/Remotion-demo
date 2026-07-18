@@ -1,5 +1,6 @@
 import type React from 'react';
 import type { AudioItem, GifItem, VideoItem } from '@editor/shared';
+import { Switch } from '@/components/ui/switch';
 import { useEditorStore } from '../state/store';
 import { maxItemDurationInFrames } from '../timeline/ops';
 import { Row, Section, SliderField } from './fields';
@@ -61,10 +62,10 @@ export const MediaPanel: React.FC<{ item: MediaItem }> = ({ item }) => {
             onChange={(v, committing) => patch({ volume: v } as Partial<MediaItem>, committing)}
           />
           <Row label="静音">
-            <input
-              type="checkbox"
+            <Switch
+              size="sm"
               checked={(item as VideoItem | AudioItem).muted}
-              onChange={(e) => patch({ muted: e.target.checked } as Partial<MediaItem>)}
+              onCheckedChange={(checked) => patch({ muted: checked } as Partial<MediaItem>)}
             />
           </Row>
         </>

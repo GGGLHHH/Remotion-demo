@@ -1,6 +1,16 @@
 import type React from 'react';
 import { useRef, useState } from 'react';
+import {
+  AlignCenterIcon,
+  AlignLeftIcon,
+  AlignRightIcon,
+  ChevronDownIcon,
+  ItalicIcon,
+} from 'lucide-react';
 import type { TextItem } from '@editor/shared';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useEditorStore } from '../state/store';
 import { NumberField } from './NumberField';
 import { ColorField, Row, Section } from './fields';
@@ -8,12 +18,17 @@ import { FontPicker } from './FontPicker';
 
 /** 首个强方向字符判断 RTL（阿拉伯/希伯来等区段） */
 export const detectDirection = (text: string): 'ltr' | 'rtl' => {
-  const strong = text.match(/[֐-޿ࢠ-ࣿיִ-﷽ﹰ-ﻼ]|[A-Za-z一-鿿]/);
+  const strong = text.match(/[֐-޿ࢠ-ࣿיִ-﷽ﹰ-ﻼ]|[A-Za-z一-鿿]/);
   if (!strong) return 'ltr';
   return /[A-Za-z一-鿿]/.test(strong[0]) ? 'ltr' : 'rtl';
 };
 
 const WEIGHTS = ['100', '200', '300', '400', '500', '600', '700', '800', '900'];
+
+const ALIGN_ICONS = { left: AlignLeftIcon, center: AlignCenterIcon, right: AlignRightIcon } as const;
+
+/** 选中态按钮高亮（outline Button 之上叠加） */
+const activeCls = (active: boolean) => (active ? 'border-primary text-primary' : '');
 
 export const TextPanel: React.FC<{ item: TextItem }> = ({ item }) => {
   const updateUndoable = useEditorStore((s) => s.updateUndoable);
@@ -36,10 +51,9 @@ export const TextPanel: React.FC<{ item: TextItem }> = ({ item }) => {
   return (
     <>
       <Section title="文本">
-        <textarea
+        <Textarea
           key={item.id}
-          className="min-h-16 w-full resize-y rounded border border-zinc-700 bg-zinc-800 p-2 text-xs outline-none focus:border-blue-500"
-          style={{ fieldSizing: 'content' } as React.CSSProperties}
+          className="min-h-16 resize-y text-xs md:text-xs"
           defaultValue={item.text}
           onBlur={(e) => {
             const text = e.target.value;
@@ -50,24 +64,26 @@ export const TextPanel: React.FC<{ item: TextItem }> = ({ item }) => {
           <FontPicker itemId={item.id} value={item.fontFamily} onCommit={(f) => patch({ fontFamily: f })} />
         </Row>
         <Row label="字重">
-          {/* 自定义下拉：悬停即在画布实时预览字重（commit:false），点击才提交 */}
+          {/* 自定义下拉：悬停即在画布实时预览字重（commit:false），点击才提交；
+              shadcn Select 无法逐项 hover 回调，保留自定义结构、按 popover 风格改样式 */}
           <div className="relative w-full min-w-0">
             <button
-              className="w-full rounded border border-zinc-700 bg-zinc-800 px-2 py-1 text-left text-xs hover:border-zinc-500"
+              className="flex h-7 w-full items-center justify-between gap-1.5 rounded-lg border border-input bg-transparent px-2 text-left text-xs transition-colors outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30 dark:hover:bg-input/50"
               onClick={() => setWeightOpen((o) => !o)}
             >
               {item.fontWeight}
+              <ChevronDownIcon className="size-3.5 shrink-0 text-muted-foreground" />
             </button>
             {weightOpen ? (
               <div
-                className="absolute z-30 mt-1 w-full rounded border border-zinc-700 bg-zinc-900 shadow-xl"
+                className="absolute z-30 mt-1 w-full overflow-hidden rounded-lg bg-popover p-1 text-popover-foreground shadow-md ring-1 ring-foreground/10"
                 onMouseLeave={cancelItemStylePreview}
               >
                 {WEIGHTS.map((w) => (
                   <button
                     key={w}
-                    className={`block w-full px-2 py-1 text-left text-xs hover:bg-zinc-800 ${
-                      w === item.fontWeight ? 'text-blue-400' : ''
+                    className={`block w-full rounded-md px-2 py-1 text-left text-xs hover:bg-accent hover:text-accent-foreground ${
+                      w === item.fontWeight ? 'bg-accent text-accent-foreground' : ''
                     }`}
                     style={{ fontFamily: item.fontFamily, fontWeight: w }}
                     onMouseEnter={() => previewItemStyle(item.id, { fontWeight: w })}
@@ -83,31 +99,38 @@ export const TextPanel: React.FC<{ item: TextItem }> = ({ item }) => {
               </div>
             ) : null}
           </div>
-          <button
-            className={`rounded border px-2 py-1 text-xs italic ${
-              item.fontStyle === 'italic' ? 'border-blue-500 text-blue-400' : 'border-zinc-700'
-            }`}
-            onMouseEnter={() => {
-              italicBase.current = item.fontStyle;
-              previewItemStyle(item.id, {
-                fontStyle: item.fontStyle === 'italic' ? 'normal' : 'italic',
-              });
-            }}
-            onMouseLeave={() => {
-              italicBase.current = null;
-              cancelItemStylePreview();
-            }}
-            onClick={() => {
-              const base = italicBase.current ?? item.fontStyle;
-              previewItemStyle(item.id, {
-                fontStyle: base === 'italic' ? 'normal' : 'italic',
-              });
-              commitPending();
-              italicBase.current = null;
-            }}
-          >
-            I
-          </button>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  variant="outline"
+                  size="icon-sm"
+                  className={activeCls(item.fontStyle === 'italic')}
+                  onMouseEnter={() => {
+                    italicBase.current = item.fontStyle;
+                    previewItemStyle(item.id, {
+                      fontStyle: item.fontStyle === 'italic' ? 'normal' : 'italic',
+                    });
+                  }}
+                  onMouseLeave={() => {
+                    italicBase.current = null;
+                    cancelItemStylePreview();
+                  }}
+                  onClick={() => {
+                    const base = italicBase.current ?? item.fontStyle;
+                    previewItemStyle(item.id, {
+                      fontStyle: base === 'italic' ? 'normal' : 'italic',
+                    });
+                    commitPending();
+                    italicBase.current = null;
+                  }}
+                >
+                  <ItalicIcon />
+                </Button>
+              }
+            />
+            <TooltipContent>斜体</TooltipContent>
+          </Tooltip>
         </Row>
         <NumberField label="字号" value={item.fontSize} min={4} max={800} onCommit={(v) => patch({ fontSize: v })} />
         <ColorField label="颜色" value={item.color} onChange={(v) => patch({ color: v })} />
@@ -136,37 +159,43 @@ export const TextPanel: React.FC<{ item: TextItem }> = ({ item }) => {
           max={50}
           onCommit={(v) => patch({ letterSpacing: v })}
         />
+        {/* e2e 依赖 label:has-text("对齐") 下 button 顺序：left 在首位 */}
         <Row label="对齐">
-          {(['left', 'center', 'right'] as const).map((a) => (
-            <button
-              key={a}
-              className={`flex-1 rounded border px-2 py-1 text-xs ${
-                item.textAlign === a ? 'border-blue-500 text-blue-400' : 'border-zinc-700'
-              }`}
-              onClick={() => patch({ textAlign: a })}
-            >
-              {a === 'left' ? '⇤' : a === 'center' ? '↔' : '⇥'}
-            </button>
-          ))}
+          {(['left', 'center', 'right'] as const).map((a) => {
+            const Icon = ALIGN_ICONS[a];
+            return (
+              <Button
+                key={a}
+                variant="outline"
+                size="icon-sm"
+                className={`flex-1 ${activeCls(item.textAlign === a)}`}
+                onClick={() => patch({ textAlign: a })}
+              >
+                <Icon />
+              </Button>
+            );
+          })}
         </Row>
         <Row label="方向">
           {(['ltr', 'rtl'] as const).map((d) => (
-            <button
+            <Button
               key={d}
-              className={`flex-1 rounded border px-2 py-1 text-xs uppercase ${
-                item.direction === d ? 'border-blue-500 text-blue-400' : 'border-zinc-700'
-              }`}
+              variant="outline"
+              size="sm"
+              className={`flex-1 uppercase ${activeCls(item.direction === d)}`}
               onClick={() => patch({ direction: d })}
             >
               {d}
-            </button>
+            </Button>
           ))}
         </Row>
       </Section>
       <Section title="文字背景">
         <Row label="启用">
+          {/* e2e 依赖原生 checkbox input（.check()），保留原生控件仅改配色 */}
           <input
             type="checkbox"
+            className="size-4 accent-primary"
             checked={item.backgroundColor !== null}
             onChange={(e) => patch({ backgroundColor: e.target.checked ? '#000000' : null })}
           />

@@ -1,5 +1,6 @@
 import type React from 'react';
 import type { Caption, CaptionsItem } from '@editor/shared';
+import { Input } from '@/components/ui/input';
 import { useEditorStore } from '../state/store';
 import { NumberField } from './NumberField';
 import { ColorField, Row, Section } from './fields';
@@ -52,13 +53,14 @@ export const CaptionsPanel: React.FC<{ item: CaptionsItem }> = ({ item }) => {
         />
       </Section>
       <Section title="逐词修正">
-        <div className="flex max-h-72 flex-col gap-1 overflow-y-auto">
+        <div className="flex max-h-72 flex-col gap-1 overflow-y-auto pr-0.5">
           {captions.map((c, i) => (
             <div key={i} className="flex items-center gap-1">
-              <input
+              {/* e2e 依赖 data-caption-word 定位逐词输入框 */}
+              <Input
                 key={`t${i}:${c.text}`}
                 data-caption-word={i}
-                className="min-w-0 flex-1 rounded border border-zinc-700 bg-zinc-800 px-2 py-1 text-xs outline-none focus:border-blue-500"
+                className="h-7 flex-1 px-2 text-xs md:text-xs"
                 defaultValue={c.text}
                 onBlur={(e) => {
                   if (e.target.value !== c.text) patchCaption(i, { text: e.target.value });
@@ -67,11 +69,11 @@ export const CaptionsPanel: React.FC<{ item: CaptionsItem }> = ({ item }) => {
                   if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
                 }}
               />
-              <input
+              <Input
                 key={`s${i}:${c.startMs}`}
                 type="number"
                 title="起始 ms"
-                className="w-20 shrink-0 rounded border border-zinc-700 bg-zinc-800 px-1 py-1 text-right text-xs tabular-nums outline-none focus:border-blue-500"
+                className="h-7 w-20 shrink-0 px-1.5 text-right text-xs tabular-nums md:text-xs"
                 defaultValue={c.startMs}
                 onBlur={(e) => {
                   const v = Number(e.target.value);
