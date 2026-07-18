@@ -7,7 +7,8 @@ import type { CaptionsItem } from '../../types';
 import { FontGate } from './TextItemRenderer';
 
 /** TikTok 分页字幕 + 当前词高亮。
- * ponytail: 字幕时间戳相对素材起点，item 与源 item 同 from 即对齐；忽略源 item 的 trim/变速偏移 */
+ * 字幕生成时已按源 item 的 trim/变速对齐到 item 时间轴（editor/lib/captioning.ts），
+ * 这里只需相对 item 起点计时 */
 export const CaptionsItemRenderer: React.FC<{ item: CaptionsItem; captions: Caption[] }> = ({
   item,
   captions,

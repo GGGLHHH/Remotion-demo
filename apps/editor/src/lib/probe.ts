@@ -1,3 +1,4 @@
+import { getGifDurationInSeconds } from '@remotion/gif';
 import { ALL_FORMATS, BlobSource, Input } from 'mediabunny';
 
 export type ProbeResult =
@@ -9,8 +10,17 @@ export type ProbeResult =
 export const probeFile = async (file: File): Promise<ProbeResult> => {
   if (file.type === 'image/gif') {
     const bmp = await createImageBitmap(file);
-    // ponytail: GIF 时长解析成本高，给默认 3s（gif 循环播放，item 时长可自由拉伸）
-    return { kind: 'gif', width: bmp.width, height: bmp.height, durationInSeconds: 3 };
+    // 官方行为：媒体项自动获得固有时长；解析失败回退 3s（gif 循环播放，item 时长可自由拉伸）
+    const url = URL.createObjectURL(file);
+    let durationInSeconds = 3;
+    try {
+      durationInSeconds = await getGifDurationInSeconds(url);
+    } catch {
+      // 保持默认
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+    return { kind: 'gif', width: bmp.width, height: bmp.height, durationInSeconds };
   }
   if (file.type.startsWith('image/')) {
     const bmp = await createImageBitmap(file);

@@ -29,22 +29,30 @@ const encodeWav = (samples: Float32Array): Blob => {
   return new Blob([buf], { type: 'audio/wav' });
 };
 
-/** 从 video/audio 素材 URL（blob 或远端）抽 16kHz 单声道 WAV */
-export const extractWav = async (url: string): Promise<Blob> => {
+/** 从 video/audio 素材 URL（blob 或远端）抽 16kHz 单声道 WAV。
+ * segment：只抽素材内 [offsetSec, offsetSec+durationSec) 片段（素材原速秒），
+ * 用于对齐源 item 的 trim/变速；不传则抽全长 */
+export const extractWav = async (
+  url: string,
+  segment?: { offsetSec: number; durationSec: number },
+): Promise<Blob> => {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`素材获取失败: ${res.status}`);
   const data = await res.arrayBuffer();
   // decodeAudioData 会把音频重采样到 context 的 16kHz
   const decoded = await new OfflineAudioContext(1, 1, SAMPLE_RATE).decodeAudioData(data);
-  if (decoded.duration > MAX_DURATION_ALLOWING_CAPTIONING_IN_SEC) {
+  const offsetSec = Math.min(segment?.offsetSec ?? 0, decoded.duration);
+  const durationSec = Math.min(segment?.durationSec ?? decoded.duration, decoded.duration - offsetSec);
+  if (durationSec <= 0) throw new Error('所选片段内没有音频');
+  if (durationSec > MAX_DURATION_ALLOWING_CAPTIONING_IN_SEC) {
     throw new Error(`音频超过 ${MAX_DURATION_ALLOWING_CAPTIONING_IN_SEC / 60} 分钟转录上限`);
   }
-  // 经 OfflineAudioContext 渲染完成多声道 → 单声道混音
-  const ctx = new OfflineAudioContext(1, Math.ceil(decoded.duration * SAMPLE_RATE), SAMPLE_RATE);
+  // 经 OfflineAudioContext 渲染完成多声道 → 单声道混音（同时截取片段）
+  const ctx = new OfflineAudioContext(1, Math.ceil(durationSec * SAMPLE_RATE), SAMPLE_RATE);
   const src = ctx.createBufferSource();
   src.buffer = decoded;
   src.connect(ctx.destination);
-  src.start();
+  src.start(0, offsetSec, durationSec);
   const rendered = await ctx.startRendering();
   return encodeWav(rendered.getChannelData(0));
 };
