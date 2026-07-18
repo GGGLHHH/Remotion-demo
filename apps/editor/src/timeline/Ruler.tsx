@@ -38,6 +38,9 @@ export const Ruler: React.FC<{
       className="relative cursor-pointer select-none border-b border-zinc-800 text-[10px] text-zinc-500"
       style={{ height: RULER_HEIGHT }}
       onPointerDown={(e) => {
+        if (e.button !== 0) return;
+        // 阻止冒泡到时间线背景（否则框选逻辑会抢走指针捕获，无法按住连续 scrub）
+        e.stopPropagation();
         e.currentTarget.setPointerCapture(e.pointerId);
         seekFromEvent(e);
       }}

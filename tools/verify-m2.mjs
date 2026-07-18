@@ -1,4 +1,5 @@
-/* M2 时间轴验证：条块显示/拖动/吸附/跨轨/新轨道/修剪/分割/框选/标尺 seek/undo */
+/* M2 时间轴验证：条块显示/拖动落点/吸附/顶开占位/跨轨/新轨道/修剪/分割/框选/标尺 seek/undo
+   拖拽模型 = 官方 editor-starter：拖拽中不改 store，松手一次性落到落位槽位置，永不回弹 */
 import { chromium } from 'playwright';
 
 const fail = (msg) => {
@@ -49,7 +50,7 @@ await page.goto('http://localhost:5173', { waitUntil: 'networkidle' });
 // 1) 条块显示
 if ((await page.locator('[data-item-block]').count()) !== 2) fail('expected 2 item blocks');
 
-// 2) 拖动 solid +100px（zoom=2 ⇒ 50 帧；无吸附候选干扰）
+// 2) 拖动 solid +100px（zoom=2 ⇒ 50 帧）：空位落在光标位置，一次拖拽 = 一条撤销
 {
   const { solidId } = await ids();
   const b = await blockBox(solidId);
@@ -72,7 +73,38 @@ if ((await page.locator('[data-item-block]').count()) !== 2) fail('expected 2 it
   await page.keyboard.press('Meta+z');
 }
 
-// 4) 跨轨拖动到下边缘 ⇒ 新建底部轨道，原空轨道被自动清理
+// 4) 拖到被占位置 ⇒ 紧贴占位块之后（不回弹！）
+//    text（from=15）下移一行到 solid 轨道：期望位置与 solid(0..150) 重叠 ⇒ 顶到 150
+{
+  const { s: s0, solidId, textId } = await ids();
+  const solidTrack = s0.items[solidId].trackId;
+  const b = await blockBox(textId);
+  await dragBy(b.x + b.width / 2, b.y + b.height / 2, 0, 56);
+  const s = await getStore();
+  if (s.items[textId].trackId !== solidTrack) fail('butt-after: text not on solid track');
+  if (s.items[textId].from !== 150) {
+    fail(`butt-after: from=${s.items[textId].from}, want 150 (butt after solid)`);
+  }
+  await page.keyboard.press('Meta+z');
+}
+
+// 5) 跨轨拖到 solid 轨道的空位 ⇒ 换轨且落在光标位置（+400px ⇒ from 15+200=215）
+{
+  const { s: s0, solidId, textId } = await ids();
+  const solidTrack = s0.items[solidId].trackId;
+  const b = await blockBox(textId);
+  await dragBy(b.x + b.width / 2, b.y + b.height / 2, 400, 56);
+  const s = await getStore();
+  if (s.items[textId].trackId !== solidTrack) fail('cross-track: text not moved to solid track');
+  if (s.items[textId].from !== 215) fail(`cross-track: from=${s.items[textId].from}, want 215`);
+  // 原轨道已空 ⇒ 自动清理
+  if (s.tracks.length !== 1) fail(`cross-track: emptied track not cleaned up (${s.tracks.length})`);
+  await page.keyboard.press('Meta+z');
+  const s2 = await getStore();
+  if (s2.items[textId].trackId === solidTrack) fail('cross-track undo failed');
+}
+
+// 6) 拖出下边缘 ⇒ 新建底部轨道，原空轨道被自动清理
 {
   const { s: s0, textId } = await ids();
   const trackBefore = s0.items[textId].trackId;
@@ -88,7 +120,7 @@ if ((await page.locator('[data-item-block]').count()) !== 2) fail('expected 2 it
   if (s2.items[textId].trackId !== trackBefore) fail('cross-track undo failed');
 }
 
-// 5) 修剪 solid 末端 -40px ⇒ 130 帧
+// 7) 修剪 solid 末端 -40px ⇒ 130 帧
 {
   const { solidId } = await ids();
   const b = await blockBox(solidId);
@@ -100,7 +132,7 @@ if ((await page.locator('[data-item-block]').count()) !== 2) fail('expected 2 it
   await page.keyboard.press('Meta+z');
 }
 
-// 6) 标尺 seek + S 分割
+// 8) 标尺 seek + S 分割
 {
   const { solidId } = await ids();
   const ruler = await page.locator('[data-ruler]').boundingBox();
@@ -117,7 +149,7 @@ if ((await page.locator('[data-item-block]').count()) !== 2) fail('expected 2 it
   if (Object.values(s2.items).filter((i) => i.type === 'solid').length !== 1) fail('split undo failed');
 }
 
-// 7) 框选：在轨道区空白拖出矩形覆盖两条轨道 ⇒ 全选 2 项
+// 9) 框选：在轨道区空白拖出矩形覆盖两条轨道 ⇒ 全选 2 项
 {
   const scroll = await page.locator('[data-tl-scroll]').boundingBox();
   await dragBy(scroll.x + 380, scroll.y + 30, -370, 100);

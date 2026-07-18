@@ -86,6 +86,37 @@ export const moveItems = (
   return { ...state, items };
 };
 
+/** 移动拖拽的目标轨道：现有轨道 / 在 index 处插入的新轨道 */
+export type MoveTrackRef = { kind: 'existing'; id: string } | { kind: 'insert'; index: number };
+
+/**
+ * 解析移动落点（官方行为：永不回弹）：
+ * 负帧钳到 0；目标轨道上与其他块重叠时，紧贴占位块之后（循环直到无重叠）。
+ */
+export const resolveMovePlacement = (
+  state: UndoableState,
+  itemId: string,
+  desiredFrom: number,
+  targetTrack: MoveTrackRef,
+): { from: number; trackRef: MoveTrackRef } => {
+  let from = Math.max(0, Math.round(desiredFrom));
+  const item = state.items[itemId];
+  // 新插入的轨道必然为空，只需钳帧
+  if (!item || targetTrack.kind === 'insert') return { from, trackRef: targetTrack };
+  const dur = item.durationInFrames;
+  for (;;) {
+    const blocker = Object.values(state.items).find(
+      (o) =>
+        o.trackId === targetTrack.id &&
+        o.id !== itemId &&
+        from < o.from + o.durationInFrames &&
+        o.from < from + dur,
+    );
+    if (!blocker) return { from, trackRef: targetTrack };
+    from = blocker.from + blocker.durationInFrames;
+  }
+};
+
 export const trimItem = (
   state: UndoableState,
   id: string,
@@ -232,6 +263,26 @@ export const addTrack = (
   tracks.splice(index, 0, track);
   return { state: { ...state, tracks }, trackId: track.id };
 };
+
+/** 置顶/置底：把 item 移到新建的最外层轨道，再清理空轨道（与画布右键菜单一致） */
+const reorderItemToEdge = (
+  state: UndoableState,
+  itemId: string,
+  where: 'front' | 'back',
+): UndoableState => {
+  const item = state.items[itemId];
+  if (!item) return state;
+  const { state: st, trackId } = addTrack(state, where === 'front' ? 0 : state.tracks.length);
+  const moved = moveItems(st, [{ id: itemId, trackId, from: item.from }]);
+  if (moved === st) return state;
+  return removeEmptyTracks(moved);
+};
+
+export const bringToFront = (state: UndoableState, itemId: string): UndoableState =>
+  reorderItemToEdge(state, itemId, 'front');
+
+export const sendToBack = (state: UndoableState, itemId: string): UndoableState =>
+  reorderItemToEdge(state, itemId, 'back');
 
 export const removeEmptyTracks = (state: UndoableState): UndoableState => {
   const used = new Set(Object.values(state.items).map((i) => i.trackId));

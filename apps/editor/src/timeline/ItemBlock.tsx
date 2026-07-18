@@ -6,13 +6,13 @@ import { Filmstrip } from './Filmstrip';
 import { Waveform } from './Waveform';
 
 const COLORS: Record<EditorStarterItem['type'], string> = {
-  solid: 'bg-blue-600/80 border-blue-400',
-  text: 'bg-purple-600/80 border-purple-400',
-  video: 'bg-teal-600/80 border-teal-400',
-  audio: 'bg-emerald-600/80 border-emerald-400',
-  image: 'bg-amber-600/80 border-amber-400',
-  gif: 'bg-pink-600/80 border-pink-400',
-  captions: 'bg-rose-600/80 border-rose-400',
+  solid: 'bg-blue-600/80',
+  text: 'bg-purple-600/80',
+  video: 'bg-teal-600/80',
+  audio: 'bg-emerald-600/80',
+  image: 'bg-amber-600/80',
+  gif: 'bg-pink-600/80',
+  captions: 'bg-rose-600/80',
 };
 
 export const itemLabel = (item: EditorStarterItem): string => {
@@ -27,8 +27,10 @@ const toDb = (v: number) => (v <= 0 ? '-∞' : `${(20 * Math.log10(v)).toFixed(1
 export const ItemBlock: React.FC<{
   item: EditorStarterItem;
   zoom: number;
+  /** move 拖拽中隐藏原块（不卸载，保持指针捕获与布局） */
+  hidden?: boolean;
   onPointerDown?: (e: React.PointerEvent, item: EditorStarterItem, mode: 'move' | 'trim-start' | 'trim-end') => void;
-}> = ({ item, zoom, onPointerDown }) => {
+}> = ({ item, zoom, hidden, onPointerDown }) => {
   const selected = useEditorStore((s) => s.selectedItemIds.includes(item.id));
   const mediaUrl = useEditorStore((s) => {
     if (item.type !== 'video' && item.type !== 'audio') return null;
@@ -39,9 +41,15 @@ export const ItemBlock: React.FC<{
     const asset = s.undoable.assets[item.assetId];
     return asset?.type === 'video' && asset.hasAudio;
   });
+  const fps = useEditorStore((s) => s.undoable.fps);
+  const filename = useEditorStore((s) =>
+    item.type === 'video' ? (s.undoable.assets[item.assetId]?.filename ?? null) : null,
+  );
   const widthPx = Math.max(2, item.durationInFrames * zoom);
   const blockRef = useRef<HTMLDivElement>(null);
   const [volDrag, setVolDrag] = useState<number | null>(null);
+  /** 淡变拖拽中的提示：淡入/淡出 + 当前帧数 */
+  const [fadeDrag, setFadeDrag] = useState<{ side: 'in' | 'out'; frames: number } | null>(null);
 
   /** 手柄小拖拽骨架：捕获指针，move 期间 commit:false，抬起 commitPending（一次拖拽 = 一条撤销） */
   const startHandleDrag = (
@@ -88,30 +96,39 @@ export const ItemBlock: React.FC<{
 
   const onFadePointerDown = (e: React.PointerEvent, side: 'in' | 'out') => {
     const rect = blockRef.current!.getBoundingClientRect();
-    startHandleDrag(e, (ev) => {
-      useEditorStore.getState().updateUndoable(
-        (s) => {
-          const it = s.items[item.id];
-          if (!it) return s;
-          const raw =
-            side === 'in'
-              ? Math.round((ev.clientX - rect.left) / zoom)
-              : Math.round((rect.right - ev.clientX) / zoom);
-          // 淡入 + 淡出 不超过项时长
-          const other = side === 'in' ? it.fadeOutDurationInFrames : it.fadeInDurationInFrames;
-          const v = Math.min(Math.max(0, raw), Math.max(0, it.durationInFrames - other));
-          const cur = side === 'in' ? it.fadeInDurationInFrames : it.fadeOutDurationInFrames;
-          if (cur === v) return s;
-          const next =
-            side === 'in' ? { ...it, fadeInDurationInFrames: v } : { ...it, fadeOutDurationInFrames: v };
-          return { ...s, items: { ...s.items, [item.id]: next } };
-        },
-        { commit: false },
-      );
-    });
+    startHandleDrag(
+      e,
+      (ev) => {
+        const store = useEditorStore.getState();
+        const it = store.undoable.items[item.id];
+        if (!it) return;
+        const raw =
+          side === 'in'
+            ? Math.round((ev.clientX - rect.left) / zoom)
+            : Math.round((rect.right - ev.clientX) / zoom);
+        // 淡入 + 淡出 不超过项时长
+        const other = side === 'in' ? it.fadeOutDurationInFrames : it.fadeInDurationInFrames;
+        const v = Math.min(Math.max(0, raw), Math.max(0, it.durationInFrames - other));
+        setFadeDrag({ side, frames: v });
+        const cur = side === 'in' ? it.fadeInDurationInFrames : it.fadeOutDurationInFrames;
+        if (cur === v) return;
+        store.updateUndoable(
+          (s) => {
+            const cu = s.items[item.id];
+            if (!cu) return s;
+            const next =
+              side === 'in' ? { ...cu, fadeInDurationInFrames: v } : { ...cu, fadeOutDurationInFrames: v };
+            return { ...s, items: { ...s.items, [item.id]: next } };
+          },
+          { commit: false },
+        );
+      },
+      () => setFadeDrag(null),
+    );
   };
 
-  const fadeHandleCls = `absolute top-0.5 z-30 h-2.5 w-2.5 -translate-x-1/2 cursor-ew-resize rounded-full border border-white bg-black/60 ${
+  /** 官方样式：顶角白色小药丸（约 6×10px、下缘圆角），悬停或选中时可见 */
+  const fadeHandleCls = `absolute top-0 z-30 h-[10px] w-[6px] -translate-x-1/2 cursor-ew-resize rounded-b-full bg-white ${
     selected ? '' : 'opacity-0 group-hover:opacity-100'
   }`;
 
@@ -119,10 +136,10 @@ export const ItemBlock: React.FC<{
     <div
       ref={blockRef}
       data-item-block={item.id}
-      className={`group absolute top-1.5 bottom-1.5 flex cursor-grab items-center overflow-hidden rounded border px-2 text-xs text-white/90 ${COLORS[item.type]} ${
-        selected ? 'ring-2 ring-white' : ''
+      className={`group absolute top-1.5 bottom-1.5 flex cursor-pointer items-center overflow-hidden rounded border px-2 text-xs text-white/90 ${COLORS[item.type]} ${
+        selected ? 'border-[#0B84F3]' : 'border-white/10'
       }`}
-      style={{ left: item.from * zoom, width: widthPx }}
+      style={{ left: item.from * zoom, width: widthPx, visibility: hidden ? 'hidden' : undefined }}
       onPointerDown={(e) => onPointerDown?.(e, item, 'move')}
     >
       {item.type === 'video' && mediaUrl ? (
@@ -154,28 +171,46 @@ export const ItemBlock: React.FC<{
           }}
         />
       ) : null}
-      <span className="relative z-10 truncate select-none">{itemLabel(item)}</span>
-      {/* 音量线（上 = 100%，下 = 0%） */}
+      {/* 视频块：左上角显示素材文件名（官方）；其余块居中显示类型标签 */}
+      {item.type === 'video' ? (
+        filename ? (
+          <span className="pointer-events-none absolute left-1 top-0.5 z-10 max-w-[calc(100%-8px)] truncate text-[10px] text-white/90 select-none">
+            {filename}
+          </span>
+        ) : null
+      ) : (
+        <span className="relative z-10 truncate select-none">{itemLabel(item)}</span>
+      )}
+      {/* 音量线（上 = 100%，下 = 0%）：1px 白线 + 线下浅灰填充 */}
       {item.type === 'video' || item.type === 'audio' ? (
-        <div
-          data-volume-line
-          className="absolute inset-x-0 z-20 flex cursor-ns-resize items-center"
-          style={{ top: `calc(${(1 - item.volume) * 100}% - 3px)`, height: 6 }}
-          title="音量"
-          onPointerDown={onVolumePointerDown}
-        >
-          <div className="h-[1.5px] w-full bg-yellow-300/90" />
+        <>
+          <div
+            className="pointer-events-none absolute inset-x-0 bottom-0 z-10 bg-zinc-400/15"
+            style={{ top: `${(1 - item.volume) * 100}%` }}
+          />
+          <div
+            data-volume-line
+            className="absolute inset-x-0 z-20 flex cursor-ns-resize items-center"
+            style={{ top: `calc(${(1 - item.volume) * 100}% - 3px)`, height: 6 }}
+            title="音量"
+            onPointerDown={onVolumePointerDown}
+          >
+            <div className="h-px w-full bg-white/25" />
+          </div>
+        </>
+      ) : null}
+      {/* 拖拽中的深色提示：音量 dB / 淡入淡出秒数 */}
+      {volDrag !== null || fadeDrag !== null ? (
+        <div className="pointer-events-none absolute left-1/2 top-1 z-30 -translate-x-1/2 rounded bg-black/80 px-1.5 py-0.5 text-[10px] tabular-nums whitespace-nowrap text-white">
+          {volDrag !== null
+            ? toDb(volDrag)
+            : `${fadeDrag!.side === 'in' ? '淡入' : '淡出'} ${(fadeDrag!.frames / fps).toFixed(1)}s`}
         </div>
       ) : null}
-      {volDrag !== null ? (
-        <div className="pointer-events-none absolute left-1/2 top-1 z-30 -translate-x-1/2 rounded bg-black/80 px-1.5 py-0.5 text-[10px] tabular-nums whitespace-nowrap">
-          {Math.round(volDrag * 100)}% · {toDb(volDrag)}
-        </div>
-      ) : null}
-      {/* 修剪手柄 */}
+      {/* 修剪手柄（官方：左缘 e-resize、右缘 w-resize） */}
       <div
         data-trim="start"
-        className="absolute inset-y-0 left-0 z-30 w-1.5 cursor-ew-resize bg-white/0 hover:bg-white/40"
+        className="absolute inset-y-0 left-0 z-30 w-1.5 cursor-e-resize bg-white/0 hover:bg-white/40"
         onPointerDown={(e) => {
           e.stopPropagation();
           onPointerDown?.(e, item, 'trim-start');
@@ -183,7 +218,7 @@ export const ItemBlock: React.FC<{
       />
       <div
         data-trim="end"
-        className="absolute inset-y-0 right-0 z-30 w-1.5 cursor-ew-resize bg-white/0 hover:bg-white/40"
+        className="absolute inset-y-0 right-0 z-30 w-1.5 cursor-w-resize bg-white/0 hover:bg-white/40"
         onPointerDown={(e) => {
           e.stopPropagation();
           onPointerDown?.(e, item, 'trim-end');

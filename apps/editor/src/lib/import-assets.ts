@@ -172,7 +172,9 @@ export const importFiles = async (
       let created: { asset: EditorStarterAsset; item: EditorStarterItem } | null = null;
       store.updateUndoable((s) => {
         // 先构建 item（时长在此确定），再定轨道：
-        // 悬停轨道放得下就放，否则新建顶部轨道（官方拖放建层行为）
+        // - 时间轴拖放：悬停轨道放得下就放，否则新建顶部轨道
+        // - 默认（头部按钮/粘贴/画布拖放）：官方行为——落在播放头处有空间的现有轨道，
+        //   都放不下才新建顶部轨道
         const built = buildAssetAndItem(probe, file, blobUrl, {
           trackId: '',
           from: frame,
@@ -182,12 +184,14 @@ export const importFiles = async (
           dropAt,
         });
         let st = s;
+        const dur = built.item.durationInFrames;
         let trackId = placement?.trackId;
-        if (
-          !trackId ||
-          !st.tracks.some((t) => t.id === trackId) ||
-          hasOverlap(st, trackId, frame, built.item.durationInFrames, [])
-        ) {
+        if (!trackId || !st.tracks.some((t) => t.id === trackId) || hasOverlap(st, trackId, frame, dur, [])) {
+          trackId = placement?.trackId
+            ? undefined // 显式落点放不下 ⇒ 直接新建（保持拖放行为）
+            : st.tracks.find((t) => !hasOverlap(st, t.id, frame, dur, []))?.id;
+        }
+        if (!trackId) {
           const added = addTrack(st, 0);
           st = added.state;
           trackId = added.trackId;

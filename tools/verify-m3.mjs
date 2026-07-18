@@ -23,6 +23,13 @@ const getStore = () =>
     };
   });
 
+// 记录初始轨道，并把播放头移到 149 帧：Track 1 的 text（15..135）已结束有空间，
+// Track 2 的 solid（0..150）仍占用 —— 用于验证「导入落在播放头处有空间的现有轨道」
+await page.waitForFunction(() => Boolean(window.__playerRef?.current));
+const before = await getStore();
+const track1Id = before.tracks[0].id;
+await page.evaluate(() => window.__playerRef.current.seekTo(149));
+
 // 导入三个文件
 await page.locator('input[type=file][accept*="video"]').setInputFiles([
   'tools/fixtures/video.mp4',
@@ -63,8 +70,14 @@ for (const a of [vAsset, s.assets[audio.assetId], s.assets[image.assetId]]) {
   if (!res.ok) fail(`remote GET ${a.url} -> ${res.status}`);
 }
 
-// 每个素材一条新轨道（3 新 + 原 2）
-if (s.tracks.length !== 5) fail(`tracks ${s.tracks.length}, want 5`);
+// 播放头落位：三个 item 都从 149 帧开始；视频（60 帧）落在有空间的现有 Track 1，
+// 音频/图片在 149 帧处与已有内容重叠 ⇒ 各新建一条顶部轨道（2 新 + 原 2 = 4）
+if (video.from !== 149 || audio.from !== 149 || image.from !== 149)
+  fail(`items not at playhead 149: ${video.from}/${audio.from}/${image.from}`);
+if (s.tracks.length !== 4) fail(`tracks ${s.tracks.length}, want 4`);
+if (video.trackId !== track1Id) fail('video should land on existing Track 1');
+if (image.trackId !== s.tracks[0].id) fail('image should be on new top track');
+if (audio.trackId !== s.tracks[1].id) fail('audio should be on second new track');
 
 // 胶片 & 波形渲染出现
 await page.waitForFunction(

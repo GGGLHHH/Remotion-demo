@@ -19,8 +19,9 @@ export const Playhead: React.FC<{ frame: number; zoom: number; onSeek: (frame: n
         onSeek(Math.max(0, Math.round((e.clientX - parent.left) / zoom)));
       }}
     >
-      <div className="mx-auto h-full w-px bg-red-500" />
-      <div className="absolute -top-0 left-1/2 size-2 -translate-x-1/2 rounded-sm bg-red-500" />
+      {/* 官方样式：蓝色竖线 + 标尺区内的蓝色小把手 */}
+      <div className="mx-auto h-full w-px bg-[#0B84F3]" />
+      <div className="absolute top-[5px] left-1/2 h-[14px] w-[7px] -translate-x-1/2 rounded-[2px] bg-[#0B84F3]" />
     </div>
   );
 };

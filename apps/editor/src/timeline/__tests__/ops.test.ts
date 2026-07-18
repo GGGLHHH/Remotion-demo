@@ -16,6 +16,7 @@ import {
   maxItemDurationInFrames,
   moveItems,
   removeEmptyTracks,
+  resolveMovePlacement,
   snapFrame,
   resolveSplitTargets,
   splitItemsAtFrame,
@@ -152,6 +153,46 @@ describe('trimItem', () => {
     state.items[a.id] = a;
     expect(trimItem(state, a.id, 'end', 1000).items[a.id].durationInFrames).toBe(1030);
     expect(trimItem(state, a.id, 'end', -100).items[a.id].durationInFrames).toBe(1);
+  });
+});
+
+describe('resolveMovePlacement', () => {
+  test('空轨道：负帧钳到 0，其余原样', () => {
+    const { state, t1, t2 } = build();
+    const a = solidAt(state, t1.id, 0, 30);
+    const ref = { kind: 'existing', id: t2.id } as const;
+    expect(resolveMovePlacement(state, a.id, -10, ref).from).toBe(0);
+    expect(resolveMovePlacement(state, a.id, 40, ref).from).toBe(40);
+  });
+  test('与占位块重叠 ⇒ 紧贴其后（从左/从右进入相同）', () => {
+    const { state, t1, t2 } = build();
+    solidAt(state, t1.id, 50, 30); // 占位 50..80
+    const a = solidAt(state, t2.id, 0, 30);
+    const ref = { kind: 'existing', id: t1.id } as const;
+    expect(resolveMovePlacement(state, a.id, 40, ref).from).toBe(80); // 左侧压入
+    expect(resolveMovePlacement(state, a.id, 70, ref).from).toBe(80); // 右侧压入
+  });
+  test('恰好贴边不算重叠', () => {
+    const { state, t1, t2 } = build();
+    solidAt(state, t1.id, 50, 30);
+    const a = solidAt(state, t2.id, 0, 30);
+    const ref = { kind: 'existing', id: t1.id } as const;
+    expect(resolveMovePlacement(state, a.id, 20, ref).from).toBe(20); // 20..50 贴左边
+    expect(resolveMovePlacement(state, a.id, 80, ref).from).toBe(80); // 贴右边
+  });
+  test('连续占位块 ⇒ 越过直到空位；忽略自身', () => {
+    const { state, t1 } = build();
+    const a = solidAt(state, t1.id, 0, 30);
+    solidAt(state, t1.id, 30, 30);
+    const ref = { kind: 'existing', id: t1.id } as const;
+    // 自身 0..30 忽略；期望 10..40 与 30..60 重叠 ⇒ 顶到 60
+    expect(resolveMovePlacement(state, a.id, 10, ref).from).toBe(60);
+  });
+  test('insert 目标只钳帧', () => {
+    const { state, t1 } = build();
+    const a = solidAt(state, t1.id, 0, 30);
+    expect(resolveMovePlacement(state, a.id, -5, { kind: 'insert', index: 0 }).from).toBe(0);
+    expect(resolveMovePlacement(state, a.id, 40, { kind: 'insert', index: 2 }).from).toBe(40);
   });
 });
 
