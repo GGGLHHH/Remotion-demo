@@ -90,9 +90,15 @@ importers:
       '@fastify/cors':
         specifier: ^11.0.0
         version: 11.3.0
+      '@fastify/multipart':
+        specifier: ^10.1.0
+        version: 10.1.0
       '@remotion/bundler':
         specifier: 4.0.491
         version: 4.0.491(lightningcss@1.32.0)(postcss@8.5.19)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      '@remotion/install-whisper-cpp':
+        specifier: 4.0.491
+        version: 4.0.491
       '@remotion/renderer':
         specifier: 4.0.491
         version: 4.0.491(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
@@ -115,6 +121,9 @@ importers:
 
   packages/shared:
     dependencies:
+      '@remotion/captions':
+        specifier: 4.0.491
+        version: 4.0.491
       '@remotion/gif':
         specifier: 4.0.491
         version: 4.0.491(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
@@ -387,8 +396,14 @@ packages:
   '@fastify/ajv-compiler@4.0.5':
     resolution: {integrity: sha512-KoWKW+MhvfTRWL4qrhUwAAZoaChluo0m0vbiJlGMt2GXvL4LVPQEjt8kSpHI3IBq5Rez8fg+XeH3cneztq+C7A==}
 
+  '@fastify/busboy@3.2.0':
+    resolution: {integrity: sha512-m9FVDXU3GT2ITSe0UaMA5rU3QkfC/UXtCU8y0gSN/GugTqtVldOBWIB5V6V3sbmenVZUIpU6f+mPEO2+m5iTaA==}
+
   '@fastify/cors@11.3.0':
     resolution: {integrity: sha512-ggQGua+xHv1MvePbPr0v//xLYEsCXbWspquXCJS9Ot5YoRXq8J8ZWzHnxDBVnbtXosvistXo6LtNzOJswf64Fw==}
+
+  '@fastify/deepmerge@3.2.1':
+    resolution: {integrity: sha512-N5Oqvltoa2r9z1tbx4xjky0oRR60v+T47Ic4J1ukoVQcptLOrIdRnCSdTGmOmajZuHVKlTnfcmrjyqsGEW1ztA==}
 
   '@fastify/error@4.2.0':
     resolution: {integrity: sha512-RSo3sVDXfHskiBZKBPRgnQTtIqpi/7zhJOEmAxCiBcM7d0uwdGdxLlsCaLzGs8v8NnxIRlfG0N51p5yFaOentQ==}
@@ -401,6 +416,9 @@ packages:
 
   '@fastify/merge-json-schemas@0.2.1':
     resolution: {integrity: sha512-OA3KGBCy6KtIvLf8DINC5880o5iBlDX4SxzLQS8HorJAbqluzLRn80UXU0bxZn7UOFhFgpRJDasfwn9nG4FG4A==}
+
+  '@fastify/multipart@10.1.0':
+    resolution: {integrity: sha512-b2r6CovmLQvLFJ5HJDtxVigZjcO9TwkRGslhiNQxsGJwilm5B3eqvXPOVLudC44zXMXJITpQ/iEATIE7zoXqcQ==}
 
   '@fastify/proxy-addr@5.1.0':
     resolution: {integrity: sha512-INS+6gh91cLUjB+PVHfu1UqcB76Sqtpyp7bnL+FYojhjygvOPA9ctiD/JDKsyD9Xgu4hUhCSJBPig/w7duNajw==}
@@ -598,6 +616,9 @@ packages:
       react: '>=16.8.0'
       react-dom: '>=16.8.0'
 
+  '@remotion/captions@4.0.491':
+    resolution: {integrity: sha512-GpH0bvkfjP1A4ydibvO0kDUCvrcSaar6JNMjqe5FVLiUgw0fhPBGBippbECN21r3/lu32H+tOtHlRiJtKfJ2/Q==}
+
   '@remotion/compositor-darwin-arm64@4.0.491':
     resolution: {integrity: sha512-MMBSyxsFHsWA/tsi0QazkhWWOCTnDwPYrrSxZkXpGqByHV6XB+cyRLoSHtX63/eNealrxPcd3jlzK/ND2FSRwA==}
     cpu: [arm64]
@@ -641,6 +662,9 @@ packages:
 
   '@remotion/google-fonts@4.0.491':
     resolution: {integrity: sha512-dyLBWYxzLggxGU/nNLJNtwqZZxb4Pvzrk37JIbha6sNfdGwFxuAN1TBBFBMgxmaS2hybo7ZkBfXjgNw+EgQjig==}
+
+  '@remotion/install-whisper-cpp@4.0.491':
+    resolution: {integrity: sha512-G6z5oYSWA8sQIM1LAe+FMC8lX64xdWNWKH/9P0JD+3dzioJ/TTuL8uQRiXdt+jC3Z0ywqWx7RQNBXX57XR58Ww==}
 
   '@remotion/licensing@4.0.491':
     resolution: {integrity: sha512-oMPGLdGnwVUgkzi1f3Aqu7H80piOF+MDsm9BqYigMTsuivpwdBvqagl2Q8SfuWQdkzTyjK/wQLbcidUAvIFijw==}
@@ -2514,10 +2538,14 @@ snapshots:
       ajv-formats: 3.0.1(ajv@8.20.0)
       fast-uri: 3.1.3
 
+  '@fastify/busboy@3.2.0': {}
+
   '@fastify/cors@11.3.0':
     dependencies:
       fastify-plugin: 6.0.0
       toad-cache: 3.7.4
+
+  '@fastify/deepmerge@3.2.1': {}
 
   '@fastify/error@4.2.0': {}
 
@@ -2530,6 +2558,14 @@ snapshots:
   '@fastify/merge-json-schemas@0.2.1':
     dependencies:
       dequal: 2.0.3
+
+  '@fastify/multipart@10.1.0':
+    dependencies:
+      '@fastify/busboy': 3.2.0
+      '@fastify/deepmerge': 3.2.1
+      '@fastify/error': 4.2.0
+      fastify-plugin: 6.0.0
+      secure-json-parse: 4.1.0
 
   '@fastify/proxy-addr@5.1.0':
     dependencies:
@@ -2713,6 +2749,8 @@ snapshots:
       react-dom: 19.2.7(react@19.2.7)
       remotion: 4.0.491(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
 
+  '@remotion/captions@4.0.491': {}
+
   '@remotion/compositor-darwin-arm64@4.0.491':
     optional: true
 
@@ -2746,6 +2784,10 @@ snapshots:
     transitivePeerDependencies:
       - react
       - react-dom
+
+  '@remotion/install-whisper-cpp@4.0.491':
+    dependencies:
+      '@remotion/captions': 4.0.491
 
   '@remotion/licensing@4.0.491': {}
 

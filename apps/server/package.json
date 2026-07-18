@@ -13,7 +13,9 @@
     "@aws-sdk/s3-request-presigner": "^3.700.0",
     "@editor/shared": "workspace:*",
     "@fastify/cors": "^11.0.0",
+    "@fastify/multipart": "^10.1.0",
     "@remotion/bundler": "4.0.491",
+    "@remotion/install-whisper-cpp": "4.0.491",
     "@remotion/renderer": "4.0.491",
     "fastify": "^5.10.0",
     "tsx": "^4.19.0"
