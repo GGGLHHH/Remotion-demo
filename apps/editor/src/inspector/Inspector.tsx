@@ -3,10 +3,32 @@ import { useState } from 'react';
 import type { EditorStarterItem } from '@editor/shared';
 import { useEditorStore } from '../state/store';
 import { startRender } from '../lib/render-client';
+import { generateCaptions } from '../lib/captioning';
 import { NumberField } from './NumberField';
 import { ColorField, Row, Section } from './fields';
 import { TextPanel } from './TextPanel';
 import { MediaPanel } from './MediaPanel';
+import { CaptionsPanel } from './CaptionsPanel';
+
+/** 生成字幕入口：audio 或含音轨的 video */
+const CaptionsSection: React.FC<{ itemId: string }> = ({ itemId }) => {
+  const task = useEditorStore((s) => s.captioningTasks.findLast((t) => t.itemId === itemId));
+  const busy = task?.status === 'extracting' || task?.status === 'transcribing';
+  return (
+    <Section title="字幕">
+      <button
+        className="rounded border border-zinc-700 px-2 py-1 text-xs hover:bg-zinc-800 disabled:opacity-50"
+        disabled={busy}
+        onClick={() => void generateCaptions(itemId)}
+      >
+        {busy ? (task.status === 'extracting' ? '抽取音频中…' : '转录中…') : '生成字幕'}
+      </button>
+      {task?.status === 'error' ? (
+        <div className="break-all text-xs text-red-400">{task.error?.slice(0, 200)}</div>
+      ) : null}
+    </Section>
+  );
+};
 
 const RenderSection: React.FC = () => {
   const renderingTasks = useEditorStore((s) => s.renderingTasks);
@@ -274,6 +296,10 @@ const ItemPanel: React.FC<{ item: EditorStarterItem }> = ({ item }) => {
       {item.type === 'video' || item.type === 'audio' || item.type === 'gif' ? (
         <MediaPanel item={item} />
       ) : null}
+      {item.type === 'audio' || (item.type === 'video' && asset?.type === 'video' && asset.hasAudio) ? (
+        <CaptionsSection itemId={item.id} />
+      ) : null}
+      {item.type === 'captions' ? <CaptionsPanel item={item} /> : null}
     </>
   );
 };

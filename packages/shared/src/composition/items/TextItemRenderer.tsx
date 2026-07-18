@@ -5,7 +5,7 @@ import type { TextItem } from '../../types';
 import { ensureFontLoaded } from '../fonts';
 
 /** 字体加载栅栏：渲染端 delayRender 保证字体就绪后才截帧 */
-const FontGate: React.FC<{ family: string }> = ({ family }) => {
+export const FontGate: React.FC<{ family: string }> = ({ family }) => {
   const [handle] = useState(() => delayRender(`font: ${family}`));
   useEffect(() => {
     ensureFontLoaded(family)

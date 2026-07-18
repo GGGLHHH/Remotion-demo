@@ -1,6 +1,7 @@
 import type React from 'react';
 import { Sequence, interpolate, useCurrentFrame } from 'remotion';
 import type { EditorStarterItem, UndoableState } from '../types';
+import { CaptionsItemRenderer } from './items/CaptionsItemRenderer';
 import { SolidItemRenderer } from './items/SolidItemRenderer';
 import { TextItemRenderer } from './items/TextItemRenderer';
 import {
@@ -59,9 +60,11 @@ const ItemContent: React.FC<{ item: EditorStarterItem; ctx: RenderContext; track
       );
     case 'gif':
       return <GifItemRenderer item={item} url={resolveUrl(ctx, item.assetId)} />;
-    case 'captions':
-      // M7 接入
-      return null;
+    case 'captions': {
+      const asset = ctx.state.assets[item.assetId];
+      if (!asset || asset.type !== 'caption') return null;
+      return <CaptionsItemRenderer item={item} captions={asset.captions} />;
+    }
     default:
       return null;
   }

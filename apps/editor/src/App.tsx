@@ -32,6 +32,19 @@ const UploadStatusBadge = () => {
   );
 };
 
+const CaptioningBadge = () => {
+  const tasks = useEditorStore((s) => s.captioningTasks);
+  const active = tasks.filter((t) => t.status === 'extracting' || t.status === 'transcribing').length;
+  const failed = tasks.filter((t) => t.status === 'error').length;
+  if (active === 0 && failed === 0) return null;
+  return (
+    <span className="text-xs text-zinc-400">
+      {active > 0 ? `转录中 ${active}…` : null}
+      {failed > 0 ? <span className="text-red-400"> 转录失败 {failed}</span> : null}
+    </span>
+  );
+};
+
 // 初始状态：URL hash > localStorage > demo；启动即视为"已保存"
 const initialState = resolveInitialState() ?? buildDemoState();
 useEditorStore.setState({ undoable: initialState, lastSavedState: initialState });
@@ -40,6 +53,7 @@ void restoreLocalUrls(initialState);
 // e2e 测试用（仅开发构建）
 if (import.meta.env.DEV) {
   (window as unknown as Record<string, unknown>).__editorStore = useEditorStore;
+  (window as unknown as Record<string, unknown>).__playerRef = playerRef;
 }
 
 const SaveButton = () => {
@@ -88,17 +102,20 @@ export default function App() {
   const hasActiveRenders = useEditorStore((s) =>
     s.renderingTasks.some((t) => t.status === 'queued' || t.status === 'rendering'),
   );
+  const hasActiveCaptioning = useEditorStore((s) =>
+    s.captioningTasks.some((t) => t.status === 'extracting' || t.status === 'transcribing'),
+  );
 
-  // 上传/渲染未完成时拦截关闭/刷新，避免丢素材或丢渲染进度
+  // 上传/渲染/转录未完成时拦截关闭/刷新，避免丢素材或丢进度
   useEffect(() => {
-    if (!hasActiveUploads && !hasActiveRenders) return;
+    if (!hasActiveUploads && !hasActiveRenders && !hasActiveCaptioning) return;
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
       e.preventDefault();
       e.returnValue = '';
     };
     window.addEventListener('beforeunload', onBeforeUnload);
     return () => window.removeEventListener('beforeunload', onBeforeUnload);
-  }, [hasActiveUploads, hasActiveRenders]);
+  }, [hasActiveUploads, hasActiveRenders, hasActiveCaptioning]);
 
   return (
     <div className="flex h-screen flex-col bg-zinc-900 text-zinc-100">
@@ -142,6 +159,7 @@ export default function App() {
           />
         </label>
         <UploadStatusBadge />
+        <CaptioningBadge />
         <div className="ml-auto flex items-center gap-2">
           <CleanupAssetsButton />
           <SaveButton />

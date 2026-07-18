@@ -18,6 +18,13 @@ export type RenderingTask = {
   codec: string;
 };
 
+export type CaptioningTask = {
+  id: string;
+  itemId: string;
+  status: 'extracting' | 'transcribing' | 'done' | 'error';
+  error?: string;
+};
+
 export type EditorStore = {
   undoable: UndoableState;
   past: UndoableState[]; // 最近的在末尾
@@ -66,6 +73,9 @@ export type EditorStore = {
   /** 渲染任务（瞬时，随服务端任务表一起丢失） */
   renderingTasks: RenderingTask[];
   upsertRenderingTask: (task: RenderingTask) => void;
+  /** 字幕转录任务（瞬时） */
+  captioningTasks: CaptioningTask[];
+  upsertCaptioningTask: (task: CaptioningTask) => void;
   loop: boolean;
   toggleLoop: () => void;
   playerMuted: boolean;
@@ -160,6 +170,15 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       const next = [...s.renderingTasks];
       next[i] = task;
       return { renderingTasks: next };
+    }),
+  captioningTasks: [],
+  upsertCaptioningTask: (task) =>
+    set((s) => {
+      const i = s.captioningTasks.findIndex((t) => t.id === task.id);
+      if (i === -1) return { captioningTasks: [...s.captioningTasks, task] };
+      const next = [...s.captioningTasks];
+      next[i] = task;
+      return { captioningTasks: next };
     }),
   loop: true,
   toggleLoop: () => set((s) => ({ loop: !s.loop })),
