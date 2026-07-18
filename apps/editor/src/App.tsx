@@ -7,6 +7,7 @@ import { Inspector } from './inspector/Inspector';
 import { TimelinePanel } from './timeline/TimelinePanel';
 import { PlaybackBar } from './playback/PlaybackBar';
 import { importFiles } from './lib/import-assets';
+import { addSolidItem, addTextItem } from './lib/add-items';
 import { cleanupDeletedAssets } from './lib/cleanup-assets';
 import {
   downloadStateFile,
@@ -143,6 +144,20 @@ export default function App() {
           title="播放/暂停 (空格)"
         >
           ⏯
+        </button>
+        <button
+          className="rounded border border-zinc-700 px-2 py-1 text-xs hover:bg-zinc-800"
+          onClick={addTextItem}
+          title="添加文本"
+        >
+          T 文本
+        </button>
+        <button
+          className="rounded border border-zinc-700 px-2 py-1 text-xs hover:bg-zinc-800"
+          onClick={addSolidItem}
+          title="添加色块"
+        >
+          ■ 色块
         </button>
         <label className="cursor-pointer rounded border border-zinc-700 px-2 py-1 text-xs hover:bg-zinc-800">
           导入素材
