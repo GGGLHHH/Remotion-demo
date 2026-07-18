@@ -52,6 +52,12 @@ export type EditorStore = {
   /** 内部剪贴板 */
   clipboard: EditorStarterItem[];
   setClipboard: (items: EditorStarterItem[]) => void;
+  /** 最近保存的快照（脏标记用） */
+  lastSavedState: UndoableState | null;
+  loop: boolean;
+  toggleLoop: () => void;
+  playerMuted: boolean;
+  togglePlayerMuted: () => void;
 };
 
 // 拖拽类高频操作的撤销基线：首次 commit:false 更新前的快照。
@@ -133,6 +139,11 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   setFontHoverPreview: (v) => set({ fontHoverPreview: v }),
   clipboard: [],
   setClipboard: (items) => set({ clipboard: items }),
+  lastSavedState: null,
+  loop: true,
+  toggleLoop: () => set((s) => ({ loop: !s.loop })),
+  playerMuted: false,
+  togglePlayerMuted: () => set((s) => ({ playerMuted: !s.playerMuted })),
 
   deleteSelected: () => {
     const { selectedItemIds, updateUndoable } = get();
@@ -140,7 +151,20 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     updateUndoable((s) => {
       const items = { ...s.items };
       for (const id of selectedItemIds) delete items[id];
-      return { ...s, items };
+      // 不再被引用的素材进入两阶段删除（清理时才真正删远端/缓存）
+      const referenced = new Set(
+        Object.values(items)
+          .map((i) => ('assetId' in i ? i.assetId : null))
+          .filter(Boolean),
+      );
+      const already = new Set(s.deletedAssets.map((d) => d.assetId));
+      const deletedAssets = [...s.deletedAssets];
+      for (const assetId of Object.keys(s.assets)) {
+        if (!referenced.has(assetId) && !already.has(assetId)) {
+          deletedAssets.push({ assetId, deletedAt: Date.now() });
+        }
+      }
+      return { ...s, items, deletedAssets };
     });
     set({ selectedItemIds: [] });
   },

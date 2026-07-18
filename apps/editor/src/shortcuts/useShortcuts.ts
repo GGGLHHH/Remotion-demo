@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useEditorStore } from '../state/store';
 import { playerRef } from '../canvas/player-ref';
 import { splitItemsAtFrame } from '../timeline/ops';
+import { saveState } from '../persistence/persistence';
 import { importFiles } from '../lib/import-assets';
 import {
   copySelection,
@@ -23,6 +24,11 @@ export const useShortcuts = () => {
       const mod = e.metaKey || e.ctrlKey;
       const key = e.key.toLowerCase();
 
+      if (mod && key === 's') {
+        e.preventDefault();
+        saveState();
+        return;
+      }
       if (mod && key === 'z' && !e.shiftKey) {
         e.preventDefault();
         store.undo();

@@ -24,6 +24,7 @@ export const CanvasView: React.FC = () => {
   const localUrls = useEditorStore((s) => s.localUrls);
   const fontHoverPreview = useEditorStore((s) => s.fontHoverPreview);
   const cropMode = useEditorStore((s) => s.itemSelectedForCrop !== null);
+  const loop = useEditorStore((s) => s.loop);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [fitScale, setFitScale] = useState(0.1);
@@ -110,7 +111,7 @@ export const CanvasView: React.FC = () => {
             compositionWidth={undoable.compositionWidth}
             compositionHeight={undoable.compositionHeight}
             fps={undoable.fps}
-            loop
+            loop={loop}
             style={{ width: '100%', height: '100%' }}
           />
           {cropMode ? null : <SelectionOverlay scale={scale} frame={frame} />}
