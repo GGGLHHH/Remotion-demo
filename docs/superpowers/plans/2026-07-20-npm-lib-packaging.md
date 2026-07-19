@@ -145,4 +145,9 @@ React 19 零 `forwardRef`；Tailwind v4 必需；ESM-only；Remotion 单版本 p
 4. **注入接口（原地）**：`EditorTransport`/`EditorStorage`/`NotifyFn` + 8 个非组件模块 I/O 改走注入 + `App.tsx` 接默认适配器（http/browser/sonner）。DoD：demo 全功能（导入/渲染/字幕/保存）跑通。
 5. ✅ **物理搬包 + 打包**（已完成）：feature 层移入 `packages/editor`（含 16 个实际用到的 shadcn 原语，删 43 未用）；`@/` 先 codemod 成相对路径（5a）再搬；tsup（esm+dts+sideEffects，`ignoreDeprecations:6.0` 修 TS6 dts）；exports 子路径（`.` / `./adapters` / `./styles.css`，publishConfig→dist）；`styles.css` token 层随包发布，demo 侧 `@source` + import；`EditorRoot`（自带 Provider+TooltipProvider，从 App.tsx 抽出）+ 单面板导出；peer 全 external。`npm pack` 11 文件干净、apps/editor 纯公开 API 装配、m1–m8 e2e 绿。
    - **偏离记录**：① 仅搬实际用到的 16 个 ui 原语（闭包），删 43 个未用（recharts/embla/day-picker 等重依赖不进包）；② sonner 留 demo（Toaster + notify 适配器），包 sonner-free，`/adapters` 只发 http-transport + browser-storage；③ `"use client"` banner 在 splitting bundle 下被 esbuild 忽略，已移除；RSC 逐文件指令保留留作后续（需 preserve-directives 插件）。
-6. **demo 收尾 + 文档**（进行中）：apps/editor 已是纯消费方；待补 README（消费方三行 CSS + `<EditorRoot>` 用法 + peer 安装说明）+ 清理 apps/editor 残留未用 deps。
+6. ✅ **demo 收尾 + 文档**（已完成）：apps/editor 为纯消费方（仅公开 API + 本地 sonner 适配器）；`packages/editor/README.md` 写全安装/peer/CSS 三行/EditorRoot/注入接口/单面板用法；清理 demo 里 10 个零引用 deps（recharts/embla/day-picker/date-fns/input-otp/resizable-panels + 已归包的 cmdk/cva/clsx/tailwind-merge）。
+
+---
+
+**全部 6 步完成（2026-07-20）。** 成果：`@gedatou/shared` + `@gedatou/editor` 两个可发布包；库内零模块单例、零硬编码 I/O（store/refs 每实例 + transport/storage/notify 注入）；shadcn 写法原语；tsup 出 ESM+dts、npm pack 11 文件干净、peer 全 external；apps/editor 降级为纯公开-API demo。每步 typecheck + 62 单测 + m1–m8 e2e 全绿。
+**待办（非阻塞）**：RSC 逐文件 `"use client"`（preserve-directives 插件）；canvas 字面色（zinc-*/#0B84F3）token 化；实际 `npm publish`（需 `pnpm -F @gedatou/editor build` 后 publish，publishConfig 已切 dist）；ui-glossary.md 路径更新（feature 文件已移到 packages/editor/src）。
