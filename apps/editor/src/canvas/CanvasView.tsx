@@ -7,6 +7,7 @@ import { importFiles } from '../lib/import-assets';
 import { playerRef } from './player-ref';
 import { fitScaleRef } from './fit-scale';
 import { SelectionOverlay } from './SelectionOverlay';
+import { CompositionResizeHandles } from './CompositionResizeHandles';
 import { CropOverlay } from './CropOverlay';
 import { TextEditOverlay } from './TextEditOverlay';
 import { DrawSolidOverlay } from './DrawSolidOverlay';
@@ -159,6 +160,7 @@ export const CanvasView: React.FC<{
             style={{ width: '100%', height: '100%' }}
           />
           {cropMode ? null : <SelectionOverlay scale={scale} />}
+          {cropMode || tool !== null ? null : <CompositionResizeHandles scale={scale} />}
           <CropOverlay scale={scale} />
           <TextEditOverlay scale={scale} />
           {tool === 'solid' ? <DrawSolidOverlay scale={scale} onDone={onExitTool} /> : null}
