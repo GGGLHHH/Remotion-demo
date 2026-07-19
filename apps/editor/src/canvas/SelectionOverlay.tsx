@@ -8,10 +8,10 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from '@/components/ui/context-menu';
-import { useEditor, useEditorApi } from '../state/context';
+import { useEditor, useEditorApi, useEditorRefs } from '../state/context';
 import { copySelection, duplicateSelection } from '../lib/clipboard';
 import { addTrack, moveItems, removeEmptyTracks } from '../timeline/ops';
-import { getPlayerFrame, usePlayerFrameDerived } from './player-ref';
+import { usePlayerFrameDerived } from './player-ref';
 import { resizeRect, topmostItemAt, type Rect, type ResizeHandle } from './geometry';
 
 /** 官方样式：仅 4 个角手柄（约 8px 白色方块、蓝边） */
@@ -75,6 +75,7 @@ const visibleAt = (it: EditorStarterItem | undefined, f: number): boolean =>
 
 export const SelectionOverlay: React.FC<{ scale: number }> = ({ scale }) => {
   const editorApi = useEditorApi();
+  const refs = useEditorRefs();
   const undoable = useEditor((s) => s.undoable);
   const selectedItemIds = useEditor((s) => s.selectedItemIds);
   const snappingEnabled = useEditor((s) => s.snappingEnabled);
@@ -88,7 +89,7 @@ export const SelectionOverlay: React.FC<{ scale: number }> = ({ scale }) => {
 
   // 播放头帧：渲染时直接读（不进 state）；派生订阅只在所选/悬停项进出当前帧时触发重渲，
   // 播放期间无选中/悬停 ⇒ 零重渲（性能关键路径）
-  const frame = getPlayerFrame();
+  const frame = refs.getPlayerFrame();
   usePlayerFrameDerived((f) => {
     let key = hoverId && visibleAt(undoable.items[hoverId], f) ? 'H' : 'h';
     for (const id of selectedItemIds) key += visibleAt(undoable.items[id], f) ? '1' : '0';
@@ -106,7 +107,7 @@ export const SelectionOverlay: React.FC<{ scale: number }> = ({ scale }) => {
     if (store.itemSelectedForCrop) return; // 裁剪模式由 CropOverlay 接管
     setHoverId(null);
     const { x, y } = toComp(e);
-    const hit = topmostItemAt(store.undoable, getPlayerFrame(), x, y);
+    const hit = topmostItemAt(store.undoable, refs.getPlayerFrame(), x, y);
     if (!hit) {
       store.setSelected([]);
       drag.current = { kind: 'marquee', startX: x, startY: y };
@@ -136,7 +137,7 @@ export const SelectionOverlay: React.FC<{ scale: number }> = ({ scale }) => {
   const onDoubleClick = (e: React.MouseEvent) => {
     const store = editorApi.getState();
     const { x, y } = toComp(e);
-    const hit = topmostItemAt(store.undoable, getPlayerFrame(), x, y);
+    const hit = topmostItemAt(store.undoable, refs.getPlayerFrame(), x, y);
     if (!hit) return;
     if (hit.type === 'text') store.setTextItemEditing(hit.id);
     else if (hit.type === 'video' || hit.type === 'image') store.setItemSelectedForCrop(hit.id);
@@ -169,7 +170,7 @@ export const SelectionOverlay: React.FC<{ scale: number }> = ({ scale }) => {
     if (!d) {
       // 悬停：未选中项显示 2px 蓝色描边
       const { x, y } = toComp(e);
-      const hit = topmostItemAt(store.undoable, getPlayerFrame(), x, y);
+      const hit = topmostItemAt(store.undoable, refs.getPlayerFrame(), x, y);
       setHoverId(hit && !store.selectedItemIds.includes(hit.id) ? hit.id : null);
       return;
     }
@@ -182,7 +183,7 @@ export const SelectionOverlay: React.FC<{ scale: number }> = ({ scale }) => {
       const y2 = Math.max(d.startY, y);
       setMarquee({ x: x1, y: y1, w: x2 - x1, h: y2 - y1 });
       // 触碰即预选中（松手即为最终选择）
-      const f = getPlayerFrame();
+      const f = refs.getPlayerFrame();
       const hits: string[] = [];
       for (const item of Object.values(store.undoable.items)) {
         if (item.type === 'audio') continue;
@@ -336,7 +337,7 @@ export const SelectionOverlay: React.FC<{ scale: number }> = ({ scale }) => {
           // 仅在命中 item 时弹菜单；空白处右键既不弹菜单也不弹系统菜单
           const store = editorApi.getState();
           const { x, y } = toComp(e);
-          const hit = topmostItemAt(store.undoable, getPlayerFrame(), x, y);
+          const hit = topmostItemAt(store.undoable, refs.getPlayerFrame(), x, y);
           if (!hit) {
             e.preventDefault();
             e.preventBaseUIHandler();

@@ -6,7 +6,7 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { Toaster } from '@/components/ui/sonner'
 import { createEditorStore } from './state/store'
 import { EditorProvider } from './state/context'
-import { playerRef } from './canvas/player-ref'
+import { createInstanceRefs } from './state/instance-refs'
 import { resolveInitialState, restoreLocalUrls } from './persistence/persistence'
 import { buildDemoState } from './demo-state'
 
@@ -15,16 +15,17 @@ const initialState = resolveInitialState() ?? buildDemoState()
 const editorStore = createEditorStore({ undoable: initialState })
 editorStore.setState({ lastSavedState: initialState })
 void restoreLocalUrls(editorStore, initialState)
+const editorRefs = createInstanceRefs()
 
 // e2e 测试用（仅开发构建）
 if (import.meta.env.DEV) {
   ;(window as unknown as Record<string, unknown>).__editorStore = editorStore
-  ;(window as unknown as Record<string, unknown>).__playerRef = playerRef
+  ;(window as unknown as Record<string, unknown>).__playerRef = editorRefs.player
 }
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <EditorProvider store={editorStore}>
+    <EditorProvider store={editorStore} refs={editorRefs}>
       <TooltipProvider>
         <App />
         {/* 单一深色应用：固定 dark，不跟随系统 */}

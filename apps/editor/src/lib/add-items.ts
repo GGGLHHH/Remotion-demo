@@ -1,6 +1,5 @@
 import { createSolidItem, createTextItem } from '@gedatou/shared';
 import type { EditorStoreApi } from '../state/store';
-import { playerRef } from '../canvas/player-ref';
 import { addTrack } from '../timeline/ops';
 
 /** 用 2D canvas 量测单行文本宽度（拿不到 context 时按字号粗估） */
@@ -15,9 +14,13 @@ const measureTextWidth = (
 };
 
 /** 文本工具：在点击点放置自适应尺寸的文本（内容「文本」、字号 80），选中但不进入行内编辑 */
-export const addTextItem = (store: EditorStoreApi, at: { x: number; y: number }): void => {
+export const addTextItem = (
+  store: EditorStoreApi,
+  at: { x: number; y: number },
+  atFrame: number,
+): void => {
   const state = store.getState();
-  const from = playerRef.current?.getCurrentFrame() ?? 0;
+  const from = atFrame;
   let id = '';
   state.updateUndoable((s) => {
     const { state: st, trackId } = addTrack(s, 0);
@@ -45,9 +48,10 @@ export const addSolidItem = (
     width: number;
     height: number;
   },
+  atFrame: number,
 ): void => {
   const state = store.getState();
-  const from = playerRef.current?.getCurrentFrame() ?? 0;
+  const from = atFrame;
   let id = '';
   state.updateUndoable((s) => {
     const { state: st, trackId } = addTrack(s, 0);

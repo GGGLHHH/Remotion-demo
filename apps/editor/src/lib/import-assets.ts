@@ -6,7 +6,6 @@ import {
   type EditorStarterItem,
 } from '@gedatou/shared';
 import type { EditorStoreApi } from '../state/store';
-import { playerRef } from '../canvas/player-ref';
 import { addTrack, hasOverlap } from '../timeline/ops';
 import { cacheAsset } from '../caching/indexeddb';
 import { probeFile, type ProbeResult } from './probe';
@@ -156,6 +155,8 @@ export const importFiles = async (
   dropAt?: { x: number; y: number },
   /** 时间轴落点：指定帧 + 悬停轨道；多文件从该帧起依次排布 */
   placement?: { frame: number; trackId?: string },
+  /** 默认落点帧（无显式 placement 时用，通常传当前播放头帧） */
+  currentFrame = 0,
 ): Promise<void> => {
   let nextFrame = placement ? Math.max(0, Math.round(placement.frame)) : null;
   for (const file of files) {
@@ -168,7 +169,7 @@ export const importFiles = async (
       const probe = await probeFile(file);
       const blobUrl = URL.createObjectURL(file);
       const state = store.getState();
-      const frame = nextFrame ?? playerRef.current?.getCurrentFrame() ?? 0;
+      const frame = nextFrame ?? currentFrame;
       let created: { asset: EditorStarterAsset; item: EditorStarterItem } | null = null;
       state.updateUndoable((s) => {
         // 先构建 item（时长在此确定），再定轨道：

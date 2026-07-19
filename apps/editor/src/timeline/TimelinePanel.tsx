@@ -12,8 +12,8 @@ import {
 } from '@/components/ui/context-menu';
 import { Slider } from '@/components/ui/slider';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { useEditor, useEditorApi } from '../state/context';
-import { getPlayerFrame, playerRef, usePlayerFrameDerived } from '../canvas/player-ref';
+import { useEditor, useEditorApi, useEditorRefs } from '../state/context';
+import { usePlayerFrameDerived } from '../canvas/player-ref';
 import { calcDuration } from '@gedatou/shared/composition';
 import {
   HEADER_WIDTH,
@@ -187,6 +187,7 @@ const TimecodeReadout: React.FC<{ fps: number; duration: number }> = ({ fps, dur
 
 export const TimelinePanel: React.FC = () => {
   const editorApi = useEditorApi();
+  const refs = useEditorRefs();
   const undoable = useEditor((s) => s.undoable);
   const zoomSetting = useEditor((s) => s.timelineZoom);
   const setZoom = useEditor((s) => s.setTimelineZoom);
@@ -247,7 +248,7 @@ export const TimelinePanel: React.FC = () => {
   // 直接改 scrollLeft，不进 React state——播放中零重渲
   const lastPlayheadX = useRef<number | null>(null);
   useEffect(() => {
-    const p = playerRef.current;
+    const p = refs.player.current;
     if (!p) return;
     const onFrame = (e: { detail: { frame: number } }) => {
       const el = scrollRef.current;
@@ -273,8 +274,8 @@ export const TimelinePanel: React.FC = () => {
 
   // seek 触发 frameupdate，播放头/时间码各自订阅更新，这里无需本地 state
   const seekTo = (f: number) => {
-    playerRef.current?.pause();
-    playerRef.current?.seekTo(Math.max(0, f));
+    refs.player.current?.pause();
+    refs.player.current?.seekTo(Math.max(0, f));
   };
 
   // ---- 移动拖拽 ----
@@ -364,7 +365,7 @@ export const TimelinePanel: React.FC = () => {
     if (store.snappingEnabled) {
       const tol = Math.max(1, Math.round(SNAP_TOLERANCE_PX / z));
       const opts = {
-        playheadFrame: playerRef.current?.getCurrentFrame() ?? undefined,
+        playheadFrame: refs.player.current?.getCurrentFrame() ?? undefined,
         ignoreIds: [d.id],
       };
       const leftSnap = snapFrame(st, desired, tol, opts);
@@ -625,7 +626,7 @@ export const TimelinePanel: React.FC = () => {
     const files = Array.from(e.dataTransfer.files);
     if (!files.length) return;
     const { frame, trackIndex } = dropInfo(e);
-    void importFiles(editorApi, files, undefined, { frame, trackId: undoable.tracks[trackIndex]?.id });
+    void importFiles(editorApi, files, undefined, { frame, trackId: undoable.tracks[trackIndex]?.id }, refs.getPlayerFrame());
   };
 
   // ---- 块右键菜单 ----
@@ -762,7 +763,7 @@ export const TimelinePanel: React.FC = () => {
                 disabled={!splittable}
                 onClick={() => {
                   const store = editorApi.getState();
-                  const f = getPlayerFrame();
+                  const f = refs.getPlayerFrame();
                   store.updateUndoable((s) =>
                     splitItemsAtFrame(s, f, resolveSplitTargets(s, f, store.selectedItemIds)),
                   );

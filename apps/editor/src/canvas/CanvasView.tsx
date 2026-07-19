@@ -2,10 +2,8 @@ import type React from 'react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Player } from '@remotion/player';
 import { MainComposition, calcDuration } from '@gedatou/shared/composition';
-import { useEditor, useEditorApi } from '../state/context';
+import { useEditor, useEditorApi, useEditorRefs } from '../state/context';
 import { importFiles } from '../lib/import-assets';
-import { playerRef } from './player-ref';
-import { fitScaleRef, panRef, setPan, stageElRef } from './fit-scale';
 import { SelectionOverlay } from './SelectionOverlay';
 import { CompositionResizeHandles } from './CompositionResizeHandles';
 import { CropOverlay } from './CropOverlay';
@@ -24,6 +22,7 @@ export const CanvasView: React.FC<{
   onExitTool: () => void;
 }> = ({ tool, onExitTool }) => {
   const editorApi = useEditorApi();
+  const refs = useEditorRefs();
   const undoable = useEditor((s) => s.undoable);
   const canvasZoom = useEditor((s) => s.canvasZoom);
   const localUrls = useEditor((s) => s.localUrls);
@@ -54,10 +53,10 @@ export const CanvasView: React.FC<{
       const w = el.clientWidth - PADDING;
       const h = el.clientHeight - PADDING;
       const s = Math.max(0.02, Math.min(w / undoable.compositionWidth, h / undoable.compositionHeight));
-      fitScaleRef.current = s;
+      refs.fitScale.current = s;
       setFitScale(s);
       if (editorApi.getState().canvasZoom === 'fit') {
-        setPan(
+        refs.setPan(
           (el.clientWidth - undoable.compositionWidth * s) / 2,
           (el.clientHeight - undoable.compositionHeight * s) / 2,
         );
@@ -77,7 +76,7 @@ export const CanvasView: React.FC<{
     const el = containerRef.current;
     if (!el) return;
     if (canvasZoom === 'fit') {
-      setPan(
+      refs.setPan(
         (el.clientWidth - undoable.compositionWidth * scale) / 2,
         (el.clientHeight - undoable.compositionHeight * scale) / 2,
       );
@@ -85,7 +84,7 @@ export const CanvasView: React.FC<{
       const k = scale / prevScaleRef.current;
       const cx = el.clientWidth / 2;
       const cy = el.clientHeight / 2;
-      setPan(cx - (cx - panRef.current.x) * k, cy - (cy - panRef.current.y) * k);
+      refs.setPan(cx - (cx - refs.pan.current.x) * k, cy - (cy - refs.pan.current.y) * k);
     }
     zoomPanHandledRef.current = false;
     prevScaleRef.current = scale;
@@ -98,7 +97,7 @@ export const CanvasView: React.FC<{
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       const store = editorApi.getState();
-      const cur = store.canvasZoom === 'fit' ? fitScaleRef.current : store.canvasZoom;
+      const cur = store.canvasZoom === 'fit' ? refs.fitScale.current : store.canvasZoom;
       if (e.metaKey || e.ctrlKey) {
         const next = clampZoom(cur * Math.exp(-e.deltaY * 0.002));
         const rect = el.getBoundingClientRect();
@@ -106,13 +105,13 @@ export const CanvasView: React.FC<{
         const my = e.clientY - rect.top;
         const k = next / cur;
         // 光标下的合成点保持不动：pan' = 光标 − (光标 − pan)×k
-        setPan(mx - (mx - panRef.current.x) * k, my - (my - panRef.current.y) * k);
+        refs.setPan(mx - (mx - refs.pan.current.x) * k, my - (my - refs.pan.current.y) * k);
         zoomPanHandledRef.current = true;
         store.setCanvasZoom(next);
       } else {
         // 手动平移退出"适应"自动模式（转为等值数字缩放，pan 交还给用户）
         if (store.canvasZoom === 'fit') store.setCanvasZoom(cur);
-        setPan(panRef.current.x - e.deltaX, panRef.current.y - e.deltaY);
+        refs.setPan(refs.pan.current.x - e.deltaX, refs.pan.current.y - e.deltaY);
       }
     };
     el.addEventListener('wheel', onWheel, { passive: false });
@@ -123,15 +122,15 @@ export const CanvasView: React.FC<{
   const onPanPointerDown = (e: React.PointerEvent) => {
     e.preventDefault(); // 抑制中键自动滚动
     const store = editorApi.getState();
-    if (store.canvasZoom === 'fit') store.setCanvasZoom(fitScaleRef.current); // 手动平移退出"适应"
+    if (store.canvasZoom === 'fit') store.setCanvasZoom(refs.fitScale.current); // 手动平移退出"适应"
     const el = containerRef.current;
     if (!el) return;
     el.setPointerCapture(e.pointerId);
     el.style.cursor = 'grabbing';
     const sx = e.clientX;
     const sy = e.clientY;
-    const p0 = { ...panRef.current };
-    const onMove = (ev: PointerEvent) => setPan(p0.x + ev.clientX - sx, p0.y + ev.clientY - sy);
+    const p0 = { ...refs.pan.current };
+    const onMove = (ev: PointerEvent) => refs.setPan(p0.x + ev.clientX - sx, p0.y + ev.clientY - sy);
     const onUp = () => {
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
@@ -170,7 +169,7 @@ export const CanvasView: React.FC<{
       const cy1 = (y1 - sRect.top) / scale;
       const cy2 = (y2 - sRect.top) / scale;
       const st = editorApi.getState();
-      const f = playerRef.current?.getCurrentFrame() ?? 0;
+      const f = refs.getPlayerFrame();
       const hits: string[] = [];
       for (const item of Object.values(st.undoable.items)) {
         if (item.type === 'audio') continue;
@@ -208,24 +207,24 @@ export const CanvasView: React.FC<{
           const dropAt = stage
             ? { x: (e.clientX - stage.left) / scale, y: (e.clientY - stage.top) / scale }
             : undefined;
-          void importFiles(editorApi, files, dropAt);
+          void importFiles(editorApi, files, dropAt, undefined, refs.getPlayerFrame());
         }}
       >
         <div
           data-stage
           ref={(el) => {
-            stageElRef.current = el;
+            refs.stageEl.current = el;
           }}
           className="absolute shadow-2xl"
           style={{
-            left: panRef.current.x,
-            top: panRef.current.y,
+            left: refs.pan.current.x,
+            top: refs.pan.current.y,
             width: undoable.compositionWidth * scale,
             height: undoable.compositionHeight * scale,
           }}
         >
           <Player
-            ref={playerRef}
+            ref={refs.player}
             component={MainComposition}
             inputProps={inputProps}
             durationInFrames={durationInFrames}

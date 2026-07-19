@@ -1,7 +1,6 @@
 import type React from 'react';
 import { useState } from 'react';
-import { useEditor, useEditorApi } from '../state/context';
-import { panRef, setPan } from './fit-scale';
+import { useEditor, useEditorApi, useEditorRefs } from '../state/context';
 import { CORNERS, EDGES, SizeBadge } from './SelectionOverlay';
 import type { ResizeHandle } from './geometry';
 
@@ -16,6 +15,7 @@ import type { ResizeHandle } from './geometry';
  */
 export const CompositionResizeHandles: React.FC<{ scale: number }> = ({ scale }) => {
   const editorApi = useEditorApi();
+  const refs = useEditorRefs();
   const empty = useEditor((s) => s.selectedItemIds.length === 0);
   const w = useEditor((s) => s.undoable.compositionWidth);
   const h = useEditor((s) => s.undoable.compositionHeight);
@@ -37,7 +37,7 @@ export const CompositionResizeHandles: React.FC<{ scale: number }> = ({ scale })
     const st0 = store.undoable;
     const w0 = st0.compositionWidth;
     const h0 = st0.compositionHeight;
-    const pan0 = { ...panRef.current };
+    const pan0 = { ...refs.pan.current };
     // 元素起始坐标快照：左/上拖拽的补偿基于快照计算，避免取偶累积漂移
     const items0 = new Map(Object.values(st0.items).map((i) => [i.id, { left: i.left, top: i.top }]));
     setDragging(true);
@@ -73,7 +73,7 @@ export const CompositionResizeHandles: React.FC<{ scale: number }> = ({ scale })
       );
       // 左/上拖拽：pan 反向平移，被拖边跟手、内容与对边在屏幕上不动
       if (handle.includes('w') || handle.includes('n')) {
-        setPan(pan0.x - shiftX * s0, pan0.y - shiftY * s0);
+        refs.setPan(pan0.x - shiftX * s0, pan0.y - shiftY * s0);
       }
     };
     const onUp = () => {

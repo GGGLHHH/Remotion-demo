@@ -3,8 +3,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { Maximize, Pause, Play, Repeat, SkipBack, SkipForward, Volume2, VolumeX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { useEditor } from '../state/context';
-import { playerRef, usePlayerFrame } from '../canvas/player-ref';
+import { useEditor, useEditorRefs } from '../state/context';
+import { usePlayerFrame } from '../canvas/player-ref';
 import { calcDuration } from '@gedatou/shared/composition';
 import { formatTime } from '../timeline/Ruler';
 
@@ -42,6 +42,7 @@ const Btn: React.FC<{
 );
 
 export const PlaybackBar: React.FC = () => {
+  const refs = useEditorRefs();
   const fps = useEditor((s) => s.undoable.fps);
   const items = useEditor((s) => s.undoable.items);
   const loop = useEditor((s) => s.loop);
@@ -52,7 +53,7 @@ export const PlaybackBar: React.FC = () => {
   const durationInFrames = useMemo(() => calcDuration(items), [items]);
 
   useEffect(() => {
-    const p = playerRef.current;
+    const p = refs.player.current;
     if (!p) return;
     const onPlay = () => setPlaying(true);
     const onPause = () => setPlaying(false);
@@ -66,7 +67,7 @@ export const PlaybackBar: React.FC = () => {
 
   // 静音是瞬时全局状态，不进 undoable，因此在这里同步给 Player
   useEffect(() => {
-    const p = playerRef.current;
+    const p = refs.player.current;
     if (!p) return;
     if (playerMuted) p.mute();
     else p.unmute();
@@ -74,13 +75,13 @@ export const PlaybackBar: React.FC = () => {
 
   return (
     <div className="flex h-10 shrink-0 items-center justify-center gap-1 border-t border-zinc-800 bg-zinc-900 px-4 text-sm">
-      <Btn title="跳到开头" onClick={() => playerRef.current?.seekTo(0)}>
+      <Btn title="跳到开头" onClick={() => refs.player.current?.seekTo(0)}>
         <SkipBack />
       </Btn>
-      <Btn title="播放/暂停 (空格)" onClick={() => playerRef.current?.toggle()}>
+      <Btn title="播放/暂停 (空格)" onClick={() => refs.player.current?.toggle()}>
         {playing ? <Pause /> : <Play />}
       </Btn>
-      <Btn title="跳到结尾" onClick={() => playerRef.current?.seekTo(durationInFrames - 1)}>
+      <Btn title="跳到结尾" onClick={() => refs.player.current?.seekTo(durationInFrames - 1)}>
         <SkipForward />
       </Btn>
       <Timecode fps={fps} durationInFrames={durationInFrames} />
@@ -90,7 +91,7 @@ export const PlaybackBar: React.FC = () => {
       <Btn title="循环" active={loop} onClick={toggleLoop}>
         <Repeat />
       </Btn>
-      <Btn title="全屏" onClick={() => playerRef.current?.requestFullscreen()}>
+      <Btn title="全屏" onClick={() => refs.player.current?.requestFullscreen()}>
         <Maximize />
       </Btn>
     </div>

@@ -28,11 +28,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { useEditor, useEditorApi } from './state/context';
+import { useEditor, useEditorApi, useEditorRefs } from './state/context';
 import { useShortcuts } from './shortcuts/useShortcuts';
 import { CanvasView, type CanvasTool } from './canvas/CanvasView';
-import { playerRef } from './canvas/player-ref';
-import { fitScaleRef } from './canvas/fit-scale';
 import { Inspector } from './inspector/Inspector';
 import { TimelinePanel } from './timeline/TimelinePanel';
 import { PlaybackBar } from './playback/PlaybackBar';
@@ -122,9 +120,10 @@ const CaptioningBadge = () => {
 
 /** 画布缩放控件：[适应图标(非 fit 时)] [−] [标签] [+]；相对步进（加倍/减半） */
 const ZoomControls = () => {
+  const refs = useEditorRefs();
   const canvasZoom = useEditor((s) => s.canvasZoom);
   const setCanvasZoom = useEditor((s) => s.setCanvasZoom);
-  const effective = () => (canvasZoom === 'fit' ? fitScaleRef.current : canvasZoom);
+  const effective = () => (canvasZoom === 'fit' ? refs.fitScale.current : canvasZoom);
   return (
     <span className="flex items-center gap-0.5">
       {canvasZoom !== 'fit' ? (
@@ -200,6 +199,7 @@ const CleanupAssetsButton = () => {
 export default function App() {
   useShortcuts();
   const editorApi = useEditorApi();
+  const refs = useEditorRefs();
   // 画布工具模式：绘制色块 / 点击放置文本（瞬时 UI 状态，不进 store）
   const [tool, setTool] = useState<CanvasTool>(null);
   const canUndo = useEditor((s) => s.past.length > 0);
@@ -247,7 +247,7 @@ export default function App() {
         <IconButton label="重做 (Cmd+Y)" disabled={!canRedo} onClick={redo}>
           <Redo2 />
         </IconButton>
-        <IconButton label="播放/暂停 (空格)" onClick={() => playerRef.current?.toggle()}>
+        <IconButton label="播放/暂停 (空格)" onClick={() => refs.player.current?.toggle()}>
           <Play />
         </IconButton>
         <Button
@@ -275,7 +275,7 @@ export default function App() {
           icon={<Upload />}
           accept="video/*,audio/*,image/*"
           multiple
-          onFiles={(files) => void importFiles(editorApi, files)}
+          onFiles={(files) => void importFiles(editorApi, files, undefined, undefined, refs.getPlayerFrame())}
         />
         <UploadStatusBadge />
         <CaptioningBadge />

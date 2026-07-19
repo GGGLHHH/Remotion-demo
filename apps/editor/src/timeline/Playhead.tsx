@@ -1,6 +1,6 @@
 import type React from 'react';
 import { useEffect, useRef } from 'react';
-import { getPlayerFrame, playerRef } from '../canvas/player-ref';
+import { useEditorRefs } from '../state/context';
 
 /**
  * 播放头：位置不走 React state——直接订阅 frameupdate 改 style.left，
@@ -11,13 +11,14 @@ export const Playhead: React.FC<{ zoom: number; onSeek: (frame: number) => void 
   onSeek,
 }) => {
   const ref = useRef<HTMLDivElement>(null);
+  const refs = useEditorRefs();
 
   // zoom 变化时重挂订阅并立即重定位（seek 也走 frameupdate，无需额外处理）
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    el.style.left = `${getPlayerFrame() * zoom}px`;
-    const p = playerRef.current;
+    el.style.left = `${refs.getPlayerFrame() * zoom}px`;
+    const p = refs.player.current;
     if (!p) return;
     const onFrame = (e: { detail: { frame: number } }) => {
       el.style.left = `${e.detail.frame * zoom}px`;
@@ -30,7 +31,7 @@ export const Playhead: React.FC<{ zoom: number; onSeek: (frame: number) => void 
     <div
       ref={ref}
       className="absolute bottom-0 top-0 z-20 -ml-1 w-2 cursor-ew-resize"
-      style={{ left: getPlayerFrame() * zoom }}
+      style={{ left: refs.getPlayerFrame() * zoom }}
       onPointerDown={(e) => {
         e.currentTarget.setPointerCapture(e.pointerId);
         e.stopPropagation();

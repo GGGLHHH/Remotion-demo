@@ -1,7 +1,5 @@
 import { useEffect } from 'react';
-import { useEditorApi } from '../state/context';
-import { playerRef } from '../canvas/player-ref';
-import { fitScaleRef } from '../canvas/fit-scale';
+import { useEditorApi, useEditorRefs } from '../state/context';
 import { resolveSplitTargets, splitItemsAtFrame } from '../timeline/ops';
 import { saveState } from '../persistence/persistence';
 import { importFiles } from '../lib/import-assets';
@@ -27,6 +25,7 @@ const isEditableTarget = (target: EventTarget | null): boolean => {
 
 export const useShortcuts = () => {
   const editorApi = useEditorApi();
+  const refs = useEditorRefs();
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (isEditableTarget(e.target)) return;
@@ -73,12 +72,12 @@ export const useShortcuts = () => {
       }
       if (e.key === ' ') {
         e.preventDefault();
-        playerRef.current?.toggle();
+        refs.player.current?.toggle();
         return;
       }
       if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
         e.preventDefault();
-        const p = playerRef.current;
+        const p = refs.player.current;
         if (!p) return;
         // 官方：←/→ ±1 帧，Shift 加持 ±1 秒
         const step =
@@ -89,12 +88,12 @@ export const useShortcuts = () => {
       }
       // 相对步进（官方）：+ 当前缩放加倍，- 减半，0 适应
       if (e.key === '+' || e.key === '=') {
-        const cur = store.canvasZoom === 'fit' ? fitScaleRef.current : store.canvasZoom;
+        const cur = store.canvasZoom === 'fit' ? refs.fitScale.current : store.canvasZoom;
         store.setCanvasZoom(cur * 2);
         return;
       }
       if (e.key === '-') {
-        const cur = store.canvasZoom === 'fit' ? fitScaleRef.current : store.canvasZoom;
+        const cur = store.canvasZoom === 'fit' ? refs.fitScale.current : store.canvasZoom;
         store.setCanvasZoom(cur / 2);
         return;
       }
@@ -107,7 +106,7 @@ export const useShortcuts = () => {
         return;
       }
       if (key === 's' && !mod) {
-        const frame = playerRef.current?.getCurrentFrame();
+        const frame = refs.player.current?.getCurrentFrame();
         if (frame !== undefined) {
           // 有选中切选中，未选中切播放头下所有条目（与工具栏剪刀按钮一致）
           store.updateUndoable((s) =>
@@ -137,7 +136,7 @@ export const useShortcuts = () => {
       if (isEditableTarget(e.target)) return;
       const dt = e.clipboardData;
       if (!dt) return;
-      const frame = playerRef.current?.getCurrentFrame() ?? 0;
+      const frame = refs.player.current?.getCurrentFrame() ?? 0;
       // 1) 我们的序列化载荷（本页或其他标签页复制的元素）→ 粘贴到播放头
       const html = dt.getData('text/html');
       if (html.includes(CLIPBOARD_MARKER)) {
@@ -152,7 +151,7 @@ export const useShortcuts = () => {
       const files = Array.from(dt.files);
       if (files.length) {
         e.preventDefault();
-        void importFiles(editorApi, files);
+        void importFiles(editorApi, files, undefined, undefined, refs.getPlayerFrame());
         return;
       }
       // 3) 纯文本 → 画布居中文本项
