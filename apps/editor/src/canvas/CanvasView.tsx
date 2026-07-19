@@ -76,17 +76,61 @@ export const CanvasView: React.FC<{
 
   const scale = canvasZoom === 'fit' ? fitScale : canvasZoom;
 
+  // 合成外空白区域：单击取消选择，拖拽 = 框选（触碰即预选中，与合成内框选一致）
+  const [voidMarquee, setVoidMarquee] = useState<{ x: number; y: number; w: number; h: number } | null>(
+    null,
+  );
+  const onVoidPointerDown = (e: React.PointerEvent) => {
+    if (e.button !== 0 || e.target !== e.currentTarget) return;
+    const container = e.currentTarget as HTMLElement;
+    const stage = container.querySelector('[data-stage]');
+    if (!stage) return;
+    useEditorStore.getState().setSelected([]);
+    const start = { x: e.clientX, y: e.clientY };
+    const onMove = (ev: PointerEvent) => {
+      const cRect = container.getBoundingClientRect();
+      const x1 = Math.min(start.x, ev.clientX);
+      const x2 = Math.max(start.x, ev.clientX);
+      const y1 = Math.min(start.y, ev.clientY);
+      const y2 = Math.max(start.y, ev.clientY);
+      setVoidMarquee({
+        x: x1 - cRect.left + container.scrollLeft,
+        y: y1 - cRect.top + container.scrollTop,
+        w: x2 - x1,
+        h: y2 - y1,
+      });
+      const sRect = stage.getBoundingClientRect();
+      const cx1 = (x1 - sRect.left) / scale;
+      const cx2 = (x2 - sRect.left) / scale;
+      const cy1 = (y1 - sRect.top) / scale;
+      const cy2 = (y2 - sRect.top) / scale;
+      const st = useEditorStore.getState();
+      const f = playerRef.current?.getCurrentFrame() ?? 0;
+      const hits: string[] = [];
+      for (const item of Object.values(st.undoable.items)) {
+        if (item.type === 'audio') continue;
+        if (f < item.from || f >= item.from + item.durationInFrames) continue;
+        if (item.left < cx2 && cx1 < item.left + item.width && item.top < cy2 && cy1 < item.top + item.height) {
+          hits.push(item.id);
+        }
+      }
+      st.setSelected(hits);
+    };
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      setVoidMarquee(null);
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  };
+
   return (
     <div className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-zinc-950">
       <div
         ref={containerRef}
-        className="flex min-h-0 flex-1 items-center justify-center overflow-auto"
-        onPointerDown={(e) => {
-          // 合成外的空白区域点击：取消选择（合成内的空白由 SelectionOverlay 处理）
-          if (e.button === 0 && e.target === e.currentTarget) {
-            useEditorStore.getState().setSelected([]);
-          }
-        }}
+        className="relative flex min-h-0 flex-1 items-center justify-center overflow-auto"
+        onPointerDown={onVoidPointerDown}
         onDragOver={(e) => e.preventDefault()}
         onDrop={(e) => {
           e.preventDefault();
@@ -128,6 +172,17 @@ export const CanvasView: React.FC<{
           {tool === 'solid' ? <DrawSolidOverlay scale={scale} onDone={onExitTool} /> : null}
           {tool === 'text' ? <TextToolOverlay scale={scale} onDone={onExitTool} /> : null}
         </div>
+        {voidMarquee ? (
+          <div
+            className="pointer-events-none absolute z-40 border border-[#0B84F3] bg-[#0B84F3]/10"
+            style={{
+              left: voidMarquee.x,
+              top: voidMarquee.y,
+              width: voidMarquee.w,
+              height: voidMarquee.h,
+            }}
+          />
+        ) : null}
       </div>
     </div>
   );
