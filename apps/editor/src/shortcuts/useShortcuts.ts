@@ -14,7 +14,12 @@ import {
 
 const isEditableTarget = (target: EventTarget | null): boolean => {
   if (!(target instanceof HTMLElement)) return false;
-  return target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
+  if (target.isContentEditable || target.tagName === 'TEXTAREA') return true;
+  if (target.tagName !== 'INPUT') return false;
+  // 非文本输入控件不吞快捷键——滑杆(base-ui Slider)拖完后焦点会留在其隐藏的
+  // input[type=range] 上，若一并拦截会造成"快捷键全失灵"直到下一次点击
+  const type = (target as HTMLInputElement).type;
+  return !['range', 'checkbox', 'radio', 'button', 'submit', 'reset', 'file', 'color'].includes(type);
 };
 
 export const useShortcuts = () => {
