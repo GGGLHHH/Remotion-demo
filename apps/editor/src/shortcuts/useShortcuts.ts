@@ -6,9 +6,12 @@ import { resolveSplitTargets, splitItemsAtFrame } from '../timeline/ops';
 import { saveState } from '../persistence/persistence';
 import { importFiles } from '../lib/import-assets';
 import {
-  copySelection,
+  CLIPBOARD_MARKER,
+  buildClipboardPayload,
   duplicateSelection,
+  parseClipboardHtml,
   pasteClipboard,
+  pasteSerialized,
   pasteTextAsTextItem,
 } from '../lib/clipboard';
 
@@ -45,25 +48,7 @@ export const useShortcuts = () => {
         store.redo();
         return;
       }
-      if (mod && key === 'c') {
-        e.preventDefault();
-        copySelection();
-        return;
-      }
-      if (mod && key === 'x') {
-        e.preventDefault();
-        copySelection();
-        store.deleteSelected();
-        return;
-      }
-      if (mod && key === 'v') {
-        // 内部剪贴板优先；系统剪贴板走 paste 事件
-        if (store.clipboard.length) {
-          e.preventDefault();
-          pasteClipboard();
-        }
-        return;
-      }
+      // Cmd+C/X/V 不在 keydown 处理：走原生 copy/cut/paste 事件（官方模型，系统剪贴板可跨标签页）
       if (mod && key === 'd') {
         e.preventDefault();
         duplicateSelection();
@@ -94,7 +79,9 @@ export const useShortcuts = () => {
         e.preventDefault();
         const p = playerRef.current;
         if (!p) return;
-        const step = (e.shiftKey ? 10 : 1) * (e.key === 'ArrowLeft' ? -1 : 1);
+        // 官方：←/→ ±1 帧，Shift 加持 ±1 秒
+        const step =
+          (e.shiftKey ? store.undoable.fps : 1) * (e.key === 'ArrowLeft' ? -1 : 1);
         p.pause();
         p.seekTo(Math.max(0, p.getCurrentFrame() + step));
         return;
@@ -129,27 +116,66 @@ export const useShortcuts = () => {
       }
     };
 
+    // 复制/剪切：序列化选中项（含引用素材）写入系统剪贴板，可跨标签页粘贴（官方模型）
+    const onCopy = (e: ClipboardEvent) => {
+      if (isEditableTarget(e.target)) return;
+      const payload = buildClipboardPayload();
+      if (!payload || !e.clipboardData) return;
+      e.preventDefault();
+      e.clipboardData.setData('text/html', payload.html);
+      e.clipboardData.setData('text/plain', payload.plain);
+    };
+    const onCut = (e: ClipboardEvent) => {
+      if (isEditableTarget(e.target)) return;
+      const hadSelection = useEditorStore.getState().selectedItemIds.length > 0;
+      onCopy(e);
+      if (hadSelection) useEditorStore.getState().deleteSelected();
+    };
+
     const onPaste = (e: ClipboardEvent) => {
       if (isEditableTarget(e.target)) return;
       const dt = e.clipboardData;
       if (!dt) return;
+      const frame = playerRef.current?.getCurrentFrame() ?? 0;
+      // 1) 我们的序列化载荷（本页或其他标签页复制的元素）→ 粘贴到播放头
+      const html = dt.getData('text/html');
+      if (html.includes(CLIPBOARD_MARKER)) {
+        const payload = parseClipboardHtml(html);
+        if (payload) {
+          e.preventDefault();
+          pasteSerialized(payload, frame);
+          return;
+        }
+      }
+      // 2) 文件 → 导入素材
       const files = Array.from(dt.files);
       if (files.length) {
         e.preventDefault();
         void importFiles(files);
         return;
       }
+      // 3) 纯文本 → 画布居中文本项
       const text = dt.getData('text/plain');
-      if (text.trim() && useEditorStore.getState().clipboard.length === 0) {
+      if (text.trim()) {
         e.preventDefault();
-        pasteTextAsTextItem(text.trim(), playerRef.current?.getCurrentFrame() ?? 0);
+        pasteTextAsTextItem(text.trim(), frame);
+        return;
+      }
+      // 4) 兜底：内部剪贴板（菜单复制且系统剪贴板写入失败时）
+      if (useEditorStore.getState().clipboard.length) {
+        e.preventDefault();
+        pasteClipboard(frame);
       }
     };
 
     window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('copy', onCopy);
+    window.addEventListener('cut', onCut);
     window.addEventListener('paste', onPaste);
     return () => {
       window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('copy', onCopy);
+      window.removeEventListener('cut', onCut);
       window.removeEventListener('paste', onPaste);
     };
   }, []);

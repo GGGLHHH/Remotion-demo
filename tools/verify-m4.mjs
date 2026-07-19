@@ -119,7 +119,7 @@ const selectId = (id) => page.evaluate((i) => window.__editorStore.getState().se
   await page.keyboard.press('Meta+z');
 }
 
-// --- 7) 剪贴板：复制粘贴 → 新 item + 偏移 ---
+// --- 7) 剪贴板：复制粘贴 → 新 item 落在播放头、位置不偏移（官方语义） ---
 {
   const { id, s: s0 } = await pick('text');
   const count0 = Object.keys(s0.items).length;
@@ -129,7 +129,9 @@ const selectId = (id) => page.evaluate((i) => window.__editorStore.getState().se
   const s = await S();
   if (Object.keys(s.items).length !== count0 + 1) fail('paste did not add item');
   const newId = s.selected[0];
-  if (s.items[newId].left !== s.items[id].left + 20) fail('paste offset wrong');
+  const ph = await page.evaluate(() => window.__playerRef.current.getCurrentFrame());
+  if (s.items[newId].left !== s.items[id].left) fail('paste should keep position');
+  if (s.items[newId].from !== ph) fail(`paste at frame ${s.items[newId].from}, want playhead ${ph}`);
   await page.keyboard.press('Meta+z');
 }
 
