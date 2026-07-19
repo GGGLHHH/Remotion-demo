@@ -473,6 +473,27 @@ const CropSection: React.FC<{
     bottom: mediaH - cur.top - cur.height,
   };
 
+  /**
+   * 联动更新（官方语义，与画布裁剪模式一致）：crop 窗口变化时同步收缩/平移元素框，
+   * 剩余内容在画布上保持原位原尺度——只改 crop 会表现为"移动/缩放画面"而非裁剪。
+   */
+  const applyCrop = (next: Crop | null, commit: boolean) => {
+    const target = next ?? { left: 0, top: 0, width: mediaW, height: mediaH };
+    const sx = item.width / cur.width;
+    const sy = item.height / cur.height;
+    const r = (n: number) => Math.round(n * 100) / 100;
+    patch(
+      {
+        crop: next,
+        left: r(item.left + (target.left - cur.left) * sx),
+        top: r(item.top + (target.top - cur.top) * sy),
+        width: r(target.width * sx),
+        height: r(target.height * sy),
+      } as Partial<EditorStarterItem>,
+      commit,
+    );
+  };
+
   /** 边距滑杆（百分比域）→ 源素材像素 crop；保证至少 1px 宽高 */
   const setEdge = (edge: keyof typeof edges, pctV: number) => {
     const total = edge === 'left' || edge === 'right' ? mediaW : mediaH;
@@ -481,15 +502,13 @@ const CropSection: React.FC<{
     if (edge === 'right') e.right = Math.min(e.right, mediaW - e.left - 1);
     if (edge === 'top') e.top = Math.min(e.top, mediaH - e.bottom - 1);
     if (edge === 'bottom') e.bottom = Math.min(e.bottom, mediaH - e.top - 1);
-    patch(
+    applyCrop(
       {
-        crop: {
-          left: e.left,
-          top: e.top,
-          width: mediaW - e.left - e.right,
-          height: mediaH - e.top - e.bottom,
-        },
-      } as Partial<EditorStarterItem>,
+        left: e.left,
+        top: e.top,
+        width: mediaW - e.left - e.right,
+        height: mediaH - e.top - e.bottom,
+      },
       false,
     );
   };
@@ -499,15 +518,13 @@ const CropSection: React.FC<{
     const c = { ...cur, ...partial };
     const left = Math.min(Math.max(0, c.left), mediaW - 1);
     const top = Math.min(Math.max(0, c.top), mediaH - 1);
-    patch(
+    applyCrop(
       {
-        crop: {
-          left,
-          top,
-          width: Math.min(Math.max(1, c.width), mediaW - left),
-          height: Math.min(Math.max(1, c.height), mediaH - top),
-        },
-      } as Partial<EditorStarterItem>,
+        left,
+        top,
+        width: Math.min(Math.max(1, c.width), mediaW - left),
+        height: Math.min(Math.max(1, c.height), mediaH - top),
+      },
       commit,
     );
   };
@@ -556,7 +573,7 @@ const CropSection: React.FC<{
             variant="outline"
             size="sm"
             className="flex-1"
-            onClick={() => patch({ crop: null } as Partial<EditorStarterItem>)}
+            onClick={() => applyCrop(null, true)}
           >
             重置
           </Button>
