@@ -142,6 +142,7 @@ export const TimelinePanel: React.FC = () => {
   const height = useEditorStore((s) => s.timelineHeight);
   const setHeight = useEditorStore((s) => s.setTimelineHeight);
   const snapping = useEditorStore((s) => s.snappingEnabled);
+  const selectedIds = useEditorStore((s) => s.selectedItemIds);
 
   const [frame, setFrame] = useState(0);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -166,6 +167,11 @@ export const TimelinePanel: React.FC = () => {
 
   const duration = calcDuration(undoable.items);
   const contentWidth = duration * zoom + 240;
+  // 剪刀按钮：播放头没有落在任何可分割目标内部时禁用（官方行为）
+  const splittable = resolveSplitTargets(undoable, frame, selectedIds).some((id) => {
+    const it = undoable.items[id];
+    return it && frame > it.from && frame < it.from + it.durationInFrames;
+  });
 
   // 播放头跟随 + 播放时自动滚动（不与用户的手动滚动抢方向盘）
   const lastPlayheadX = useRef<number | null>(null);
@@ -669,6 +675,7 @@ export const TimelinePanel: React.FC = () => {
                 size="icon-sm"
                 className="text-zinc-400 hover:text-zinc-200"
                 title="在播放头处分割 (S)"
+                disabled={!splittable}
                 onClick={() => {
                   const store = useEditorStore.getState();
                   const f = playerRef.current?.getCurrentFrame() ?? frame;

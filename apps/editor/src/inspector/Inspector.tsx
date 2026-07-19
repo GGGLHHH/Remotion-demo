@@ -29,6 +29,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useEditorStore } from '../state/store';
+import { usePlayerFrame } from '../canvas/player-ref';
 import { startRender } from '../lib/render-client';
 import { generateCaptions } from '../lib/captioning';
 import { NumberField } from './NumberField';
@@ -269,6 +270,10 @@ const ItemPanel: React.FC<{ item: EditorStarterItem }> = ({ item }) => {
   const updateUndoable = useEditorStore((s) => s.updateUndoable);
   const setItemSelectedForCrop = useEditorStore((s) => s.setItemSelectedForCrop);
   const fps = useEditorStore((s) => s.undoable.fps);
+  const playheadFrame = usePlayerFrame();
+  /** 播放头不在此元素时间范围内时画布上看不到它，裁剪按钮禁用（官方行为） */
+  const visibleAtPlayhead =
+    playheadFrame >= item.from && playheadFrame < item.from + item.durationInFrames;
   const asset = useEditorStore((s) =>
     'assetId' in item ? s.undoable.assets[item.assetId] : undefined,
   );
@@ -417,6 +422,8 @@ const ItemPanel: React.FC<{ item: EditorStarterItem }> = ({ item }) => {
               variant="outline"
               size="sm"
               className="flex-1"
+              disabled={!visibleAtPlayhead}
+              title={visibleAtPlayhead ? undefined : '播放头不在此元素的时间范围内'}
               onClick={() => setItemSelectedForCrop(item.id)}
             >
               <CropIcon />

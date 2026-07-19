@@ -45,7 +45,16 @@ export const ItemBlock: React.FC<{
   const filename = useEditorStore((s) =>
     item.type === 'video' ? (s.undoable.assets[item.assetId]?.filename ?? null) : null,
   );
+  const assetDurationSec = useEditorStore((s) => {
+    if (item.type !== 'video' && item.type !== 'audio') return 0;
+    const a = s.undoable.assets[item.assetId];
+    return a && 'durationInSeconds' in a ? a.durationInSeconds : 0;
+  });
   const widthPx = Math.max(2, item.durationInFrames * zoom);
+  // 时间锚定参数：胶片/波形对应素材时间窗口，修剪只平移显示、不重新生成
+  const trimBeforeSec = 'trimBefore' in item ? item.trimBefore / fps : 0;
+  const visibleSec =
+    (('playbackRate' in item ? item.playbackRate : 1) * item.durationInFrames) / fps;
   const blockRef = useRef<HTMLDivElement>(null);
   const [volDrag, setVolDrag] = useState<number | null>(null);
   /** 淡变拖拽中的提示：淡入/淡出 + 当前帧数 */
@@ -145,14 +154,36 @@ export const ItemBlock: React.FC<{
       {/* 内容裁剪层：条纹/波形/标签等在此裁剪；修剪手柄留在外层以便悬出块外 */}
       <div className="absolute inset-0 flex items-center overflow-hidden rounded px-2">
       {item.type === 'video' && mediaUrl ? (
-        <Filmstrip assetId={item.assetId} url={mediaUrl} widthPx={widthPx} />
+        <Filmstrip
+          assetId={item.assetId}
+          url={mediaUrl}
+          widthPx={widthPx}
+          assetDurationSec={assetDurationSec}
+          trimBeforeSec={trimBeforeSec}
+          visibleSec={visibleSec}
+        />
       ) : null}
       {item.type === 'audio' && mediaUrl ? (
-        <Waveform assetId={item.assetId} url={mediaUrl} widthPx={widthPx} />
+        <Waveform
+          assetId={item.assetId}
+          url={mediaUrl}
+          widthPx={widthPx}
+          assetDurationSec={assetDurationSec}
+          trimBeforeSec={trimBeforeSec}
+          visibleSec={visibleSec}
+        />
       ) : null}
       {/* 视频底部音频波形窄条（无音轨则不渲染） */}
       {item.type === 'video' && videoHasAudio && mediaUrl ? (
-        <Waveform assetId={item.assetId} url={mediaUrl} widthPx={widthPx} heightPx={14} />
+        <Waveform
+          assetId={item.assetId}
+          url={mediaUrl}
+          widthPx={widthPx}
+          assetDurationSec={assetDurationSec}
+          trimBeforeSec={trimBeforeSec}
+          visibleSec={visibleSec}
+          heightPx={14}
+        />
       ) : null}
       {/* 淡入/淡出斜坡 */}
       {item.fadeInDurationInFrames > 0 ? (

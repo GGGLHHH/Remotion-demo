@@ -33,9 +33,15 @@ export const Waveform: React.FC<{
   assetId: string;
   url: string;
   widthPx: number;
+  /** 素材总时长（秒）——时间锚定：波形对应素材时间窗口，修剪只平移不重算 */
+  assetDurationSec: number;
+  /** 块起点对应的素材偏移（秒） */
+  trimBeforeSec: number;
+  /** 块覆盖的素材时长（秒） */
+  visibleSec: number;
   /** 波形条带高度（px）：音频项占满块高，视频项为底部窄条 */
   heightPx?: number;
-}> = ({ assetId, url, widthPx, heightPx = 44 }) => {
+}> = ({ assetId, url, widthPx, assetDurationSec, trimBeforeSec, visibleSec, heightPx = 44 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -53,7 +59,9 @@ export const Waveform: React.FC<{
       const ctx = canvas.getContext('2d')!;
       ctx.fillStyle = 'rgba(255,255,255,0.55)';
       for (let x = 0; x < w; x += 2) {
-        const p = peaks[Math.floor((x / w) * BUCKETS)] ?? 0;
+        // 像素 → 素材秒 → 峰值桶（时间锚定）
+        const sec = trimBeforeSec + (x / w) * visibleSec;
+        const p = peaks[Math.floor((sec / Math.max(0.001, assetDurationSec)) * BUCKETS)] ?? 0;
         const h = Math.max(1, p * (heightPx - 4));
         ctx.fillRect(x, (heightPx - h) / 2, 1.5, h);
       }
@@ -61,7 +69,7 @@ export const Waveform: React.FC<{
     return () => {
       alive = false;
     };
-  }, [assetId, url, widthPx, heightPx]);
+  }, [assetId, url, widthPx, heightPx, assetDurationSec, trimBeforeSec, visibleSec]);
 
   return (
     <canvas
