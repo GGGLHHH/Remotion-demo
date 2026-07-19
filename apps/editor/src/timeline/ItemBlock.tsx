@@ -41,22 +41,37 @@ const topFractionToGain = (f: number): number =>
   f >= 1 ? 0 : 10 ** ((20 - 80 * Math.min(1, Math.max(0, f))) / 20);
 
 /**
- * 时间轴块操作的淡变对（官方行为）：视频块的角标/楔形操作独立的音频淡变对
- * （视觉淡变在检查器「视频」区）；音频与非媒体块沿用基础淡变对。
+ * 淡变对（官方实测）：视频块有两组手柄——块顶角驱动视觉对（基础字段），
+ * 音频条带上缘两角驱动独立的音频对；音频块单组（基础对即其音频淡变）。
  */
-const readFadePair = (it: EditorStarterItem): { fadeIn: number; fadeOut: number } =>
-  it.type === 'video'
+type FadePairKind = 'visual' | 'audio';
+
+const readFadePair = (
+  it: EditorStarterItem,
+  kind: FadePairKind,
+): { fadeIn: number; fadeOut: number } =>
+  kind === 'audio' && it.type === 'video'
     ? { fadeIn: it.audioFadeInDurationInFrames ?? 0, fadeOut: it.audioFadeOutDurationInFrames ?? 0 }
     : { fadeIn: it.fadeInDurationInFrames, fadeOut: it.fadeOutDurationInFrames };
 
-const writeFade = (it: EditorStarterItem, side: 'in' | 'out', v: number): EditorStarterItem =>
-  it.type === 'video'
+const writeFade = (
+  it: EditorStarterItem,
+  kind: FadePairKind,
+  side: 'in' | 'out',
+  v: number,
+): EditorStarterItem =>
+  kind === 'audio' && it.type === 'video'
     ? side === 'in'
       ? { ...it, audioFadeInDurationInFrames: v }
       : { ...it, audioFadeOutDurationInFrames: v }
     : side === 'in'
       ? { ...it, fadeInDurationInFrames: v }
       : { ...it, fadeOutDurationInFrames: v };
+
+/** 音频块整块波形高度（官方：音频块 46px 全波形，行高 48） */
+const AUDIO_ITEM_WAVE_H = 44;
+/** 视频块胶片区高度（68 块 − 2 边框 − 20 条带） */
+const VIDEO_FILM_H = 46;
 
 /** 等功率淡变楔形路径（官方：黑色 SVG，覆盖未达全音量的区域） */
 const wedgePath = (w: number, h: number, side: 'in' | 'out'): string => {
@@ -91,7 +106,9 @@ export const ItemBlock: React.FC<{
   });
   const fps = useEditorStore((s) => s.undoable.fps);
   const filename = useEditorStore((s) =>
-    item.type === 'video' ? (s.undoable.assets[item.assetId]?.filename ?? null) : null,
+    item.type === 'video' || item.type === 'audio'
+      ? (s.undoable.assets[item.assetId]?.filename ?? null)
+      : null,
   );
   const assetDurationSec = useEditorStore((s) => {
     if (item.type !== 'video' && item.type !== 'audio') return 0;
@@ -107,10 +124,11 @@ export const ItemBlock: React.FC<{
   const stripRef = useRef<HTMLDivElement>(null);
   /** 拖拽中的跟随光标提示（官方：黑色小盒随光标移动） */
   const [dragTip, setDragTip] = useState<{ label: string; x: number; y: number } | null>(null);
-  /** 是否渲染底部音频条带（有音轨的媒体块） */
-  const hasAudioStrip = item.type === 'audio' || (item.type === 'video' && videoHasAudio);
-  /** 本块角标/楔形/斜坡显示与写入的淡变对（视频 = 音频淡变对，其余 = 基础对） */
-  const { fadeIn: fadeInFrames, fadeOut: fadeOutFrames } = readFadePair(item);
+  /** 视频块是否渲染底部音频条带；音频块整块即波形区（官方布局） */
+  const hasAudioStrip = item.type === 'video' && videoHasAudio;
+  const isAudio = item.type === 'audio';
+  const visualFade = readFadePair(item, 'visual');
+  const audioFade = readFadePair(item, 'audio');
 
   /** 手柄小拖拽骨架：捕获指针，move 期间 commit:false，抬起 commitPending（一次拖拽 = 一条撤销） */
   const startHandleDrag = (
@@ -157,7 +175,7 @@ export const ItemBlock: React.FC<{
     );
   };
 
-  const onFadePointerDown = (e: React.PointerEvent, side: 'in' | 'out') => {
+  const onFadePointerDown = (e: React.PointerEvent, side: 'in' | 'out', kind: FadePairKind) => {
     useEditorStore.getState().setSelected([item.id]);
     const rect = blockRef.current!.getBoundingClientRect();
     startHandleDrag(
@@ -171,7 +189,7 @@ export const ItemBlock: React.FC<{
             ? Math.round((ev.clientX - rect.left) / zoom)
             : Math.round((rect.right - ev.clientX) / zoom);
         // 淡入 + 淡出 不超过项时长
-        const pair = readFadePair(it);
+        const pair = readFadePair(it, kind);
         const other = side === 'in' ? pair.fadeOut : pair.fadeIn;
         const v = Math.min(Math.max(0, raw), Math.max(0, it.durationInFrames - other));
         setDragTip({
@@ -184,7 +202,7 @@ export const ItemBlock: React.FC<{
           (s) => {
             const cu = s.items[item.id];
             if (!cu) return s;
-            return { ...s, items: { ...s.items, [item.id]: writeFade(cu, side, v) } };
+            return { ...s, items: { ...s.items, [item.id]: writeFade(cu, kind, side, v) } };
           },
           { commit: false },
         );
@@ -193,20 +211,52 @@ export const ItemBlock: React.FC<{
     );
   };
 
-  /** 官方样式：顶角白色小药丸（约 6×10px、下缘圆角），悬停或选中时可见 */
-  const fadeHandleCls = `absolute top-0 z-30 h-[10px] w-[6px] -translate-x-1/2 cursor-ew-resize rounded-b-full bg-white ${
-    selected ? '' : 'opacity-0 group-hover:opacity-100'
-  }`;
+  /** 悬停域（官方：悬停胶片区只显视觉角标，悬停音频区只显音频角标） */
+  const [hoverZone, setHoverZone] = useState<'film' | 'strip' | null>(null);
+  const [blockHover, setBlockHover] = useState(false);
+
+  /** 淡变角标（官方：6×10 白色药丸、下缘圆角）。块级 z-40 渲染在修剪手柄之上——
+      官方的边缘热区分层：顶部 ~10px 归淡变、其余归修剪 */
+  const fadePill = (
+    side: 'in' | 'out',
+    kind: FadePairKind,
+    frames: number,
+    visible: boolean,
+    dataAttr: string,
+    styleExtra?: React.CSSProperties,
+  ) => (
+    <div
+      {...{ [dataAttr]: side }}
+      className={`absolute z-40 h-[10px] w-[6px] cursor-ew-resize rounded-b-full bg-white/90 ${
+        selected || visible ? '' : 'opacity-0'
+      }`}
+      style={{
+        ...(side === 'in' ? { left: frames * zoom } : { right: frames * zoom }),
+        ...(styleExtra ?? { top: 0 }),
+      }}
+      title={side === 'in' ? '淡入' : '淡出'}
+      onPointerEnter={() => {
+        // 悬停在药丸自身时保持所属悬停域（药丸在块级、不在域容器内）
+        if (item.type === 'video') setHoverZone(kind === 'visual' ? 'film' : 'strip');
+      }}
+      onPointerDown={(e) => onFadePointerDown(e, side, kind)}
+    />
+  );
 
   return (
     <div
       ref={blockRef}
       data-item-block={item.id}
-      className={`group absolute top-1.5 bottom-1.5 cursor-pointer rounded border text-xs text-white/90 ${COLORS[item.type]} ${
+      className={`group absolute top-px bottom-px cursor-pointer rounded border text-xs text-white/90 ${COLORS[item.type]} ${
         selected ? 'border-[#0B84F3]' : 'border-white/10'
       }`}
       style={{ left: item.from * zoom, width: widthPx, visibility: hidden ? 'hidden' : undefined }}
       onPointerDown={(e) => onPointerDown?.(e, item, 'move')}
+      onPointerEnter={() => setBlockHover(true)}
+      onPointerLeave={() => {
+        setBlockHover(false);
+        setHoverZone(null);
+      }}
     >
       {/* 内容裁剪层：条纹/波形/标签等在此裁剪；修剪手柄留在外层以便悬出块外 */}
       <div
@@ -214,9 +264,11 @@ export const ItemBlock: React.FC<{
         style={hasAudioStrip ? { paddingBottom: AUDIO_STRIP_H } : undefined}
       >
       {item.type === 'video' && mediaUrl ? (
+        // 胶片区（悬停域 film）：视觉淡变的楔形住在这里（官方顶角一组）
         <div
           className="absolute inset-x-0 top-0"
           style={{ bottom: hasAudioStrip ? AUDIO_STRIP_H : 0 }}
+          onPointerEnter={() => setHoverZone('film')}
         >
           <Filmstrip
             assetId={item.assetId}
@@ -226,94 +278,123 @@ export const ItemBlock: React.FC<{
             trimBeforeSec={trimBeforeSec}
             visibleSec={visibleSec}
           />
-        </div>
-      ) : null}
-      {/* 音频条带（官方 20px）：波形 + 淡变楔形 + 音量线都住在这里 */}
-      {hasAudioStrip && mediaUrl ? (
-        <div
-          ref={stripRef}
-          className="absolute inset-x-0 bottom-0 z-10 bg-black/30"
-          style={{ height: AUDIO_STRIP_H }}
-        >
-          <Waveform
-            assetId={item.assetId}
-            url={mediaUrl}
-            widthPx={widthPx}
-            assetDurationSec={assetDurationSec}
-            trimBeforeSec={trimBeforeSec}
-            visibleSec={visibleSec}
-            gain={'volume' in item ? item.volume : 1}
-            heightPx={AUDIO_STRIP_H}
-          />
-          {fadeInFrames > 0 ? (
+          {visualFade.fadeIn > 0 ? (
             <svg
               className="pointer-events-none absolute left-0 top-0"
-              width={Math.min(widthPx, fadeInFrames * zoom)}
-              height={AUDIO_STRIP_H}
+              width={Math.min(widthPx, visualFade.fadeIn * zoom)}
+              height={VIDEO_FILM_H}
             >
               <path
-                d={wedgePath(Math.min(widthPx, fadeInFrames * zoom), AUDIO_STRIP_H, 'in')}
+                d={wedgePath(Math.min(widthPx, visualFade.fadeIn * zoom), VIDEO_FILM_H, 'in')}
                 fill="black"
                 fillOpacity={0.55}
               />
             </svg>
           ) : null}
-          {fadeOutFrames > 0 ? (
+          {visualFade.fadeOut > 0 ? (
             <svg
               className="pointer-events-none absolute right-0 top-0"
-              width={Math.min(widthPx, fadeOutFrames * zoom)}
-              height={AUDIO_STRIP_H}
+              width={Math.min(widthPx, visualFade.fadeOut * zoom)}
+              height={VIDEO_FILM_H}
             >
               <path
-                d={wedgePath(Math.min(widthPx, fadeOutFrames * zoom), AUDIO_STRIP_H, 'out')}
+                d={wedgePath(Math.min(widthPx, visualFade.fadeOut * zoom), VIDEO_FILM_H, 'out')}
                 fill="black"
                 fillOpacity={0.55}
               />
             </svg>
           ) : null}
-          {/* 音量线：dB 线性映射（0dB 在 25% 处，顶 +20dB，底 −∞）；
-              抓取带钳制在条带内（极值处线在带内偏移，避免被块裁剪抓不到） */}
-          {(() => {
-            const linePx = gainToTopFraction('volume' in item ? item.volume : 1) * AUDIO_STRIP_H;
-            const bandTop = Math.min(AUDIO_STRIP_H - 6, Math.max(0, linePx - 3));
-            return (
-              <div
-                data-volume-line
-                className="absolute inset-x-0 z-20 cursor-ns-resize"
-                style={{ top: bandTop, height: 6 }}
-                title="音量"
-                onPointerDown={onVolumePointerDown}
-              >
-                <div
-                  className="absolute inset-x-0 h-px bg-white/20"
-                  style={{ top: Math.min(5, Math.max(0, linePx - bandTop)) }}
-                />
-              </div>
-            );
-          })()}
         </div>
       ) : null}
-      {/* 非条带块的淡入/淡出斜坡（视觉元素保留原样式；与角标同一淡变对） */}
-      {!hasAudioStrip && fadeInFrames > 0 ? (
+      {/* 音频区（group/strip 悬停域）：视频 = 底部 20px 条带；音频块 = 整块波形（官方布局）。
+          波形 + 音频淡变楔形/角标 + 音量线都住在这里 */}
+      {(hasAudioStrip || isAudio) && mediaUrl
+        ? (() => {
+            const stripH = isAudio ? AUDIO_ITEM_WAVE_H : AUDIO_STRIP_H;
+            const linePx = gainToTopFraction('volume' in item ? item.volume : 1) * stripH;
+            const bandTop = Math.min(stripH - 6, Math.max(0, linePx - 3));
+            return (
+              <div
+                ref={stripRef}
+                className={`absolute inset-x-0 bottom-0 z-10 ${isAudio ? '' : 'bg-black/30'}`}
+                style={{ height: stripH }}
+                onPointerEnter={() => setHoverZone('strip')}
+              >
+                <Waveform
+                  assetId={item.assetId}
+                  url={mediaUrl}
+                  widthPx={widthPx}
+                  assetDurationSec={assetDurationSec}
+                  trimBeforeSec={trimBeforeSec}
+                  visibleSec={visibleSec}
+                  gain={'volume' in item ? item.volume : 1}
+                  heightPx={stripH}
+                />
+                {audioFade.fadeIn > 0 ? (
+                  <svg
+                    className="pointer-events-none absolute left-0 top-0"
+                    width={Math.min(widthPx, audioFade.fadeIn * zoom)}
+                    height={stripH}
+                  >
+                    <path
+                      d={wedgePath(Math.min(widthPx, audioFade.fadeIn * zoom), stripH, 'in')}
+                      fill="black"
+                      fillOpacity={0.55}
+                    />
+                  </svg>
+                ) : null}
+                {audioFade.fadeOut > 0 ? (
+                  <svg
+                    className="pointer-events-none absolute right-0 top-0"
+                    width={Math.min(widthPx, audioFade.fadeOut * zoom)}
+                    height={stripH}
+                  >
+                    <path
+                      d={wedgePath(Math.min(widthPx, audioFade.fadeOut * zoom), stripH, 'out')}
+                      fill="black"
+                      fillOpacity={0.55}
+                    />
+                  </svg>
+                ) : null}
+                {/* 音量线：dB 线性映射（0dB 在 25% 处，顶 +20dB，底 −∞）；
+                    抓取带钳制在区域内（极值处线在带内偏移，避免被块裁剪抓不到） */}
+                <div
+                  data-volume-line
+                  className="absolute inset-x-0 z-20 cursor-ns-resize"
+                  style={{ top: bandTop, height: 6 }}
+                  title="音量"
+                  onPointerDown={onVolumePointerDown}
+                >
+                  <div
+                    className="absolute inset-x-0 h-px bg-white/20"
+                    style={{ top: Math.min(5, Math.max(0, linePx - bandTop)) }}
+                  />
+                </div>
+              </div>
+            );
+          })()
+        : null}
+      {/* 非媒体块的淡入/淡出斜坡（视觉淡变对） */}
+      {!hasAudioStrip && !isAudio && visualFade.fadeIn > 0 ? (
         <div
           className="pointer-events-none absolute inset-y-0 left-0"
           style={{
-            width: fadeInFrames * zoom,
+            width: visualFade.fadeIn * zoom,
             background: 'linear-gradient(to top left, transparent 49.5%, rgba(0,0,0,0.45) 50%)',
           }}
         />
       ) : null}
-      {!hasAudioStrip && fadeOutFrames > 0 ? (
+      {!hasAudioStrip && !isAudio && visualFade.fadeOut > 0 ? (
         <div
           className="pointer-events-none absolute inset-y-0 right-0"
           style={{
-            width: fadeOutFrames * zoom,
+            width: visualFade.fadeOut * zoom,
             background: 'linear-gradient(to top right, transparent 49.5%, rgba(0,0,0,0.45) 50%)',
           }}
         />
       ) : null}
-      {/* 视频块：左上角显示素材文件名（官方）；其余块居中显示类型标签 */}
-      {item.type === 'video' ? (
+      {/* 视频/音频块：左上角显示素材文件名（官方）；其余块居中显示类型标签 */}
+      {item.type === 'video' || isAudio ? (
         filename ? (
           <span className="pointer-events-none absolute left-1 top-0.5 z-10 max-w-[calc(100%-8px)] truncate text-[10px] text-white/90 select-none">
             {filename}
@@ -349,21 +430,30 @@ export const ItemBlock: React.FC<{
           onPointerDown?.(e, item, 'trim-end');
         }}
       />
-      {/* 淡入/淡出手柄（顶部两角，选中或悬停可见；与边缘修剪手柄错开） */}
-      <div
-        data-fade="in"
-        className={fadeHandleCls}
-        style={{ left: fadeInFrames * zoom }}
-        title="淡入"
-        onPointerDown={(e) => onFadePointerDown(e, 'in')}
-      />
-      <div
-        data-fade="out"
-        className={fadeHandleCls}
-        style={{ left: widthPx - fadeOutFrames * zoom }}
-        title="淡出"
-        onPointerDown={(e) => onFadePointerDown(e, 'out')}
-      />
+      {/* 淡变角标（块级 z-40，在修剪手柄之上；官方边缘热区：顶部 ~10px 归淡变）。
+          视频两组：顶角 = 视觉对（悬停胶片区可见）、音频条带上缘 = 音频对（悬停条带可见）；
+          音频块单组 = 音频对；非媒体块单组 = 视觉对 */}
+      {item.type === 'video' ? (
+        <>
+          {fadePill('in', 'visual', visualFade.fadeIn, hoverZone === 'film', 'data-fade')}
+          {fadePill('out', 'visual', visualFade.fadeOut, hoverZone === 'film', 'data-fade')}
+          {hasAudioStrip
+            ? fadePill('in', 'audio', audioFade.fadeIn, hoverZone === 'strip', 'data-fade-audio', {
+                bottom: AUDIO_STRIP_H - 10,
+              })
+            : null}
+          {hasAudioStrip
+            ? fadePill('out', 'audio', audioFade.fadeOut, hoverZone === 'strip', 'data-fade-audio', {
+                bottom: AUDIO_STRIP_H - 10,
+              })
+            : null}
+        </>
+      ) : (
+        <>
+          {fadePill('in', isAudio ? 'audio' : 'visual', visualFade.fadeIn, blockHover, 'data-fade')}
+          {fadePill('out', isAudio ? 'audio' : 'visual', visualFade.fadeOut, blockHover, 'data-fade')}
+        </>
+      )}
     </div>
   );
 };

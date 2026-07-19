@@ -17,6 +17,7 @@ import { playerRef } from '../canvas/player-ref';
 import { calcDuration } from '@editor/shared/composition';
 import {
   HEADER_WIDTH,
+  AUDIO_TRACK_HEIGHT,
   MEDIA_TRACK_HEIGHT,
   RULER_HEIGHT,
   SNAP_TOLERANCE_PX,
@@ -51,13 +52,16 @@ const AUTO_SCROLL_STEP_PX = 24;
 
 // ---- 变高行几何（官方：含视频/音频的轨道行更高）：所有 y↔行 换算统一走前缀和 ----
 
-/** 单条轨道行高：含视频/音频项 ⇒ 媒体行高，否则普通行高 */
-const rowHeightOf = (st: UndoableState, trackId: string): number =>
-  Object.values(st.items).some(
-    (i) => i.trackId === trackId && (i.type === 'video' || i.type === 'audio'),
-  )
-    ? MEDIA_TRACK_HEIGHT
-    : TRACK_HEIGHT;
+/** 单条轨道行高（官方）：含视频 ⇒ 70，纯音频 ⇒ 48，其余 ⇒ 34 */
+const rowHeightOf = (st: UndoableState, trackId: string): number => {
+  let hasAudio = false;
+  for (const i of Object.values(st.items)) {
+    if (i.trackId !== trackId) continue;
+    if (i.type === 'video') return MEDIA_TRACK_HEIGHT;
+    if (i.type === 'audio') hasAudio = true;
+  }
+  return hasAudio ? AUDIO_TRACK_HEIGHT : TRACK_HEIGHT;
+};
 
 /** 前缀和（内容坐标，含标尺）：tops[i] = 第 i 行顶部 y，tops[n] = 所有行底部 */
 const rowTops = (st: UndoableState): number[] => {
@@ -975,9 +979,11 @@ export const TimelinePanel: React.FC = () => {
             width: (movingItem.from + movingItem.durationInFrames) * zoom,
             // 幽灵块保持自身类型对应的行高（媒体块拖拽中不缩小）
             height:
-              movingItem.type === 'video' || movingItem.type === 'audio'
+              movingItem.type === 'video'
                 ? MEDIA_TRACK_HEIGHT
-                : TRACK_HEIGHT,
+                : movingItem.type === 'audio'
+                  ? AUDIO_TRACK_HEIGHT
+                  : TRACK_HEIGHT,
           }}
         >
           <ItemBlock item={movingItem} zoom={zoom} />
