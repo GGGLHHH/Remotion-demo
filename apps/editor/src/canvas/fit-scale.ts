@@ -1,7 +1,19 @@
-/** 画布适配缩放值：CanvasView 布局时写入，快捷键/工具栏做相对缩放时读取 */
+/** 画布适配缩放值：CanvasView 布局时持续写入（手动缩放下也跟踪"适应"应为的值，
+ * 供工具栏对比与快捷键相对缩放做基准） */
 export const fitScaleRef = { current: 1 };
 
-/** 画布手柄拖拽期间冻结适配重算（拖拽中比例变化会让内容漂移） */
-export const suppressRefitRef = { current: false };
-/** 手动触发一次适配重算（拖拽结束后恢复；CanvasView 挂载时赋值） */
-export const canvasRefitRef: { current: () => void } = { current: () => {} };
+/** 舞台平移偏移（容器坐标系 px）：Figma 式自由视口的原点；居中只是"适应"模式下的派生值 */
+export const panRef = { current: { x: 0, y: 0 } };
+
+/** 舞台 DOM 节点（CanvasView 渲染时写入），供 setPan 直写样式 */
+export const stageElRef = { current: null as HTMLElement | null };
+
+/** 更新平移：直写 DOM（left/top），不触发 React 重渲——Player 子树完全不动 */
+export const setPan = (x: number, y: number) => {
+  panRef.current = { x, y };
+  const el = stageElRef.current;
+  if (el) {
+    el.style.left = `${x}px`;
+    el.style.top = `${y}px`;
+  }
+};

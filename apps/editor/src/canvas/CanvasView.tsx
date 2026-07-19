@@ -5,7 +5,7 @@ import { MainComposition, calcDuration } from '@editor/shared/composition';
 import { useEditorStore } from '../state/store';
 import { importFiles } from '../lib/import-assets';
 import { playerRef } from './player-ref';
-import { canvasRefitRef, fitScaleRef, suppressRefitRef } from './fit-scale';
+import { fitScaleRef, panRef, setPan, stageElRef } from './fit-scale';
 import { SelectionOverlay } from './SelectionOverlay';
 import { CompositionResizeHandles } from './CompositionResizeHandles';
 import { CropOverlay } from './CropOverlay';
@@ -15,6 +15,9 @@ import { TextToolOverlay } from './TextToolOverlay';
 
 /** 画布工具模式（状态由 App 持有）：绘制色块 / 点击放置文本 */
 export type CanvasTool = 'solid' | 'text' | null;
+
+/** 与 store.setCanvasZoom 相同的钳制，光标锚定的平移计算必须用钳制后的值才不漂 */
+const clampZoom = (z: number) => Math.min(4, Math.max(0.1, z));
 
 export const CanvasView: React.FC<{
   tool: CanvasTool;
@@ -38,43 +41,104 @@ export const CanvasView: React.FC<{
     [undoable, localUrls, fontHoverPreview],
   );
 
-  // 适配缩放：跟随容器尺寸
+  const scale = canvasZoom === 'fit' ? fitScale : canvasZoom;
+
+  // 适配缩放：始终跟随容器尺寸重算（手动缩放下也更新 fitScaleRef，作"适应"对比与相对缩放基准）；
+  // "适应"模式下同时把舞台平移到居中——居中只是 pan 的派生值
   useLayoutEffect(() => {
     const el = containerRef.current;
     if (!el) return;
     const update = () => {
-      // 画布手柄拖拽中冻结重算：比例中途变化会让内容在屏幕上漂移
-      if (suppressRefitRef.current) return;
       const PADDING = 48;
       const w = el.clientWidth - PADDING;
       const h = el.clientHeight - PADDING;
       const s = Math.max(0.02, Math.min(w / undoable.compositionWidth, h / undoable.compositionHeight));
-      fitScaleRef.current = s; // 快捷键/工具栏相对缩放的基准
+      fitScaleRef.current = s;
       setFitScale(s);
+      if (useEditorStore.getState().canvasZoom === 'fit') {
+        setPan(
+          (el.clientWidth - undoable.compositionWidth * s) / 2,
+          (el.clientHeight - undoable.compositionHeight * s) / 2,
+        );
+      }
     };
-    canvasRefitRef.current = update;
     update();
     const observer = new ResizeObserver(update);
     observer.observe(el);
     return () => observer.disconnect();
   }, [undoable.compositionWidth, undoable.compositionHeight]);
 
-  // Cmd/Ctrl + 滚轮缩放
+  // 缩放变化 → 平移锚定：进入"适应"= 重新居中；数字缩放（工具栏 ± / 快捷键）= 视口中心锚定，
+  // 避免舞台跳走。滚轮/捏合缩放已自带光标锚定，置位 zoomPanHandledRef 跳过本效果
+  const prevScaleRef = useRef(scale);
+  const zoomPanHandledRef = useRef(false);
+  useLayoutEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    if (canvasZoom === 'fit') {
+      setPan(
+        (el.clientWidth - undoable.compositionWidth * scale) / 2,
+        (el.clientHeight - undoable.compositionHeight * scale) / 2,
+      );
+    } else if (!zoomPanHandledRef.current && prevScaleRef.current !== scale) {
+      const k = scale / prevScaleRef.current;
+      const cx = el.clientWidth / 2;
+      const cy = el.clientHeight / 2;
+      setPan(cx - (cx - panRef.current.x) * k, cy - (cy - panRef.current.y) * k);
+    }
+    zoomPanHandledRef.current = false;
+    prevScaleRef.current = scale;
+  }, [scale, canvasZoom, undoable.compositionWidth, undoable.compositionHeight]);
+
+  // 滚轮：平移视口（触控板双指自然平移）；Cmd/Ctrl+滚轮（含触控板捏合）：以光标为锚缩放
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
     const onWheel = (e: WheelEvent) => {
-      if (!e.metaKey && !e.ctrlKey) return;
       e.preventDefault();
       const store = useEditorStore.getState();
-      const cur = store.canvasZoom === 'fit' ? fitScale : store.canvasZoom;
-      store.setCanvasZoom(cur * Math.exp(-e.deltaY * 0.002));
+      const cur = store.canvasZoom === 'fit' ? fitScaleRef.current : store.canvasZoom;
+      if (e.metaKey || e.ctrlKey) {
+        const next = clampZoom(cur * Math.exp(-e.deltaY * 0.002));
+        const rect = el.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+        const k = next / cur;
+        // 光标下的合成点保持不动：pan' = 光标 − (光标 − pan)×k
+        setPan(mx - (mx - panRef.current.x) * k, my - (my - panRef.current.y) * k);
+        zoomPanHandledRef.current = true;
+        store.setCanvasZoom(next);
+      } else {
+        // 手动平移退出"适应"自动模式（转为等值数字缩放，pan 交还给用户）
+        if (store.canvasZoom === 'fit') store.setCanvasZoom(cur);
+        setPan(panRef.current.x - e.deltaX, panRef.current.y - e.deltaY);
+      }
     };
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => el.removeEventListener('wheel', onWheel);
-  }, [fitScale]);
+  }, []);
 
-  const scale = canvasZoom === 'fit' ? fitScale : canvasZoom;
+  // 中键拖拽平移（Figma 手感）；起点可在舞台/元素上（事件冒泡到容器，左键行为不受影响）
+  const onPanPointerDown = (e: React.PointerEvent) => {
+    e.preventDefault(); // 抑制中键自动滚动
+    const store = useEditorStore.getState();
+    if (store.canvasZoom === 'fit') store.setCanvasZoom(fitScaleRef.current); // 手动平移退出"适应"
+    const el = containerRef.current;
+    if (!el) return;
+    el.setPointerCapture(e.pointerId);
+    el.style.cursor = 'grabbing';
+    const sx = e.clientX;
+    const sy = e.clientY;
+    const p0 = { ...panRef.current };
+    const onMove = (ev: PointerEvent) => setPan(p0.x + ev.clientX - sx, p0.y + ev.clientY - sy);
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      el.style.cursor = '';
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  };
 
   // 合成外空白区域：单击取消选择，拖拽 = 框选（触碰即预选中，与合成内框选一致）
   const [voidMarquee, setVoidMarquee] = useState<{ x: number; y: number; w: number; h: number } | null>(
@@ -94,8 +158,8 @@ export const CanvasView: React.FC<{
       const y1 = Math.min(start.y, ev.clientY);
       const y2 = Math.max(start.y, ev.clientY);
       setVoidMarquee({
-        x: x1 - cRect.left + container.scrollLeft,
-        y: y1 - cRect.top + container.scrollTop,
+        x: x1 - cRect.left,
+        y: y1 - cRect.top,
         w: x2 - x1,
         h: y2 - y1,
       });
@@ -129,8 +193,11 @@ export const CanvasView: React.FC<{
     <div className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-zinc-950">
       <div
         ref={containerRef}
-        className="relative flex min-h-0 flex-1 items-center justify-center overflow-auto"
-        onPointerDown={onVoidPointerDown}
+        className="relative min-h-0 min-w-0 flex-1 overflow-hidden"
+        onPointerDown={(e) => {
+          if (e.button === 1) onPanPointerDown(e);
+          else onVoidPointerDown(e);
+        }}
         onDragOver={(e) => e.preventDefault()}
         onDrop={(e) => {
           e.preventDefault();
@@ -145,8 +212,13 @@ export const CanvasView: React.FC<{
       >
         <div
           data-stage
-          className="relative shrink-0 shadow-2xl"
+          ref={(el) => {
+            stageElRef.current = el;
+          }}
+          className="absolute shadow-2xl"
           style={{
+            left: panRef.current.x,
+            top: panRef.current.y,
             width: undoable.compositionWidth * scale,
             height: undoable.compositionHeight * scale,
           }}
