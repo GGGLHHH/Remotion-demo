@@ -167,7 +167,8 @@ export const TimelinePanel: React.FC = () => {
   const duration = calcDuration(undoable.items);
   const contentWidth = duration * zoom + 240;
 
-  // 播放头跟随 + 播放时自动滚动
+  // 播放头跟随 + 播放时自动滚动（不与用户的手动滚动抢方向盘）
+  const lastPlayheadX = useRef<number | null>(null);
   useEffect(() => {
     const p = playerRef.current;
     if (!p) return;
@@ -176,9 +177,18 @@ export const TimelinePanel: React.FC = () => {
       const el = scrollRef.current;
       if (el && p.isPlaying()) {
         const x = e.detail.frame * useEditorStore.getState().timelineZoom;
-        if (x < el.scrollLeft || x > el.scrollLeft + el.clientWidth - 40) {
+        const last = lastPlayheadX.current;
+        lastPlayheadX.current = x;
+        const rightEdge = el.scrollLeft + el.clientWidth - 40;
+        if (last !== null && x < last) {
+          // 播放头回跳（循环重播）：视口跟回
+          el.scrollLeft = Math.max(0, x - 80);
+        } else if (last !== null && last <= rightEdge && x > rightEdge) {
+          // 播放头刚越过右缘：向前翻页；用户已滚远时（上帧就在缘外）不触发
           el.scrollLeft = Math.max(0, x - 80);
         }
+      } else {
+        lastPlayheadX.current = null;
       }
     };
     p.addEventListener('frameupdate', onFrame);

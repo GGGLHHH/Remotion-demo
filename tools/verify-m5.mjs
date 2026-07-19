@@ -174,6 +174,31 @@ const pickText = async () => {
   if (status !== 404) fail(`remote object status after cleanup: ${status}`);
 }
 
+// ---- 播放跟随不抢用户滚动：右滚后不被拽回；循环回跳时视口跟回 ----
+{
+  await page.setViewportSize({ width: 800, height: 700 });
+  await page.evaluate(() => {
+    window.__editorStore.getState().setTimelineZoom(8);
+    window.__playerRef.current.seekTo(0);
+    window.__playerRef.current.play();
+  });
+  await page.waitForTimeout(200);
+  await page.evaluate(() => (document.querySelector('[data-tl-scroll]').scrollLeft = 300));
+  await page.waitForTimeout(500);
+  const sl = await page.evaluate(() => document.querySelector('[data-tl-scroll]').scrollLeft);
+  if (sl < 250) fail(`follow-scroll yanked user scroll back: ${sl}`);
+  // 播放头越过右缘恢复翻页，随后循环回跳视口跟回（loop 默认开）
+  await page.waitForFunction(
+    () => document.querySelector('[data-tl-scroll]').scrollLeft > 500,
+    { timeout: 8000 },
+  );
+  await page.waitForFunction(
+    () => document.querySelector('[data-tl-scroll]').scrollLeft < 150,
+    { timeout: 8000 },
+  );
+  await page.evaluate(() => window.__playerRef.current.pause());
+}
+
 await page.screenshot({ path: process.argv[2] ?? 'm5.png' });
 await browser.close();
 if (errors.length) fail('page errors: ' + errors.join('; '));
