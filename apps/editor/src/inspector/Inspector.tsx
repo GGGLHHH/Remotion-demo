@@ -35,7 +35,7 @@ import {
 } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { useEditorStore } from '../state/store';
+import { useEditor, useEditorApi } from '../state/context';
 import { usePlayerFrameDerived } from '../canvas/player-ref';
 import { startRender } from '../lib/render-client';
 import { generateCaptions } from '../lib/captioning';
@@ -49,7 +49,8 @@ type PatchFn = (partial: Partial<EditorStarterItem>, commit?: boolean) => void;
 
 /** 生成字幕入口：audio 或含音轨的 video（官方 Captions 区，默认折叠） */
 const CaptionsSection: React.FC<{ itemId: string }> = ({ itemId }) => {
-  const task = useEditorStore((s) => s.captioningTasks.findLast((t) => t.itemId === itemId));
+  const editorApi = useEditorApi();
+  const task = useEditor((s) => s.captioningTasks.findLast((t) => t.itemId === itemId));
   const busy = task?.status === 'extracting' || task?.status === 'transcribing';
   return (
     <Section title="字幕" collapsible defaultOpen={false}>
@@ -57,7 +58,7 @@ const CaptionsSection: React.FC<{ itemId: string }> = ({ itemId }) => {
         variant="outline"
         size="sm"
         disabled={busy}
-        onClick={() => void generateCaptions(itemId)}
+        onClick={() => void generateCaptions(editorApi, itemId)}
       >
         {busy ? <Spinner /> : <CaptionsIcon />}
         {busy ? (task.status === 'extracting' ? '抽取音频中…' : '转录中…') : '生成字幕'}
@@ -77,8 +78,9 @@ const CODEC_LABELS: Record<'mp4' | 'webm', string> = {
 };
 
 const ExportSection: React.FC = () => {
-  const renderingTasks = useEditorStore((s) => s.renderingTasks);
-  const hasItems = useEditorStore((s) => Object.keys(s.undoable.items).length > 0);
+  const editorApi = useEditorApi();
+  const renderingTasks = useEditor((s) => s.renderingTasks);
+  const hasItems = useEditor((s) => Object.keys(s.undoable.items).length > 0);
   const [codec, setCodec] = useState<'mp4' | 'webm'>('mp4');
 
   return (
@@ -93,7 +95,7 @@ const ExportSection: React.FC = () => {
         </SelectContent>
       </Select>
       {/* 官方行为：时间线为空时禁用渲染按钮 */}
-      <Button size="sm" variant="secondary" disabled={!hasItems} onClick={() => void startRender(codec)}>
+      <Button size="sm" variant="secondary" disabled={!hasItems} onClick={() => void startRender(editorApi, codec)}>
         <ClapperboardIcon />
         渲染
       </Button>
@@ -144,13 +146,13 @@ const formatTimecode = (frames: number, fps: number): string => {
 };
 
 const CompositionPanel: React.FC = () => {
-  const width = useEditorStore((s) => s.undoable.compositionWidth);
-  const height = useEditorStore((s) => s.undoable.compositionHeight);
-  const fps = useEditorStore((s) => s.undoable.fps);
-  const totalFrames = useEditorStore((s) =>
+  const width = useEditor((s) => s.undoable.compositionWidth);
+  const height = useEditor((s) => s.undoable.compositionHeight);
+  const fps = useEditor((s) => s.undoable.fps);
+  const totalFrames = useEditor((s) =>
     Object.values(s.undoable.items).reduce((m, i) => Math.max(m, i.from + i.durationInFrames), 0),
   );
-  const updateUndoable = useEditorStore((s) => s.updateUndoable);
+  const updateUndoable = useEditor((s) => s.updateUndoable);
 
   return (
     <>
@@ -232,8 +234,8 @@ const UPLOAD_STATUS_LABEL: Record<AssetStatus, string> = {
 };
 
 const SourceSection: React.FC<{ asset: EditorStarterAsset }> = ({ asset }) => {
-  const status = useEditorStore((s) => s.assetStatus[asset.id]);
-  const progress = useEditorStore((s) => s.uploadProgress[asset.id]);
+  const status = useEditor((s) => s.assetStatus[asset.id]);
+  const progress = useEditor((s) => s.uploadProgress[asset.id]);
   const duration =
     asset.type === 'video' || asset.type === 'audio' || asset.type === 'gif'
       ? asset.durationInSeconds
@@ -286,7 +288,7 @@ const LayoutSection: React.FC<{
   showLock: boolean;
   lockDefault: boolean;
 }> = ({ item, patch, showLock, lockDefault }) => {
-  const updateUndoable = useEditorStore((s) => s.updateUndoable);
+  const updateUndoable = useEditor((s) => s.updateUndoable);
   // ItemPanel 以 item.id 为 key 重挂，锁比例默认值随类型生效（图片/视频默认开）
   const [locked, setLocked] = useState(lockDefault);
 
@@ -459,7 +461,7 @@ const CropSection: React.FC<{
   mediaH: number;
   patch: PatchFn;
 }> = ({ item, mediaW, mediaH, patch }) => {
-  const setItemSelectedForCrop = useEditorStore((s) => s.setItemSelectedForCrop);
+  const setItemSelectedForCrop = useEditor((s) => s.setItemSelectedForCrop);
   /** 播放头不在此元素时间范围内时画布上看不到它，裁剪按钮禁用（官方行为）。
       派生订阅：仅布尔值翻转时重渲（播放中不再每帧重渲整个分区） */
   const visibleAtPlayhead = usePlayerFrameDerived(
@@ -591,7 +593,7 @@ const FadeSection: React.FC<{ item: EditorStarterItem; patch: PatchFn; defaultOp
   patch,
   defaultOpen = false,
 }) => {
-  const fps = useEditorStore((s) => s.undoable.fps);
+  const fps = useEditor((s) => s.undoable.fps);
   return (
     <Section title="淡入淡出" collapsible defaultOpen={defaultOpen}>
       <FadeSliders
@@ -606,8 +608,8 @@ const FadeSection: React.FC<{ item: EditorStarterItem; patch: PatchFn; defaultOp
 };
 
 const ItemPanel: React.FC<{ item: EditorStarterItem }> = ({ item }) => {
-  const updateUndoable = useEditorStore((s) => s.updateUndoable);
-  const asset = useEditorStore((s) =>
+  const updateUndoable = useEditor((s) => s.updateUndoable);
+  const asset = useEditor((s) =>
     'assetId' in item ? s.undoable.assets[item.assetId] : undefined,
   );
 
@@ -673,8 +675,8 @@ const ItemPanel: React.FC<{ item: EditorStarterItem }> = ({ item }) => {
 };
 
 export const Inspector: React.FC = () => {
-  const selectedItemIds = useEditorStore((s) => s.selectedItemIds);
-  const items = useEditorStore((s) => s.undoable.items);
+  const selectedItemIds = useEditor((s) => s.selectedItemIds);
+  const items = useEditor((s) => s.undoable.items);
 
   const selected = selectedItemIds.map((id) => items[id]).filter(Boolean);
 

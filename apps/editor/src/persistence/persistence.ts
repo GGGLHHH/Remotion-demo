@@ -1,6 +1,6 @@
 import { toast } from 'sonner';
 import type { EditorStarterItem, UndoableState } from '@gedatou/shared';
-import { useEditorStore } from '../state/store';
+import type { EditorStoreApi } from '../state/store';
 import { getCachedAsset } from '../caching/indexeddb';
 
 const STORAGE_KEY = 'remotion-editor-state-v1';
@@ -28,10 +28,10 @@ export const deserializeState = (raw: string): UndoableState | null => {
   }
 };
 
-export const saveState = (): void => {
-  const { undoable } = useEditorStore.getState();
+export const saveState = (store: EditorStoreApi): void => {
+  const { undoable } = store.getState();
   localStorage.setItem(STORAGE_KEY, serializeState(undoable));
-  useEditorStore.setState({ lastSavedState: undoable });
+  store.setState({ lastSavedState: undoable });
   toast.success('已保存');
 };
 
@@ -53,8 +53,8 @@ export const loadStateFromUrlHash = (): UndoableState | null => {
   }
 };
 
-export const downloadStateFile = (): void => {
-  const { undoable } = useEditorStore.getState();
+export const downloadStateFile = (store: EditorStoreApi): void => {
+  const { undoable } = store.getState();
   const blob = new Blob([serializeState(undoable)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -64,24 +64,27 @@ export const downloadStateFile = (): void => {
   URL.revokeObjectURL(url);
 };
 
-export const loadStateFromFile = async (file: File): Promise<boolean> => {
+export const loadStateFromFile = async (store: EditorStoreApi, file: File): Promise<boolean> => {
   const state = deserializeState(await file.text());
   if (!state) {
     toast.error('工程文件无效，无法恢复');
     return false;
   }
-  useEditorStore.setState({ undoable: state, past: [], future: [], selectedItemIds: [] });
-  void restoreLocalUrls(state);
+  store.setState({ undoable: state, past: [], future: [], selectedItemIds: [] });
+  void restoreLocalUrls(store, state);
   return true;
 };
 
 /** 从 IndexedDB 恢复本地缓存 blob URL，并推断上传状态 */
-export const restoreLocalUrls = async (state: UndoableState): Promise<void> => {
-  const store = useEditorStore.getState();
+export const restoreLocalUrls = async (
+  store: EditorStoreApi,
+  state: UndoableState,
+): Promise<void> => {
+  const s = store.getState();
   for (const asset of Object.values(state.assets)) {
-    if (asset.url.startsWith('http')) store.setAssetStatus(asset.id, 'uploaded');
+    if (asset.url.startsWith('http')) s.setAssetStatus(asset.id, 'uploaded');
     const blob = await getCachedAsset(asset.id).catch(() => null);
-    if (blob) store.setLocalUrl(asset.id, URL.createObjectURL(blob));
+    if (blob) s.setLocalUrl(asset.id, URL.createObjectURL(blob));
   }
 };
 

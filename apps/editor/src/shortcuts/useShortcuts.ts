@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useEditorStore } from '../state/store';
+import { useEditorApi } from '../state/context';
 import { playerRef } from '../canvas/player-ref';
 import { fitScaleRef } from '../canvas/fit-scale';
 import { resolveSplitTargets, splitItemsAtFrame } from '../timeline/ops';
@@ -26,16 +26,17 @@ const isEditableTarget = (target: EventTarget | null): boolean => {
 };
 
 export const useShortcuts = () => {
+  const editorApi = useEditorApi();
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (isEditableTarget(e.target)) return;
-      const store = useEditorStore.getState();
+      const store = editorApi.getState();
       const mod = e.metaKey || e.ctrlKey;
       const key = e.key.toLowerCase();
 
       if (mod && key === 's') {
         e.preventDefault();
-        saveState();
+        saveState(editorApi);
         return;
       }
       if (mod && key === 'z' && !e.shiftKey) {
@@ -51,7 +52,7 @@ export const useShortcuts = () => {
       // Cmd+C/X/V 不在 keydown 处理：走原生 copy/cut/paste 事件（官方模型，系统剪贴板可跨标签页）
       if (mod && key === 'd') {
         e.preventDefault();
-        duplicateSelection();
+        duplicateSelection(editorApi);
         return;
       }
       if (mod && key === 'a') {
@@ -119,7 +120,7 @@ export const useShortcuts = () => {
     // 复制/剪切：序列化选中项（含引用素材）写入系统剪贴板，可跨标签页粘贴（官方模型）
     const onCopy = (e: ClipboardEvent) => {
       if (isEditableTarget(e.target)) return;
-      const payload = buildClipboardPayload();
+      const payload = buildClipboardPayload(editorApi);
       if (!payload || !e.clipboardData) return;
       e.preventDefault();
       e.clipboardData.setData('text/html', payload.html);
@@ -127,9 +128,9 @@ export const useShortcuts = () => {
     };
     const onCut = (e: ClipboardEvent) => {
       if (isEditableTarget(e.target)) return;
-      const hadSelection = useEditorStore.getState().selectedItemIds.length > 0;
+      const hadSelection = editorApi.getState().selectedItemIds.length > 0;
       onCopy(e);
-      if (hadSelection) useEditorStore.getState().deleteSelected();
+      if (hadSelection) editorApi.getState().deleteSelected();
     };
 
     const onPaste = (e: ClipboardEvent) => {
@@ -143,7 +144,7 @@ export const useShortcuts = () => {
         const payload = parseClipboardHtml(html);
         if (payload) {
           e.preventDefault();
-          pasteSerialized(payload, frame);
+          pasteSerialized(editorApi, payload, frame);
           return;
         }
       }
@@ -151,20 +152,20 @@ export const useShortcuts = () => {
       const files = Array.from(dt.files);
       if (files.length) {
         e.preventDefault();
-        void importFiles(files);
+        void importFiles(editorApi, files);
         return;
       }
       // 3) 纯文本 → 画布居中文本项
       const text = dt.getData('text/plain');
       if (text.trim()) {
         e.preventDefault();
-        pasteTextAsTextItem(text.trim(), frame);
+        pasteTextAsTextItem(editorApi, text.trim(), frame);
         return;
       }
       // 4) 兜底：内部剪贴板（菜单复制且系统剪贴板写入失败时）
-      if (useEditorStore.getState().clipboard.length) {
+      if (editorApi.getState().clipboard.length) {
         e.preventDefault();
-        pasteClipboard(frame);
+        pasteClipboard(editorApi, frame);
       }
     };
 

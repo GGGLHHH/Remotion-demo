@@ -1,6 +1,6 @@
 import { toast } from 'sonner';
 import { newId, type Caption, type CaptionAsset, type CaptionsItem } from '@gedatou/shared';
-import { useEditorStore } from '../state/store';
+import type { EditorStoreApi } from '../state/store';
 import { addTrack } from '../timeline/ops';
 import { extractWav } from './extract-audio';
 
@@ -24,21 +24,21 @@ export const remapCaptionTimes = (captions: Caption[], playbackRate: number): Ca
 
 /** 为 video(hasAudio)/audio item 生成字幕：抽 item 可听片段 → 服务端 whisper 转录 → 建 CaptionAsset + CaptionsItem。
  * 片段截取 + token 时间重映射保证 trim/变速后的字幕仍与 item 时间轴对齐 */
-export const generateCaptions = async (itemId: string): Promise<void> => {
-  const store = useEditorStore.getState();
-  const item = store.undoable.items[itemId];
+export const generateCaptions = async (store: EditorStoreApi, itemId: string): Promise<void> => {
+  const state = store.getState();
+  const item = state.undoable.items[itemId];
   if (!item || (item.type !== 'video' && item.type !== 'audio')) return;
-  const url = store.localUrls[item.assetId] ?? store.undoable.assets[item.assetId]?.url;
+  const url = state.localUrls[item.assetId] ?? state.undoable.assets[item.assetId]?.url;
   if (!url) return;
-  const srcFilename = store.undoable.assets[item.assetId]?.filename ?? 'audio';
+  const srcFilename = state.undoable.assets[item.assetId]?.filename ?? 'audio';
 
   const taskId = newId();
   const upsert = (status: 'extracting' | 'transcribing' | 'done' | 'error', error?: string) =>
-    useEditorStore.getState().upsertCaptioningTask({ id: taskId, itemId, status, error });
+    store.getState().upsertCaptioningTask({ id: taskId, itemId, status, error });
 
   try {
     upsert('extracting');
-    const wav = await extractWav(url, audibleSegment(item, store.undoable.fps));
+    const wav = await extractWav(url, audibleSegment(item, state.undoable.fps));
     upsert('transcribing');
     const form = new FormData();
     form.append('file', wav, 'audio.wav');
@@ -47,7 +47,7 @@ export const generateCaptions = async (itemId: string): Promise<void> => {
     const { captions: rawCaptions } = (await res.json()) as { captions: Caption[] };
     const captions = remapCaptionTimes(rawCaptions, item.playbackRate);
 
-    useEditorStore.getState().updateUndoable((s) => {
+    store.getState().updateUndoable((s) => {
       // 源 item 可能在转录期间被改动/删除；时间对齐取当前值，删了就用发起时的快照
       const src = s.items[itemId] ?? item;
       const { state: withTrack, trackId } = addTrack(s, 0);

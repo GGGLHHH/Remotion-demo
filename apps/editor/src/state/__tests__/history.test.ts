@@ -7,7 +7,7 @@ import {
   createTrack,
 } from '@gedatou/shared';
 import { MAX_UNDO_STACK_SIZE } from '@gedatou/shared';
-import { useEditorStore } from '../store';
+import { createEditorStore, type EditorStoreApi } from '../store';
 
 const buildState = () => {
   const s = createEmptyState({
@@ -21,9 +21,12 @@ const buildState = () => {
   return { s, item };
 };
 
+let api: EditorStoreApi;
+
 beforeEach(() => {
+  api = createEditorStore();
   const { s } = buildState();
-  useEditorStore.setState({
+  api.setState({
     undoable: s,
     past: [],
     future: [],
@@ -31,7 +34,7 @@ beforeEach(() => {
   });
 });
 
-const store = () => useEditorStore.getState();
+const store = () => api.getState();
 
 describe('undo/redo', () => {
   test('commit 更新推入 past、清空 future；undo 回滚、redo 重做', () => {
@@ -103,7 +106,7 @@ describe('空轨道自动移除（官方行为，updateUndoable 统一兜底）'
       items: { ...s.items, [it2.id]: it2 },
     }));
     const first = Object.values(store().undoable.items).find((i) => i.id !== it2.id)!;
-    useEditorStore.setState({ selectedItemIds: [first.id] });
+    api.setState({ selectedItemIds: [first.id] });
     store().deleteSelected();
     expect(store().undoable.tracks.map((t) => t.id)).toEqual([t2.id]);
     store().undo();
@@ -112,7 +115,7 @@ describe('空轨道自动移除（官方行为，updateUndoable 统一兜底）'
   });
   test('全部元素删光 ⇒ 保底留一条轨道', () => {
     const all = Object.keys(store().undoable.items);
-    useEditorStore.setState({ selectedItemIds: all });
+    api.setState({ selectedItemIds: all });
     store().deleteSelected();
     expect(Object.keys(store().undoable.items)).toHaveLength(0);
     expect(store().undoable.tracks).toHaveLength(1);

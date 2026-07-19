@@ -1,5 +1,6 @@
 import type React from 'react';
 import { useRef, useState } from 'react';
+import { useEditorApi } from '../state/context';
 import { addSolidItem } from '../lib/add-items';
 import { CORNERS, SizeBadge } from './SelectionOverlay';
 import type { Rect } from './geometry';
@@ -14,6 +15,7 @@ export const DrawSolidOverlay: React.FC<{ scale: number; onDone: () => void }> =
   scale,
   onDone,
 }) => {
+  const editorApi = useEditorApi();
   const start = useRef<{ x: number; y: number; clientX: number; clientY: number } | null>(null);
   const [preview, setPreview] = useState<Rect | null>(null);
 
@@ -52,10 +54,10 @@ export const DrawSolidOverlay: React.FC<{ scale: number; onDone: () => void }> =
         const dragged =
           Math.hypot(e.clientX - s.clientX, e.clientY - s.clientY) >= CLICK_THRESHOLD_PX;
         if (dragged) {
-          addSolidItem(dragRect(e, s));
+          addSolidItem(editorApi, dragRect(e, s));
         } else {
           // 单击：100×100，以点击点为中心
-          addSolidItem({
+          addSolidItem(editorApi, {
             left: s.x - CLICK_SIZE / 2,
             top: s.y - CLICK_SIZE / 2,
             width: CLICK_SIZE,

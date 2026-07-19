@@ -1,5 +1,5 @@
 import { createSolidItem, createTextItem } from '@gedatou/shared';
-import { useEditorStore } from '../state/store';
+import type { EditorStoreApi } from '../state/store';
 import { playerRef } from '../canvas/player-ref';
 import { addTrack } from '../timeline/ops';
 
@@ -15,11 +15,11 @@ const measureTextWidth = (
 };
 
 /** 文本工具：在点击点放置自适应尺寸的文本（内容「文本」、字号 80），选中但不进入行内编辑 */
-export const addTextItem = (at: { x: number; y: number }): void => {
-  const store = useEditorStore.getState();
+export const addTextItem = (store: EditorStoreApi, at: { x: number; y: number }): void => {
+  const state = store.getState();
   const from = playerRef.current?.getCurrentFrame() ?? 0;
   let id = '';
-  store.updateUndoable((s) => {
+  state.updateUndoable((s) => {
     const { state: st, trackId } = addTrack(s, 0);
     const item = createTextItem({ trackId, from, text: '文本' });
     // 盒子自适应文字内容
@@ -33,20 +33,23 @@ export const addTextItem = (at: { x: number; y: number }): void => {
     id = item.id;
     return { ...st, items: { ...st.items, [item.id]: item } };
   });
-  store.setSelected([id]);
+  state.setSelected([id]);
 };
 
 /** 画布绘制工具：按给定矩形加色块（官方默认白色） */
-export const addSolidItem = (rect: {
-  left: number;
-  top: number;
-  width: number;
-  height: number;
-}): void => {
-  const store = useEditorStore.getState();
+export const addSolidItem = (
+  store: EditorStoreApi,
+  rect: {
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+  },
+): void => {
+  const state = store.getState();
   const from = playerRef.current?.getCurrentFrame() ?? 0;
   let id = '';
-  store.updateUndoable((s) => {
+  state.updateUndoable((s) => {
     const { state: st, trackId } = addTrack(s, 0);
     const width = Math.max(1, Math.round(rect.width));
     const height = Math.max(1, Math.round(rect.height));
@@ -57,5 +60,5 @@ export const addSolidItem = (rect: {
     id = item.id;
     return { ...st, items: { ...st.items, [item.id]: item } };
   });
-  store.setSelected([id]);
+  state.setSelected([id]);
 };

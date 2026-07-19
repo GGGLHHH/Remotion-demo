@@ -1,7 +1,7 @@
 import type React from 'react';
 import type { AudioItem, GifItem, VideoItem } from '@gedatou/shared';
 import { Switch } from '@/components/ui/switch';
-import { useEditorStore } from '../state/store';
+import { useEditor } from '../state/context';
 import { maxItemDurationInFrames } from '../timeline/ops';
 import { FadeSliders, Row, Section, SliderField } from './fields';
 
@@ -14,8 +14,8 @@ const linearToDb = (v: number) =>
 const dbToLinear = (db: number) => (db <= -60 ? 0 : 10 ** (db / 20));
 
 export const MediaPanel: React.FC<{ item: MediaItem }> = ({ item }) => {
-  const updateUndoable = useEditorStore((s) => s.updateUndoable);
-  const fps = useEditorStore((s) => s.undoable.fps);
+  const updateUndoable = useEditor((s) => s.updateUndoable);
+  const fps = useEditor((s) => s.undoable.fps);
 
   const patch = (partial: Partial<MediaItem>, commit = true) =>
     updateUndoable(

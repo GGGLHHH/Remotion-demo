@@ -8,7 +8,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from '@/components/ui/context-menu';
-import { useEditorStore } from '../state/store';
+import { useEditor, useEditorApi } from '../state/context';
 import { copySelection, duplicateSelection } from '../lib/clipboard';
 import { addTrack, moveItems, removeEmptyTracks } from '../timeline/ops';
 import { getPlayerFrame, usePlayerFrameDerived } from './player-ref';
@@ -74,10 +74,11 @@ const visibleAt = (it: EditorStarterItem | undefined, f: number): boolean =>
   Boolean(it && it.type !== 'audio' && f >= it.from && it.from + it.durationInFrames > f);
 
 export const SelectionOverlay: React.FC<{ scale: number }> = ({ scale }) => {
-  const undoable = useEditorStore((s) => s.undoable);
-  const selectedItemIds = useEditorStore((s) => s.selectedItemIds);
-  const snappingEnabled = useEditorStore((s) => s.snappingEnabled);
-  const editingId = useEditorStore((s) => s.textItemEditing);
+  const editorApi = useEditorApi();
+  const undoable = useEditor((s) => s.undoable);
+  const selectedItemIds = useEditor((s) => s.selectedItemIds);
+  const snappingEnabled = useEditor((s) => s.snappingEnabled);
+  const editingId = useEditor((s) => s.textItemEditing);
   const drag = useRef<DragState | null>(null);
   const [marquee, setMarquee] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const [guides, setGuides] = useState<Guide[]>([]);
@@ -101,7 +102,7 @@ export const SelectionOverlay: React.FC<{ scale: number }> = ({ scale }) => {
 
   const onBackgroundPointerDown = (e: React.PointerEvent) => {
     if (e.button !== 0) return;
-    const store = useEditorStore.getState();
+    const store = editorApi.getState();
     if (store.itemSelectedForCrop) return; // 裁剪模式由 CropOverlay 接管
     setHoverId(null);
     const { x, y } = toComp(e);
@@ -133,7 +134,7 @@ export const SelectionOverlay: React.FC<{ scale: number }> = ({ scale }) => {
   };
 
   const onDoubleClick = (e: React.MouseEvent) => {
-    const store = useEditorStore.getState();
+    const store = editorApi.getState();
     const { x, y } = toComp(e);
     const hit = topmostItemAt(store.undoable, getPlayerFrame(), x, y);
     if (!hit) return;
@@ -145,7 +146,7 @@ export const SelectionOverlay: React.FC<{ scale: number }> = ({ scale }) => {
   const reorder = (where: 'front' | 'back') => {
     const itemId = menuItemId.current;
     if (!itemId) return;
-    const store = useEditorStore.getState();
+    const store = editorApi.getState();
     store.updateUndoable((s) => {
       const item = s.items[itemId];
       if (!item) return s;
@@ -158,13 +159,13 @@ export const SelectionOverlay: React.FC<{ scale: number }> = ({ scale }) => {
 
   /** 剪切 = 复制到内部剪贴板 + 删除选中（与 Cmd+X 一致） */
   const cutSelection = () => {
-    copySelection();
-    useEditorStore.getState().deleteSelected();
+    copySelection(editorApi);
+    editorApi.getState().deleteSelected();
   };
 
   const onPointerMove = (e: React.PointerEvent) => {
     const d = drag.current;
-    const store = useEditorStore.getState();
+    const store = editorApi.getState();
     if (!d) {
       // 悬停：未选中项显示 2px 蓝色描边
       const { x, y } = toComp(e);
@@ -300,7 +301,7 @@ export const SelectionOverlay: React.FC<{ scale: number }> = ({ scale }) => {
     setMarquee(null);
     setGuides([]);
     if (!d) return;
-    if (d.kind !== 'marquee') useEditorStore.getState().commitPending();
+    if (d.kind !== 'marquee') editorApi.getState().commitPending();
   };
 
   const selectedVisible = selectedItemIds
@@ -333,7 +334,7 @@ export const SelectionOverlay: React.FC<{ scale: number }> = ({ scale }) => {
         onDoubleClick={onDoubleClick}
         onContextMenu={(e) => {
           // 仅在命中 item 时弹菜单；空白处右键既不弹菜单也不弹系统菜单
-          const store = useEditorStore.getState();
+          const store = editorApi.getState();
           const { x, y } = toComp(e);
           const hit = topmostItemAt(store.undoable, getPlayerFrame(), x, y);
           if (!hit) {
@@ -420,8 +421,8 @@ export const SelectionOverlay: React.FC<{ scale: number }> = ({ scale }) => {
       </ContextMenuTrigger>
       <ContextMenuContent>
         <ContextMenuItem onClick={cutSelection}>剪切</ContextMenuItem>
-        <ContextMenuItem onClick={() => copySelection()}>复制</ContextMenuItem>
-        <ContextMenuItem onClick={() => duplicateSelection()}>创建副本</ContextMenuItem>
+        <ContextMenuItem onClick={() => copySelection(editorApi)}>复制</ContextMenuItem>
+        <ContextMenuItem onClick={() => duplicateSelection(editorApi)}>创建副本</ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem onClick={() => reorder('front')}>置于顶层</ContextMenuItem>
         <ContextMenuItem onClick={() => reorder('back')}>置于底层</ContextMenuItem>

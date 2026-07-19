@@ -1,7 +1,7 @@
 import type React from 'react';
 import { useRef } from 'react';
 import type { Crop, ImageItem, VideoItem } from '@gedatou/shared';
-import { useEditorStore } from '../state/store';
+import { useEditor, useEditorApi } from '../state/context';
 import type { ResizeHandle } from './geometry';
 
 type CroppableItem = VideoItem | ImageItem;
@@ -19,14 +19,15 @@ const HANDLES: { handle: ResizeHandle; x: number; y: number; cursor: string }[] 
 
 /** 裁剪模式：拖 8 手柄同时改 item 框与 crop；拖中间平移 crop（画面固定）。Esc/点外部退出 */
 export const CropOverlay: React.FC<{ scale: number }> = ({ scale }) => {
-  const itemId = useEditorStore((s) => s.itemSelectedForCrop);
-  const item = useEditorStore((s) => (itemId ? s.undoable.items[itemId] : null)) as
+  const editorApi = useEditorApi();
+  const itemId = useEditor((s) => s.itemSelectedForCrop);
+  const item = useEditor((s) => (itemId ? s.undoable.items[itemId] : null)) as
     | CroppableItem
     | null;
-  const asset = useEditorStore((s) =>
+  const asset = useEditor((s) =>
     item && 'assetId' in item ? s.undoable.assets[item.assetId] : undefined,
   );
-  const localUrl = useEditorStore((s) => (item ? s.localUrls[item.assetId] : undefined));
+  const localUrl = useEditor((s) => (item ? s.localUrls[item.assetId] : undefined));
   const drag = useRef<{
     mode: ResizeHandle | 'pan';
     startX: number;
@@ -50,7 +51,7 @@ export const CropOverlay: React.FC<{ scale: number }> = ({ scale }) => {
     height: asset.height * scaleY,
   };
 
-  const exit = () => useEditorStore.getState().setItemSelectedForCrop(null);
+  const exit = () => editorApi.getState().setItemSelectedForCrop(null);
 
   const start = (e: React.PointerEvent, mode: ResizeHandle | 'pan') => {
     e.stopPropagation();
@@ -70,7 +71,7 @@ export const CropOverlay: React.FC<{ scale: number }> = ({ scale }) => {
     if (!d) return;
     const dx = (e.clientX - d.startX) / scale;
     const dy = (e.clientY - d.startY) / scale;
-    const store = useEditorStore.getState();
+    const store = editorApi.getState();
 
     store.updateUndoable(
       (s) => {
@@ -139,7 +140,7 @@ export const CropOverlay: React.FC<{ scale: number }> = ({ scale }) => {
   const onPointerUp = () => {
     if (!drag.current) return;
     drag.current = null;
-    useEditorStore.getState().commitPending();
+    editorApi.getState().commitPending();
   };
 
   const ghostUrl = asset.type === 'image' ? (localUrl ?? asset.url) : null;

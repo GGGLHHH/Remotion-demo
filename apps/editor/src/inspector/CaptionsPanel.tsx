@@ -1,14 +1,14 @@
 import type React from 'react';
 import type { Caption, CaptionsItem } from '@gedatou/shared';
 import { Input } from '@/components/ui/input';
-import { useEditorStore } from '../state/store';
+import { useEditor } from '../state/context';
 import { NumberField } from './NumberField';
 import { ColorField, Row, Section } from './fields';
 import { FontPicker } from './FontPicker';
 
 export const CaptionsPanel: React.FC<{ item: CaptionsItem }> = ({ item }) => {
-  const updateUndoable = useEditorStore((s) => s.updateUndoable);
-  const asset = useEditorStore((s) => s.undoable.assets[item.assetId]);
+  const updateUndoable = useEditor((s) => s.updateUndoable);
+  const asset = useEditor((s) => s.undoable.assets[item.assetId]);
   const captions = asset?.type === 'caption' ? asset.captions : [];
 
   const patch = (partial: Partial<CaptionsItem>, commit = true) =>

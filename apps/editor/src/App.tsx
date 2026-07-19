@@ -28,7 +28,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { useEditorStore } from './state/store';
+import { useEditor, useEditorApi } from './state/context';
 import { useShortcuts } from './shortcuts/useShortcuts';
 import { CanvasView, type CanvasTool } from './canvas/CanvasView';
 import { playerRef } from './canvas/player-ref';
@@ -38,14 +38,7 @@ import { TimelinePanel } from './timeline/TimelinePanel';
 import { PlaybackBar } from './playback/PlaybackBar';
 import { importFiles } from './lib/import-assets';
 import { cleanupDeletedAssets } from './lib/cleanup-assets';
-import {
-  downloadStateFile,
-  loadStateFromFile,
-  resolveInitialState,
-  restoreLocalUrls,
-  saveState,
-} from './persistence/persistence';
-import { buildDemoState } from './demo-state';
+import { downloadStateFile, loadStateFromFile, saveState } from './persistence/persistence';
 
 /** 图标按钮：Tooltip 中文说明 */
 const IconButton: React.FC<{
@@ -100,7 +93,7 @@ const FileButton: React.FC<{
 };
 
 const UploadStatusBadge = () => {
-  const assetStatus = useEditorStore((s) => s.assetStatus);
+  const assetStatus = useEditor((s) => s.assetStatus);
   const uploading = Object.values(assetStatus).filter(
     (st) => st === 'in-progress' || st === 'pending-upload',
   ).length;
@@ -115,7 +108,7 @@ const UploadStatusBadge = () => {
 };
 
 const CaptioningBadge = () => {
-  const tasks = useEditorStore((s) => s.captioningTasks);
+  const tasks = useEditor((s) => s.captioningTasks);
   const active = tasks.filter((t) => t.status === 'extracting' || t.status === 'transcribing').length;
   const failed = tasks.filter((t) => t.status === 'error').length;
   if (active === 0 && failed === 0) return null;
@@ -127,21 +120,10 @@ const CaptioningBadge = () => {
   );
 };
 
-// 初始状态：URL hash > localStorage > demo；启动即视为"已保存"
-const initialState = resolveInitialState() ?? buildDemoState();
-useEditorStore.setState({ undoable: initialState, lastSavedState: initialState });
-void restoreLocalUrls(initialState);
-
-// e2e 测试用（仅开发构建）
-if (import.meta.env.DEV) {
-  (window as unknown as Record<string, unknown>).__editorStore = useEditorStore;
-  (window as unknown as Record<string, unknown>).__playerRef = playerRef;
-}
-
 /** 画布缩放控件：[适应图标(非 fit 时)] [−] [标签] [+]；相对步进（加倍/减半） */
 const ZoomControls = () => {
-  const canvasZoom = useEditorStore((s) => s.canvasZoom);
-  const setCanvasZoom = useEditorStore((s) => s.setCanvasZoom);
+  const canvasZoom = useEditor((s) => s.canvasZoom);
+  const setCanvasZoom = useEditor((s) => s.setCanvasZoom);
   const effective = () => (canvasZoom === 'fit' ? fitScaleRef.current : canvasZoom);
   return (
     <span className="flex items-center gap-0.5">
@@ -164,13 +146,14 @@ const ZoomControls = () => {
 };
 
 const SaveButton = () => {
-  const dirty = useEditorStore((s) => s.undoable !== s.lastSavedState);
+  const editorApi = useEditorApi();
+  const dirty = useEditor((s) => s.undoable !== s.lastSavedState);
   return (
     <Button
       variant="outline"
       size="sm"
       className={dirty ? 'border-amber-500/60 text-amber-400 hover:text-amber-300' : ''}
-      onClick={saveState}
+      onClick={() => saveState(editorApi)}
       title="保存 (Cmd+S)"
     >
       <Save />
@@ -180,7 +163,8 @@ const SaveButton = () => {
 };
 
 const CleanupAssetsButton = () => {
-  const count = useEditorStore((s) => s.undoable.deletedAssets.length);
+  const editorApi = useEditorApi();
+  const count = useEditor((s) => s.undoable.deletedAssets.length);
   const [open, setOpen] = useState(false);
   if (count === 0) return null;
   return (
@@ -202,7 +186,7 @@ const CleanupAssetsButton = () => {
             variant="destructive"
             onClick={() => {
               setOpen(false);
-              void cleanupDeletedAssets();
+              void cleanupDeletedAssets(editorApi);
             }}
           >
             确认删除
@@ -215,19 +199,20 @@ const CleanupAssetsButton = () => {
 
 export default function App() {
   useShortcuts();
+  const editorApi = useEditorApi();
   // 画布工具模式：绘制色块 / 点击放置文本（瞬时 UI 状态，不进 store）
   const [tool, setTool] = useState<CanvasTool>(null);
-  const canUndo = useEditorStore((s) => s.past.length > 0);
-  const canRedo = useEditorStore((s) => s.future.length > 0);
-  const undo = useEditorStore((s) => s.undo);
-  const redo = useEditorStore((s) => s.redo);
-  const hasActiveUploads = useEditorStore((s) =>
+  const canUndo = useEditor((s) => s.past.length > 0);
+  const canRedo = useEditor((s) => s.future.length > 0);
+  const undo = useEditor((s) => s.undo);
+  const redo = useEditor((s) => s.redo);
+  const hasActiveUploads = useEditor((s) =>
     Object.values(s.assetStatus).some((st) => st === 'pending-upload' || st === 'in-progress'),
   );
-  const hasActiveRenders = useEditorStore((s) =>
+  const hasActiveRenders = useEditor((s) =>
     s.renderingTasks.some((t) => t.status === 'queued' || t.status === 'rendering'),
   );
-  const hasActiveCaptioning = useEditorStore((s) =>
+  const hasActiveCaptioning = useEditor((s) =>
     s.captioningTasks.some((t) => t.status === 'extracting' || t.status === 'transcribing'),
   );
 
@@ -290,7 +275,7 @@ export default function App() {
           icon={<Upload />}
           accept="video/*,audio/*,image/*"
           multiple
-          onFiles={(files) => void importFiles(files)}
+          onFiles={(files) => void importFiles(editorApi, files)}
         />
         <UploadStatusBadge />
         <CaptioningBadge />
@@ -298,7 +283,7 @@ export default function App() {
           <ZoomControls />
           <CleanupAssetsButton />
           <SaveButton />
-          <Button variant="outline" size="sm" onClick={downloadStateFile} title="下载工程文件 (.json)">
+          <Button variant="outline" size="sm" onClick={() => downloadStateFile(editorApi)} title="下载工程文件 (.json)">
             <Download />
             下载状态
           </Button>
@@ -307,7 +292,7 @@ export default function App() {
             icon={<FolderOpen />}
             accept=".json"
             title="从 .json 文件恢复工程"
-            onFiles={(files) => void loadStateFromFile(files[0])}
+            onFiles={(files) => void loadStateFromFile(editorApi, files[0])}
           />
         </div>
       </header>

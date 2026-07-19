@@ -2,7 +2,7 @@ import type React from 'react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Player } from '@remotion/player';
 import { MainComposition, calcDuration } from '@gedatou/shared/composition';
-import { useEditorStore } from '../state/store';
+import { useEditor, useEditorApi } from '../state/context';
 import { importFiles } from '../lib/import-assets';
 import { playerRef } from './player-ref';
 import { fitScaleRef, panRef, setPan, stageElRef } from './fit-scale';
@@ -23,12 +23,13 @@ export const CanvasView: React.FC<{
   tool: CanvasTool;
   onExitTool: () => void;
 }> = ({ tool, onExitTool }) => {
-  const undoable = useEditorStore((s) => s.undoable);
-  const canvasZoom = useEditorStore((s) => s.canvasZoom);
-  const localUrls = useEditorStore((s) => s.localUrls);
-  const fontHoverPreview = useEditorStore((s) => s.fontHoverPreview);
-  const cropMode = useEditorStore((s) => s.itemSelectedForCrop !== null);
-  const loop = useEditorStore((s) => s.loop);
+  const editorApi = useEditorApi();
+  const undoable = useEditor((s) => s.undoable);
+  const canvasZoom = useEditor((s) => s.canvasZoom);
+  const localUrls = useEditor((s) => s.localUrls);
+  const fontHoverPreview = useEditor((s) => s.fontHoverPreview);
+  const cropMode = useEditor((s) => s.itemSelectedForCrop !== null);
+  const loop = useEditor((s) => s.loop);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [fitScale, setFitScale] = useState(0.1);
@@ -55,7 +56,7 @@ export const CanvasView: React.FC<{
       const s = Math.max(0.02, Math.min(w / undoable.compositionWidth, h / undoable.compositionHeight));
       fitScaleRef.current = s;
       setFitScale(s);
-      if (useEditorStore.getState().canvasZoom === 'fit') {
+      if (editorApi.getState().canvasZoom === 'fit') {
         setPan(
           (el.clientWidth - undoable.compositionWidth * s) / 2,
           (el.clientHeight - undoable.compositionHeight * s) / 2,
@@ -96,7 +97,7 @@ export const CanvasView: React.FC<{
     if (!el) return;
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
-      const store = useEditorStore.getState();
+      const store = editorApi.getState();
       const cur = store.canvasZoom === 'fit' ? fitScaleRef.current : store.canvasZoom;
       if (e.metaKey || e.ctrlKey) {
         const next = clampZoom(cur * Math.exp(-e.deltaY * 0.002));
@@ -121,7 +122,7 @@ export const CanvasView: React.FC<{
   // 中键拖拽平移（Figma 手感）；起点可在舞台/元素上（事件冒泡到容器，左键行为不受影响）
   const onPanPointerDown = (e: React.PointerEvent) => {
     e.preventDefault(); // 抑制中键自动滚动
-    const store = useEditorStore.getState();
+    const store = editorApi.getState();
     if (store.canvasZoom === 'fit') store.setCanvasZoom(fitScaleRef.current); // 手动平移退出"适应"
     const el = containerRef.current;
     if (!el) return;
@@ -149,7 +150,7 @@ export const CanvasView: React.FC<{
     const container = e.currentTarget as HTMLElement;
     const stage = container.querySelector('[data-stage]');
     if (!stage) return;
-    useEditorStore.getState().setSelected([]);
+    editorApi.getState().setSelected([]);
     const start = { x: e.clientX, y: e.clientY };
     const onMove = (ev: PointerEvent) => {
       const cRect = container.getBoundingClientRect();
@@ -168,7 +169,7 @@ export const CanvasView: React.FC<{
       const cx2 = (x2 - sRect.left) / scale;
       const cy1 = (y1 - sRect.top) / scale;
       const cy2 = (y2 - sRect.top) / scale;
-      const st = useEditorStore.getState();
+      const st = editorApi.getState();
       const f = playerRef.current?.getCurrentFrame() ?? 0;
       const hits: string[] = [];
       for (const item of Object.values(st.undoable.items)) {
@@ -207,7 +208,7 @@ export const CanvasView: React.FC<{
           const dropAt = stage
             ? { x: (e.clientX - stage.left) / scale, y: (e.clientY - stage.top) / scale }
             : undefined;
-          void importFiles(files, dropAt);
+          void importFiles(editorApi, files, dropAt);
         }}
       >
         <div

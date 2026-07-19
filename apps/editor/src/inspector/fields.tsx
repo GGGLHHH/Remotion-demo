@@ -2,7 +2,7 @@ import type React from 'react';
 import { useState } from 'react';
 import { ChevronDownIcon, ChevronRightIcon } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
-import { useEditorStore } from '../state/store';
+import { useEditorApi } from '../state/context';
 
 /**
  * 面板分区。collapsible 时标题为整行折叠按钮（官方样式，右侧 ▼/▶ 箭头）；
@@ -81,6 +81,7 @@ export const SliderField: React.FC<{
   display?: string;
   onChange: (v: number, committing: boolean) => void;
 }> = ({ label, value, min, max, step, display, onChange }) => {
+  const editorApi = useEditorApi();
   // 拖动期间用本地值驱动滑块，未提交到 store 也能跟手
   const [drag, setDrag] = useState<number | null>(null);
   return (
@@ -102,7 +103,7 @@ export const SliderField: React.FC<{
             const n = Array.isArray(v) ? v[0] : v;
             setDrag(null);
             onChange(n, true);
-            useEditorStore.getState().commitPending();
+            editorApi.getState().commitPending();
           }}
         />
         <span className="w-14 shrink-0 text-right text-xs tabular-nums text-muted-foreground">

@@ -19,7 +19,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Command, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
-import { useEditorStore } from '../state/store';
+import { useEditor } from '../state/context';
 import { NumberField } from './NumberField';
 import { ColorField, Row, Section } from './fields';
 import { FontPicker } from './FontPicker';
@@ -67,7 +67,7 @@ const DIR_ICONS = { ltr: PilcrowLeftIcon, rtl: PilcrowRightIcon } as const;
 type PatchFn = (partial: Partial<TextItem>, commit?: boolean) => void;
 
 const usePatch = (itemId: string): PatchFn => {
-  const updateUndoable = useEditorStore((s) => s.updateUndoable);
+  const updateUndoable = useEditor((s) => s.updateUndoable);
   return (partial, commit = true) =>
     updateUndoable(
       (s) => {
@@ -81,9 +81,9 @@ const usePatch = (itemId: string): PatchFn => {
 
 /** 排版（官方 Typography）：字体/字重/字号/行高/字距/文本/对齐/方向 */
 export const TypographySection: React.FC<{ item: TextItem }> = ({ item }) => {
-  const previewItemStyle = useEditorStore((s) => s.previewItemStyle);
-  const cancelItemStylePreview = useEditorStore((s) => s.cancelItemStylePreview);
-  const commitPending = useEditorStore((s) => s.commitPending);
+  const previewItemStyle = useEditor((s) => s.previewItemStyle);
+  const cancelItemStylePreview = useEditor((s) => s.cancelItemStylePreview);
+  const commitPending = useEditor((s) => s.commitPending);
   const [weightOpen, setWeightOpen] = useState(false);
   const patch = usePatch(item.id);
 

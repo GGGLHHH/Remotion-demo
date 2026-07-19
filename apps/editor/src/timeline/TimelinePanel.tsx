@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/context-menu';
 import { Slider } from '@/components/ui/slider';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { useEditorStore } from '../state/store';
+import { useEditor, useEditorApi } from '../state/context';
 import { getPlayerFrame, playerRef, usePlayerFrameDerived } from '../canvas/player-ref';
 import { calcDuration } from '@gedatou/shared/composition';
 import {
@@ -153,7 +153,7 @@ const TrackHeader = memo<{ track: Track; number: number; height: number }>(funct
   number,
   height,
 }) {
-  const updateUndoable = useEditorStore((s) => s.updateUndoable);
+  const updateUndoable = useEditor((s) => s.updateUndoable);
   const toggle = (key: 'hidden' | 'muted') =>
     updateUndoable((s) => ({
       ...s,
@@ -186,13 +186,14 @@ const TimecodeReadout: React.FC<{ fps: number; duration: number }> = ({ fps, dur
 };
 
 export const TimelinePanel: React.FC = () => {
-  const undoable = useEditorStore((s) => s.undoable);
-  const zoomSetting = useEditorStore((s) => s.timelineZoom);
-  const setZoom = useEditorStore((s) => s.setTimelineZoom);
-  const height = useEditorStore((s) => s.timelineHeight);
-  const setHeight = useEditorStore((s) => s.setTimelineHeight);
-  const snapping = useEditorStore((s) => s.snappingEnabled);
-  const selectedIds = useEditorStore((s) => s.selectedItemIds);
+  const editorApi = useEditorApi();
+  const undoable = useEditor((s) => s.undoable);
+  const zoomSetting = useEditor((s) => s.timelineZoom);
+  const setZoom = useEditor((s) => s.setTimelineZoom);
+  const height = useEditor((s) => s.timelineHeight);
+  const setHeight = useEditor((s) => s.setTimelineHeight);
+  const snapping = useEditor((s) => s.snappingEnabled);
+  const selectedIds = useEditor((s) => s.selectedItemIds);
 
   const panelRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -286,7 +287,7 @@ export const TimelinePanel: React.FC = () => {
     moveRef.current = null;
     setMoveVisual(null);
     if (!apply || !d?.moved || !d.placement) return;
-    const store = useEditorStore.getState();
+    const store = editorApi.getState();
     const item = store.undoable.items[d.id];
     if (!item) return;
     const { target, from } = d.placement;
@@ -326,7 +327,7 @@ export const TimelinePanel: React.FC = () => {
       if (Math.abs(clientX - d.downX) < 3 && Math.abs(clientY - d.downY) < 3) return;
       d.moved = true;
     }
-    const store = useEditorStore.getState();
+    const store = editorApi.getState();
     const st = store.undoable;
     const item = st.items[d.id];
     if (!item) {
@@ -441,7 +442,7 @@ export const TimelinePanel: React.FC = () => {
     mode: 'move' | 'trim-start' | 'trim-end',
   ) => {
     if (e.button !== 0) return;
-    const store = useEditorStore.getState();
+    const store = editorApi.getState();
     e.stopPropagation();
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
 
@@ -508,7 +509,7 @@ export const TimelinePanel: React.FC = () => {
       edge: 'end',
       id: aId,
       startX: e.clientX,
-      snapshot: useEditorStore.getState().undoable,
+      snapshot: editorApi.getState().undoable,
       rollingNeighborId: bId,
     };
   };
@@ -516,7 +517,7 @@ export const TimelinePanel: React.FC = () => {
   const onPointerMove = (e: React.PointerEvent) => {
     const d = drag.current;
     if (!d) return;
-    const store = useEditorStore.getState();
+    const store = editorApi.getState();
 
     if (d.kind === 'trim') {
       // 官方：按住 Shift 完全抑制修剪（边缘回到起拖位置，松开恢复）
@@ -582,14 +583,14 @@ export const TimelinePanel: React.FC = () => {
     setTrimGuide(null);
     if (!d) return;
     if (d.kind === 'trim') {
-      useEditorStore.getState().commitPending();
+      editorApi.getState().commitPending();
     }
   };
 
   const onBackgroundPointerDown = (e: React.PointerEvent) => {
     if (e.button !== 0) return;
     if ((e.target as HTMLElement).closest('[data-item-block]')) return;
-    useEditorStore.getState().setSelected([]);
+    editorApi.getState().setSelected([]);
     drag.current = { kind: 'marquee', startX: e.clientX, startY: e.clientY, curX: e.clientX, curY: e.clientY };
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   };
@@ -624,22 +625,22 @@ export const TimelinePanel: React.FC = () => {
     const files = Array.from(e.dataTransfer.files);
     if (!files.length) return;
     const { frame, trackIndex } = dropInfo(e);
-    void importFiles(files, undefined, { frame, trackId: undoable.tracks[trackIndex]?.id });
+    void importFiles(editorApi, files, undefined, { frame, trackId: undoable.tracks[trackIndex]?.id });
   };
 
   // ---- 块右键菜单 ----
 
   /** 剪切 = 复制到内部剪贴板 + 删除选中（与 Cmd+X 一致） */
   const menuCut = () => {
-    copySelection();
-    useEditorStore.getState().deleteSelected();
+    copySelection(editorApi);
+    editorApi.getState().deleteSelected();
   };
 
   /** 置顶/置底：移到新建的最外层轨道（与画布右键菜单一致） */
   const menuReorder = (where: 'front' | 'back') => {
     const id = menuItemId.current;
     if (!id) return;
-    useEditorStore
+    editorApi
       .getState()
       .updateUndoable((s) => (where === 'front' ? bringToFront(s, id) : sendToBack(s, id)));
   };
@@ -742,7 +743,7 @@ export const TimelinePanel: React.FC = () => {
                 className={snapping ? 'text-blue-400 hover:text-blue-400' : 'text-zinc-600 hover:text-zinc-500'}
                 title="吸附 (Shift+M)"
                 aria-pressed={snapping}
-                onClick={() => useEditorStore.getState().toggleSnapping()}
+                onClick={() => editorApi.getState().toggleSnapping()}
               />
             }
           >
@@ -760,7 +761,7 @@ export const TimelinePanel: React.FC = () => {
                 title="在播放头处分割 (S)"
                 disabled={!splittable}
                 onClick={() => {
-                  const store = useEditorStore.getState();
+                  const store = editorApi.getState();
                   const f = getPlayerFrame();
                   store.updateUndoable((s) =>
                     splitItemsAtFrame(s, f, resolveSplitTargets(s, f, store.selectedItemIds)),
@@ -851,7 +852,7 @@ export const TimelinePanel: React.FC = () => {
                   return;
                 }
                 // 右键先选中：已在多选中则保持多选，否则只选命中块
-                const store = useEditorStore.getState();
+                const store = editorApi.getState();
                 store.setSelected(
                   store.selectedItemIds.includes(id) ? store.selectedItemIds : [id],
                 );
@@ -980,8 +981,8 @@ export const TimelinePanel: React.FC = () => {
             </ContextMenuTrigger>
             <ContextMenuContent>
               <ContextMenuItem onClick={menuCut}>剪切</ContextMenuItem>
-              <ContextMenuItem onClick={() => copySelection()}>复制</ContextMenuItem>
-              <ContextMenuItem onClick={() => duplicateSelection()}>创建副本</ContextMenuItem>
+              <ContextMenuItem onClick={() => copySelection(editorApi)}>复制</ContextMenuItem>
+              <ContextMenuItem onClick={() => duplicateSelection(editorApi)}>创建副本</ContextMenuItem>
               <ContextMenuSeparator />
               <ContextMenuItem onClick={() => menuReorder('front')}>置于顶层</ContextMenuItem>
               <ContextMenuItem onClick={() => menuReorder('back')}>置于底层</ContextMenuItem>

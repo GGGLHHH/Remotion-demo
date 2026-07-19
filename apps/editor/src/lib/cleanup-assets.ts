@@ -1,4 +1,4 @@
-import { useEditorStore } from '../state/store';
+import type { EditorStoreApi } from '../state/store';
 import { deleteCachedAsset } from '../caching/indexeddb';
 
 /**
@@ -6,9 +6,9 @@ import { deleteCachedAsset } from '../caching/indexeddb';
  * 撤销栈里的快照可能仍引用这些素材，官方做法：先清栈，因此本操作不可撤销，
  * 直接 setState 而不走 updateUndoable。
  */
-export const cleanupDeletedAssets = async (): Promise<void> => {
-  useEditorStore.setState({ past: [], future: [] });
-  const { undoable, localUrls } = useEditorStore.getState();
+export const cleanupDeletedAssets = async (store: EditorStoreApi): Promise<void> => {
+  store.setState({ past: [], future: [] });
+  const { undoable, localUrls } = store.getState();
   const referenced = new Set(
     Object.values(undoable.items).map((i) => ('assetId' in i ? i.assetId : null)),
   );
@@ -29,7 +29,7 @@ export const cleanupDeletedAssets = async (): Promise<void> => {
     if (localUrls[assetId]) URL.revokeObjectURL(localUrls[assetId]);
     removed.push(assetId);
   }
-  useEditorStore.setState((s) => {
+  store.setState((s) => {
     const assets = { ...s.undoable.assets };
     for (const id of removed) delete assets[id];
     return {

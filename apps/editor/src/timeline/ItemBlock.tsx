@@ -1,7 +1,7 @@
 import type React from 'react';
 import { memo, useRef, useState } from 'react';
 import type { EditorStarterItem } from '@gedatou/shared';
-import { useEditorStore } from '../state/store';
+import { useEditor, useEditorApi } from '../state/context';
 import { Filmstrip } from './Filmstrip';
 import { Waveform } from './Waveform';
 
@@ -96,23 +96,24 @@ export const ItemBlock = memo<{
   hidden?: boolean;
   onPointerDown?: (e: React.PointerEvent, item: EditorStarterItem, mode: 'move' | 'trim-start' | 'trim-end') => void;
 }>(function ItemBlock({ item, zoom, hidden, onPointerDown }) {
-  const selected = useEditorStore((s) => s.selectedItemIds.includes(item.id));
-  const mediaUrl = useEditorStore((s) => {
+  const editorApi = useEditorApi();
+  const selected = useEditor((s) => s.selectedItemIds.includes(item.id));
+  const mediaUrl = useEditor((s) => {
     if (item.type !== 'video' && item.type !== 'audio') return null;
     return s.localUrls[item.assetId] ?? s.undoable.assets[item.assetId]?.url ?? null;
   });
-  const videoHasAudio = useEditorStore((s) => {
+  const videoHasAudio = useEditor((s) => {
     if (item.type !== 'video') return false;
     const asset = s.undoable.assets[item.assetId];
     return asset?.type === 'video' && asset.hasAudio;
   });
-  const fps = useEditorStore((s) => s.undoable.fps);
-  const filename = useEditorStore((s) =>
+  const fps = useEditor((s) => s.undoable.fps);
+  const filename = useEditor((s) =>
     item.type === 'video' || item.type === 'audio'
       ? (s.undoable.assets[item.assetId]?.filename ?? null)
       : null,
   );
-  const assetDurationSec = useEditorStore((s) => {
+  const assetDurationSec = useEditor((s) => {
     if (item.type !== 'video' && item.type !== 'audio') return 0;
     const a = s.undoable.assets[item.assetId];
     return a && 'durationInSeconds' in a ? a.durationInSeconds : 0;
@@ -148,7 +149,7 @@ export const ItemBlock = memo<{
       el.removeEventListener('pointermove', onMove);
       el.removeEventListener('pointerup', onUp);
       onEnd?.();
-      useEditorStore.getState().commitPending();
+      editorApi.getState().commitPending();
     };
     el.addEventListener('pointermove', onMove);
     el.addEventListener('pointerup', onUp);
@@ -156,7 +157,7 @@ export const ItemBlock = memo<{
 
   const onVolumePointerDown = (e: React.PointerEvent) => {
     // 与修剪手柄一致：按下即独占选中
-    useEditorStore.getState().setSelected([item.id]);
+    editorApi.getState().setSelected([item.id]);
     const rect = stripRef.current!.getBoundingClientRect();
     startHandleDrag(
       e,
@@ -164,7 +165,7 @@ export const ItemBlock = memo<{
         const f = (ev.clientY - rect.top) / rect.height;
         const vol = Math.round(topFractionToGain(f) * 10000) / 10000;
         setDragTip({ label: formatDb(vol), x: ev.clientX, y: ev.clientY });
-        useEditorStore.getState().updateUndoable(
+        editorApi.getState().updateUndoable(
           (s) => {
             const it = s.items[item.id];
             if (!it || (it.type !== 'video' && it.type !== 'audio') || it.volume === vol) return s;
@@ -178,12 +179,12 @@ export const ItemBlock = memo<{
   };
 
   const onFadePointerDown = (e: React.PointerEvent, side: 'in' | 'out', kind: FadePairKind) => {
-    useEditorStore.getState().setSelected([item.id]);
+    editorApi.getState().setSelected([item.id]);
     const rect = blockRef.current!.getBoundingClientRect();
     startHandleDrag(
       e,
       (ev) => {
-        const store = useEditorStore.getState();
+        const store = editorApi.getState();
         const it = store.undoable.items[item.id];
         if (!it) return;
         const raw =

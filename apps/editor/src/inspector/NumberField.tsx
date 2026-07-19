@@ -2,7 +2,7 @@ import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { useEditorStore } from '../state/store';
+import { useEditorApi } from '../state/context';
 
 /** 按步进取整，消除浮点噪音 */
 const snap = (v: number, step: number) => Number((Math.round(v / step) * step).toFixed(4));
@@ -26,6 +26,7 @@ export const NumberField: React.FC<{
   /** committing=false 为拖拽中的实时值（调用方应 commit:false）；=true 为一次性提交 */
   onChange: (value: number, committing: boolean) => void;
 }> = ({ label, inline, icon: Icon, value, min, max, step = 1, className, onChange }) => {
+  const editorApi = useEditorApi();
   const [text, setText] = useState(String(value));
   useEffect(() => setText(String(value)), [value]);
   const scrub = useRef<{ x: number; base: number; moved: boolean } | null>(null);
@@ -69,7 +70,7 @@ export const NumberField: React.FC<{
     },
     onPointerUp: () => {
       if (scrub.current?.moved) {
-        useEditorStore.getState().commitPending();
+        editorApi.getState().commitPending();
         suppressClick.current = true;
       }
       scrub.current = null;

@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Maximize, Pause, Play, Repeat, SkipBack, SkipForward, Volume2, VolumeX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { useEditorStore } from '../state/store';
+import { useEditor } from '../state/context';
 import { playerRef, usePlayerFrame } from '../canvas/player-ref';
 import { calcDuration } from '@gedatou/shared/composition';
 import { formatTime } from '../timeline/Ruler';
@@ -42,12 +42,12 @@ const Btn: React.FC<{
 );
 
 export const PlaybackBar: React.FC = () => {
-  const fps = useEditorStore((s) => s.undoable.fps);
-  const items = useEditorStore((s) => s.undoable.items);
-  const loop = useEditorStore((s) => s.loop);
-  const toggleLoop = useEditorStore((s) => s.toggleLoop);
-  const playerMuted = useEditorStore((s) => s.playerMuted);
-  const togglePlayerMuted = useEditorStore((s) => s.togglePlayerMuted);
+  const fps = useEditor((s) => s.undoable.fps);
+  const items = useEditor((s) => s.undoable.items);
+  const loop = useEditor((s) => s.loop);
+  const toggleLoop = useEditor((s) => s.toggleLoop);
+  const playerMuted = useEditor((s) => s.playerMuted);
+  const togglePlayerMuted = useEditor((s) => s.togglePlayerMuted);
   const [playing, setPlaying] = useState(false);
   const durationInFrames = useMemo(() => calcDuration(items), [items]);
 

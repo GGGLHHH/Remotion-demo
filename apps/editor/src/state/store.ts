@@ -1,4 +1,4 @@
-import { create } from 'zustand';
+import { createStore, type StoreApi } from 'zustand/vanilla';
 import {
   DEFAULT_COMPOSITION_HEIGHT,
   DEFAULT_COMPOSITION_WIDTH,
@@ -90,20 +90,32 @@ export type EditorStore = {
   togglePlayerMuted: () => void;
 };
 
-// 拖拽类高频操作的撤销基线：首次 commit:false 更新前的快照。
-// 存放在 store 外部即可（不需要触发渲染）。
-let pendingBase: UndoableState | null = null;
-
 const pushPast = (past: UndoableState[], snapshot: UndoableState): UndoableState[] => {
   const next = [...past, snapshot];
   return next.length > MAX_UNDO_STACK_SIZE ? next.slice(next.length - MAX_UNDO_STACK_SIZE) : next;
 };
 
-export const useEditorStore = create<EditorStore>((set, get) => ({
-  undoable: createEmptyState({
-    width: DEFAULT_COMPOSITION_WIDTH,
-    height: DEFAULT_COMPOSITION_HEIGHT,
-  }),
+/** vanilla store 句柄类型：非 React 模块收此参、组件经 useEditorApi() 取得 */
+export type EditorStoreApi = StoreApi<EditorStore>;
+
+/** 建 store 时的可选初始态（demo / 宿主播种） */
+export type EditorInitialState = { undoable?: UndoableState };
+
+/**
+ * 每实例 store 工厂：替代原全局单例。pendingBase（拖拽撤销基线）移入闭包随实例隔离——
+ * 一页多个编辑器互不串台，宿主可注入初始态、SSR 不在 import 期建 store。
+ */
+export function createEditorStore(init?: EditorInitialState): EditorStoreApi {
+  // 拖拽类高频操作的撤销基线：首次 commit:false 更新前的快照（每实例私有，不触发渲染）
+  let pendingBase: UndoableState | null = null;
+
+  return createStore<EditorStore>((set, get) => ({
+  undoable:
+    init?.undoable ??
+    createEmptyState({
+      width: DEFAULT_COMPOSITION_WIDTH,
+      height: DEFAULT_COMPOSITION_HEIGHT,
+    }),
   past: [],
   future: [],
   selectedItemIds: [],
@@ -242,4 +254,5 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     });
     set({ selectedItemIds: [] });
   },
-}));
+  }));
+}

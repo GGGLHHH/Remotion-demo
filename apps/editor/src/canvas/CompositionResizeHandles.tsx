@@ -1,6 +1,6 @@
 import type React from 'react';
 import { useState } from 'react';
-import { useEditorStore } from '../state/store';
+import { useEditor, useEditorApi } from '../state/context';
 import { panRef, setPan } from './fit-scale';
 import { CORNERS, EDGES, SizeBadge } from './SelectionOverlay';
 import type { ResizeHandle } from './geometry';
@@ -15,9 +15,10 @@ import type { ResizeHandle } from './geometry';
  * 同时按 Figma 语义改写元素坐标，内容在屏幕上纹丝不动。松手无任何跳变。
  */
 export const CompositionResizeHandles: React.FC<{ scale: number }> = ({ scale }) => {
-  const empty = useEditorStore((s) => s.selectedItemIds.length === 0);
-  const w = useEditorStore((s) => s.undoable.compositionWidth);
-  const h = useEditorStore((s) => s.undoable.compositionHeight);
+  const editorApi = useEditorApi();
+  const empty = useEditor((s) => s.selectedItemIds.length === 0);
+  const w = useEditor((s) => s.undoable.compositionWidth);
+  const h = useEditor((s) => s.undoable.compositionHeight);
   const [dragging, setDragging] = useState(false);
   if (!empty) return null;
 
@@ -27,7 +28,7 @@ export const CompositionResizeHandles: React.FC<{ scale: number }> = ({ scale })
     e.preventDefault();
     const el = e.currentTarget as HTMLElement;
     el.setPointerCapture(e.pointerId);
-    const store = useEditorStore.getState();
+    const store = editorApi.getState();
     // 拖拽开始即把"适应"转为等值数字缩放：拖拽中适配值重算不再影响比例，行为可预期
     if (store.canvasZoom === 'fit') store.setCanvasZoom(scale);
     const s0 = scale;
@@ -50,7 +51,7 @@ export const CompositionResizeHandles: React.FC<{ scale: number }> = ({ scale })
       // 拖右/下边坐标天然不变
       const shiftX = handle.includes('w') ? newW - w0 : 0;
       const shiftY = handle.includes('n') ? newH - h0 : 0;
-      useEditorStore.getState().updateUndoable(
+      editorApi.getState().updateUndoable(
         (st) => ({
           ...st,
           compositionWidth: newW,
@@ -79,7 +80,7 @@ export const CompositionResizeHandles: React.FC<{ scale: number }> = ({ scale })
       el.removeEventListener('pointermove', onMove);
       el.removeEventListener('pointerup', onUp);
       setDragging(false);
-      useEditorStore.getState().commitPending();
+      editorApi.getState().commitPending();
     };
     el.addEventListener('pointermove', onMove);
     el.addEventListener('pointerup', onUp);

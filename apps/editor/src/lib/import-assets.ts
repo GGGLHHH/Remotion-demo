@@ -5,7 +5,7 @@ import {
   type EditorStarterAsset,
   type EditorStarterItem,
 } from '@gedatou/shared';
-import { useEditorStore } from '../state/store';
+import type { EditorStoreApi } from '../state/store';
 import { playerRef } from '../canvas/player-ref';
 import { addTrack, hasOverlap } from '../timeline/ops';
 import { cacheAsset } from '../caching/indexeddb';
@@ -121,9 +121,8 @@ const putWithProgress = (url: string, file: File, contentType: string, onProgres
     xhr.send(file);
   });
 
-const uploadAsset = async (assetId: string, file: File): Promise<void> => {
-  const store = useEditorStore.getState();
-  store.setAssetStatus(assetId, 'in-progress');
+const uploadAsset = async (store: EditorStoreApi, assetId: string, file: File): Promise<void> => {
+  store.getState().setAssetStatus(assetId, 'in-progress');
   try {
     const res = await fetch('/api/upload', {
       method: 'POST',
@@ -133,25 +132,26 @@ const uploadAsset = async (assetId: string, file: File): Promise<void> => {
     if (!res.ok) throw new Error(`upload sign failed: ${res.status}`);
     const { uploadUrl, publicUrl } = (await res.json()) as { uploadUrl: string; publicUrl: string };
     await putWithProgress(uploadUrl, file, file.type || 'application/octet-stream', (pct) =>
-      useEditorStore.getState().setUploadProgress(assetId, pct),
+      store.getState().setUploadProgress(assetId, pct),
     );
     // 远端地址写回 asset（可撤销代价可接受）
-    useEditorStore.getState().updateUndoable((s) => {
+    store.getState().updateUndoable((s) => {
       const asset = s.assets[assetId];
       if (!asset) return s;
       return { ...s, assets: { ...s.assets, [assetId]: { ...asset, url: publicUrl } } };
     });
-    useEditorStore.getState().setAssetStatus(assetId, 'uploaded');
-    useEditorStore.getState().setUploadProgress(assetId, null);
+    store.getState().setAssetStatus(assetId, 'uploaded');
+    store.getState().setUploadProgress(assetId, null);
   } catch (err) {
     console.error('asset upload failed', err);
     toast.error(`上传失败：${file.name}`);
-    useEditorStore.getState().setAssetStatus(assetId, 'error');
-    useEditorStore.getState().setUploadProgress(assetId, null);
+    store.getState().setAssetStatus(assetId, 'error');
+    store.getState().setUploadProgress(assetId, null);
   }
 };
 
 export const importFiles = async (
+  store: EditorStoreApi,
   files: File[],
   dropAt?: { x: number; y: number },
   /** 时间轴落点：指定帧 + 悬停轨道；多文件从该帧起依次排布 */
@@ -167,10 +167,10 @@ export const importFiles = async (
     try {
       const probe = await probeFile(file);
       const blobUrl = URL.createObjectURL(file);
-      const store = useEditorStore.getState();
+      const state = store.getState();
       const frame = nextFrame ?? playerRef.current?.getCurrentFrame() ?? 0;
       let created: { asset: EditorStarterAsset; item: EditorStarterItem } | null = null;
-      store.updateUndoable((s) => {
+      state.updateUndoable((s) => {
         // 先构建 item（时长在此确定），再定轨道：
         // - 时间轴拖放：悬停轨道放得下就放，否则新建顶部轨道
         // - 默认（头部按钮/粘贴/画布拖放）：官方行为——落在播放头处有空间的现有轨道，
@@ -207,11 +207,11 @@ export const importFiles = async (
       if (!created) continue;
       const { asset, item } = created as { asset: EditorStarterAsset; item: EditorStarterItem };
       if (nextFrame !== null) nextFrame = frame + item.durationInFrames;
-      store.setLocalUrl(asset.id, blobUrl);
-      store.setAssetStatus(asset.id, 'pending-upload');
-      store.setSelected([item.id]);
+      state.setLocalUrl(asset.id, blobUrl);
+      state.setAssetStatus(asset.id, 'pending-upload');
+      state.setSelected([item.id]);
       void cacheAsset(asset.id, file).catch(() => {});
-      void uploadAsset(asset.id, file);
+      void uploadAsset(store, asset.id, file);
     } catch (err) {
       console.error(`导入失败: ${file.name}`, err);
       toast.error(`导入失败：${file.name}`);
