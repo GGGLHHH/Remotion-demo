@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useEditorApi, useEditorRefs } from '../state/context';
+import { useEditorApi, useEditorDeps, useEditorRefs } from '../state/context';
 import { resolveSplitTargets, splitItemsAtFrame } from '../timeline/ops';
 import { saveState } from '../persistence/persistence';
 import { importFiles } from '../lib/import-assets';
@@ -25,6 +25,7 @@ const isEditableTarget = (target: EventTarget | null): boolean => {
 
 export const useShortcuts = () => {
   const editorApi = useEditorApi();
+  const deps = useEditorDeps();
   const refs = useEditorRefs();
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -35,7 +36,7 @@ export const useShortcuts = () => {
 
       if (mod && key === 's') {
         e.preventDefault();
-        saveState(editorApi);
+        saveState(editorApi, deps);
         return;
       }
       if (mod && key === 'z' && !e.shiftKey) {
@@ -151,7 +152,7 @@ export const useShortcuts = () => {
       const files = Array.from(dt.files);
       if (files.length) {
         e.preventDefault();
-        void importFiles(editorApi, files, undefined, undefined, refs.getPlayerFrame());
+        void importFiles(editorApi, deps, files, undefined, undefined, refs.getPlayerFrame());
         return;
       }
       // 3) 纯文本 → 画布居中文本项

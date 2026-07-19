@@ -28,7 +28,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { useEditor, useEditorApi, useEditorRefs } from './state/context';
+import { useEditor, useEditorApi, useEditorDeps, useEditorRefs } from './state/context';
 import { useShortcuts } from './shortcuts/useShortcuts';
 import { CanvasView, type CanvasTool } from './canvas/CanvasView';
 import { Inspector } from './inspector/Inspector';
@@ -146,13 +146,14 @@ const ZoomControls = () => {
 
 const SaveButton = () => {
   const editorApi = useEditorApi();
+  const deps = useEditorDeps();
   const dirty = useEditor((s) => s.undoable !== s.lastSavedState);
   return (
     <Button
       variant="outline"
       size="sm"
       className={dirty ? 'border-amber-500/60 text-amber-400 hover:text-amber-300' : ''}
-      onClick={() => saveState(editorApi)}
+      onClick={() => saveState(editorApi, deps)}
       title="保存 (Cmd+S)"
     >
       <Save />
@@ -163,6 +164,7 @@ const SaveButton = () => {
 
 const CleanupAssetsButton = () => {
   const editorApi = useEditorApi();
+  const deps = useEditorDeps();
   const count = useEditor((s) => s.undoable.deletedAssets.length);
   const [open, setOpen] = useState(false);
   if (count === 0) return null;
@@ -185,7 +187,7 @@ const CleanupAssetsButton = () => {
             variant="destructive"
             onClick={() => {
               setOpen(false);
-              void cleanupDeletedAssets(editorApi);
+              void cleanupDeletedAssets(editorApi, deps);
             }}
           >
             确认删除
@@ -199,6 +201,7 @@ const CleanupAssetsButton = () => {
 export default function App() {
   useShortcuts();
   const editorApi = useEditorApi();
+  const deps = useEditorDeps();
   const refs = useEditorRefs();
   // 画布工具模式：绘制色块 / 点击放置文本（瞬时 UI 状态，不进 store）
   const [tool, setTool] = useState<CanvasTool>(null);
@@ -275,7 +278,7 @@ export default function App() {
           icon={<Upload />}
           accept="video/*,audio/*,image/*"
           multiple
-          onFiles={(files) => void importFiles(editorApi, files, undefined, undefined, refs.getPlayerFrame())}
+          onFiles={(files) => void importFiles(editorApi, deps, files, undefined, undefined, refs.getPlayerFrame())}
         />
         <UploadStatusBadge />
         <CaptioningBadge />
@@ -292,7 +295,7 @@ export default function App() {
             icon={<FolderOpen />}
             accept=".json"
             title="从 .json 文件恢复工程"
-            onFiles={(files) => void loadStateFromFile(editorApi, files[0])}
+            onFiles={(files) => void loadStateFromFile(editorApi, deps, files[0])}
           />
         </div>
       </header>

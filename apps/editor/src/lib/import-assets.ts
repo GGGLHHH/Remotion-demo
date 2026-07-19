@@ -1,4 +1,3 @@
-import { toast } from 'sonner';
 import {
   MAX_FILE_UPLOAD_SIZE_IN_MB,
   newId,
@@ -6,8 +5,8 @@ import {
   type EditorStarterItem,
 } from '@gedatou/shared';
 import type { EditorStoreApi } from '../state/store';
+import type { EditorDeps } from '../state/runtime';
 import { addTrack, hasOverlap } from '../timeline/ops';
-import { cacheAsset } from '../caching/indexeddb';
 import { probeFile, type ProbeResult } from './probe';
 
 const itemBaseDefaults = {
@@ -105,45 +104,28 @@ const buildAssetAndItem = (
   }
 };
 
-/** XHR PUT：fetch 拿不到上传进度，用 XHR 的 upload.onprogress */
-const putWithProgress = (url: string, file: File, contentType: string, onProgress: (pct: number) => void) =>
-  new Promise<void>((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open('PUT', url);
-    xhr.setRequestHeader('content-type', contentType);
-    xhr.upload.onprogress = (e) => {
-      if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
-    };
-    xhr.onload = () =>
-      xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error(`upload PUT failed: ${xhr.status}`));
-    xhr.onerror = () => reject(new Error('upload PUT network error'));
-    xhr.send(file);
-  });
-
-const uploadAsset = async (store: EditorStoreApi, assetId: string, file: File): Promise<void> => {
+const uploadAsset = async (
+  store: EditorStoreApi,
+  deps: EditorDeps,
+  assetId: string,
+  file: File,
+): Promise<void> => {
   store.getState().setAssetStatus(assetId, 'in-progress');
   try {
-    const res = await fetch('/api/upload', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ filename: file.name, contentType: file.type || 'application/octet-stream' }),
+    const { url } = await deps.transport.uploadAsset(file, {
+      onProgress: (pct) => store.getState().setUploadProgress(assetId, pct),
     });
-    if (!res.ok) throw new Error(`upload sign failed: ${res.status}`);
-    const { uploadUrl, publicUrl } = (await res.json()) as { uploadUrl: string; publicUrl: string };
-    await putWithProgress(uploadUrl, file, file.type || 'application/octet-stream', (pct) =>
-      store.getState().setUploadProgress(assetId, pct),
-    );
     // 远端地址写回 asset（可撤销代价可接受）
     store.getState().updateUndoable((s) => {
       const asset = s.assets[assetId];
       if (!asset) return s;
-      return { ...s, assets: { ...s.assets, [assetId]: { ...asset, url: publicUrl } } };
+      return { ...s, assets: { ...s.assets, [assetId]: { ...asset, url } } };
     });
     store.getState().setAssetStatus(assetId, 'uploaded');
     store.getState().setUploadProgress(assetId, null);
   } catch (err) {
     console.error('asset upload failed', err);
-    toast.error(`上传失败：${file.name}`);
+    deps.notify(`上传失败：${file.name}`, 'error');
     store.getState().setAssetStatus(assetId, 'error');
     store.getState().setUploadProgress(assetId, null);
   }
@@ -151,6 +133,7 @@ const uploadAsset = async (store: EditorStoreApi, assetId: string, file: File): 
 
 export const importFiles = async (
   store: EditorStoreApi,
+  deps: EditorDeps,
   files: File[],
   dropAt?: { x: number; y: number },
   /** 时间轴落点：指定帧 + 悬停轨道；多文件从该帧起依次排布 */
@@ -162,7 +145,7 @@ export const importFiles = async (
   for (const file of files) {
     if (file.size > MAX_FILE_UPLOAD_SIZE_IN_MB * 1024 * 1024) {
       console.error(`文件过大: ${file.name}`);
-      toast.error(`文件过大：${file.name}（上限 ${MAX_FILE_UPLOAD_SIZE_IN_MB}MB）`);
+      deps.notify(`文件过大：${file.name}（上限 ${MAX_FILE_UPLOAD_SIZE_IN_MB}MB）`, 'error');
       continue;
     }
     try {
@@ -211,11 +194,11 @@ export const importFiles = async (
       state.setLocalUrl(asset.id, blobUrl);
       state.setAssetStatus(asset.id, 'pending-upload');
       state.setSelected([item.id]);
-      void cacheAsset(asset.id, file).catch(() => {});
-      void uploadAsset(store, asset.id, file);
+      void deps.storage.putAsset(asset.id, file).catch(() => {});
+      void uploadAsset(store, deps, asset.id, file);
     } catch (err) {
       console.error(`导入失败: ${file.name}`, err);
-      toast.error(`导入失败：${file.name}`);
+      deps.notify(`导入失败：${file.name}`, 'error');
     }
   }
 };

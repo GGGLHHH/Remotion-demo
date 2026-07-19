@@ -35,7 +35,7 @@ import {
 } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { useEditor, useEditorApi } from '../state/context';
+import { useEditor, useEditorApi, useEditorDeps } from '../state/context';
 import { usePlayerFrameDerived } from '../canvas/player-ref';
 import { startRender } from '../lib/render-client';
 import { generateCaptions } from '../lib/captioning';
@@ -50,6 +50,7 @@ type PatchFn = (partial: Partial<EditorStarterItem>, commit?: boolean) => void;
 /** 生成字幕入口：audio 或含音轨的 video（官方 Captions 区，默认折叠） */
 const CaptionsSection: React.FC<{ itemId: string }> = ({ itemId }) => {
   const editorApi = useEditorApi();
+  const deps = useEditorDeps();
   const task = useEditor((s) => s.captioningTasks.findLast((t) => t.itemId === itemId));
   const busy = task?.status === 'extracting' || task?.status === 'transcribing';
   return (
@@ -58,7 +59,7 @@ const CaptionsSection: React.FC<{ itemId: string }> = ({ itemId }) => {
         variant="outline"
         size="sm"
         disabled={busy}
-        onClick={() => void generateCaptions(editorApi, itemId)}
+        onClick={() => void generateCaptions(editorApi, deps, itemId)}
       >
         {busy ? <Spinner /> : <CaptionsIcon />}
         {busy ? (task.status === 'extracting' ? '抽取音频中…' : '转录中…') : '生成字幕'}
@@ -79,6 +80,7 @@ const CODEC_LABELS: Record<'mp4' | 'webm', string> = {
 
 const ExportSection: React.FC = () => {
   const editorApi = useEditorApi();
+  const deps = useEditorDeps();
   const renderingTasks = useEditor((s) => s.renderingTasks);
   const hasItems = useEditor((s) => Object.keys(s.undoable.items).length > 0);
   const [codec, setCodec] = useState<'mp4' | 'webm'>('mp4');
@@ -95,7 +97,7 @@ const ExportSection: React.FC = () => {
         </SelectContent>
       </Select>
       {/* 官方行为：时间线为空时禁用渲染按钮 */}
-      <Button size="sm" variant="secondary" disabled={!hasItems} onClick={() => void startRender(editorApi, codec)}>
+      <Button size="sm" variant="secondary" disabled={!hasItems} onClick={() => void startRender(editorApi, deps, codec)}>
         <ClapperboardIcon />
         渲染
       </Button>

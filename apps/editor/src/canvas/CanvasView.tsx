@@ -2,7 +2,7 @@ import type React from 'react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Player } from '@remotion/player';
 import { MainComposition, calcDuration } from '@gedatou/shared/composition';
-import { useEditor, useEditorApi, useEditorRefs } from '../state/context';
+import { useEditor, useEditorApi, useEditorDeps, useEditorRefs } from '../state/context';
 import { importFiles } from '../lib/import-assets';
 import { SelectionOverlay } from './SelectionOverlay';
 import { CompositionResizeHandles } from './CompositionResizeHandles';
@@ -22,6 +22,7 @@ export const CanvasView: React.FC<{
   onExitTool: () => void;
 }> = ({ tool, onExitTool }) => {
   const editorApi = useEditorApi();
+  const deps = useEditorDeps();
   const refs = useEditorRefs();
   const undoable = useEditor((s) => s.undoable);
   const canvasZoom = useEditor((s) => s.canvasZoom);
@@ -207,7 +208,7 @@ export const CanvasView: React.FC<{
           const dropAt = stage
             ? { x: (e.clientX - stage.left) / scale, y: (e.clientY - stage.top) / scale }
             : undefined;
-          void importFiles(editorApi, files, dropAt, undefined, refs.getPlayerFrame());
+          void importFiles(editorApi, deps, files, dropAt, undefined, refs.getPlayerFrame());
         }}
       >
         <div

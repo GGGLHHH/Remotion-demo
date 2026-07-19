@@ -7,6 +7,7 @@ import {
   type EditorStoreApi,
 } from './store';
 import { createInstanceRefs, type EditorInstanceRefs } from './instance-refs';
+import type { EditorDeps } from './runtime';
 
 /**
  * 每实例 store + refs 经 context 下发（照 shadcn useSidebar/useChart 同款守卫模式）：
@@ -16,11 +17,13 @@ import { createInstanceRefs, type EditorInstanceRefs } from './instance-refs';
  */
 const EditorContext = createContext<EditorStoreApi | null>(null);
 const EditorRefsContext = createContext<EditorInstanceRefs | null>(null);
+const EditorDepsContext = createContext<EditorDeps | null>(null);
 
 export function EditorProvider({
   children,
   store,
   refs,
+  deps,
   initialState,
 }: {
   children: ReactNode;
@@ -28,6 +31,8 @@ export function EditorProvider({
   store?: EditorStoreApi;
   /** 受控：外部预建的 refs 袋子（用于暴露 window.__playerRef） */
   refs?: EditorInstanceRefs;
+  /** I/O 依赖注入：transport（后端）/ storage（持久化）/ notify（提示）。由宿主提供。 */
+  deps: EditorDeps;
   /** 非受控：由 Provider 按初始态自建 store */
   initialState?: EditorInitialState;
 }) {
@@ -37,9 +42,18 @@ export function EditorProvider({
   if (!refsRef.current) refsRef.current = refs ?? createInstanceRefs();
   return (
     <EditorContext.Provider value={storeRef.current}>
-      <EditorRefsContext.Provider value={refsRef.current}>{children}</EditorRefsContext.Provider>
+      <EditorRefsContext.Provider value={refsRef.current}>
+        <EditorDepsContext.Provider value={deps}>{children}</EditorDepsContext.Provider>
+      </EditorRefsContext.Provider>
     </EditorContext.Provider>
   );
+}
+
+/** 取注入的 I/O 依赖（transport/storage/notify），传给非 React 模块 */
+export function useEditorDeps(): EditorDeps {
+  const deps = useContext(EditorDepsContext);
+  if (!deps) throw new Error('useEditorDeps 必须在 <EditorProvider deps=…> 内使用');
+  return deps;
 }
 
 /** 取当前实例的 refs 袋子（player/pan/fitScale/stageEl + getPlayerFrame/subscribeFrame/setPan） */

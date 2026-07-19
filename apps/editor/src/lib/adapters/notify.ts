@@ -1,0 +1,6 @@
+import { toast } from 'sonner';
+import type { NotifyFn } from '../../state/runtime';
+
+/** 默认 notify：sonner toast。仅 demo 用——库内提示走注入的 NotifyFn。 */
+export const sonnerNotify: NotifyFn = (msg, level) =>
+  level === 'error' ? toast.error(msg) : level === 'success' ? toast.success(msg) : toast(msg);

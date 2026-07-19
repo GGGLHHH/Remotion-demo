@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/context-menu';
 import { Slider } from '@/components/ui/slider';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { useEditor, useEditorApi, useEditorRefs } from '../state/context';
+import { useEditor, useEditorApi, useEditorDeps, useEditorRefs } from '../state/context';
 import { usePlayerFrameDerived } from '../canvas/player-ref';
 import { calcDuration } from '@gedatou/shared/composition';
 import {
@@ -187,6 +187,7 @@ const TimecodeReadout: React.FC<{ fps: number; duration: number }> = ({ fps, dur
 
 export const TimelinePanel: React.FC = () => {
   const editorApi = useEditorApi();
+  const deps = useEditorDeps();
   const refs = useEditorRefs();
   const undoable = useEditor((s) => s.undoable);
   const zoomSetting = useEditor((s) => s.timelineZoom);
@@ -626,7 +627,7 @@ export const TimelinePanel: React.FC = () => {
     const files = Array.from(e.dataTransfer.files);
     if (!files.length) return;
     const { frame, trackIndex } = dropInfo(e);
-    void importFiles(editorApi, files, undefined, { frame, trackId: undoable.tracks[trackIndex]?.id }, refs.getPlayerFrame());
+    void importFiles(editorApi, deps, files, undefined, { frame, trackId: undoable.tracks[trackIndex]?.id }, refs.getPlayerFrame());
   };
 
   // ---- 块右键菜单 ----

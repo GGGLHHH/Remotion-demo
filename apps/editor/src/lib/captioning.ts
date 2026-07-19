@@ -1,6 +1,6 @@
-import { toast } from 'sonner';
 import { newId, type Caption, type CaptionAsset, type CaptionsItem } from '@gedatou/shared';
 import type { EditorStoreApi } from '../state/store';
+import type { EditorDeps } from '../state/runtime';
 import { addTrack } from '../timeline/ops';
 import { extractWav } from './extract-audio';
 
@@ -24,7 +24,11 @@ export const remapCaptionTimes = (captions: Caption[], playbackRate: number): Ca
 
 /** 为 video(hasAudio)/audio item 生成字幕：抽 item 可听片段 → 服务端 whisper 转录 → 建 CaptionAsset + CaptionsItem。
  * 片段截取 + token 时间重映射保证 trim/变速后的字幕仍与 item 时间轴对齐 */
-export const generateCaptions = async (store: EditorStoreApi, itemId: string): Promise<void> => {
+export const generateCaptions = async (
+  store: EditorStoreApi,
+  deps: EditorDeps,
+  itemId: string,
+): Promise<void> => {
   const state = store.getState();
   const item = state.undoable.items[itemId];
   if (!item || (item.type !== 'video' && item.type !== 'audio')) return;
@@ -40,11 +44,7 @@ export const generateCaptions = async (store: EditorStoreApi, itemId: string): P
     upsert('extracting');
     const wav = await extractWav(url, audibleSegment(item, state.undoable.fps));
     upsert('transcribing');
-    const form = new FormData();
-    form.append('file', wav, 'audio.wav');
-    const res = await fetch('/api/captions', { method: 'POST', body: form });
-    if (!res.ok) throw new Error(`转录失败: ${res.status} ${(await res.text()).slice(0, 200)}`);
-    const { captions: rawCaptions } = (await res.json()) as { captions: Caption[] };
+    const { captions: rawCaptions } = await deps.transport.generateCaptions(wav);
     const captions = remapCaptionTimes(rawCaptions, item.playbackRate);
 
     store.getState().updateUndoable((s) => {
@@ -98,10 +98,10 @@ export const generateCaptions = async (store: EditorStoreApi, itemId: string): P
       };
     });
     upsert('done');
-    toast.success('字幕已生成');
+    deps.notify('字幕已生成', 'success');
   } catch (err) {
     console.error('生成字幕失败', err);
     upsert('error', String(err));
-    toast.error('字幕生成失败');
+    deps.notify('字幕生成失败', 'error');
   }
 };
