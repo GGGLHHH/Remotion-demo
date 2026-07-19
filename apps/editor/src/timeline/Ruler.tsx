@@ -35,7 +35,7 @@ export const Ruler: React.FC<{
   return (
     <div
       data-ruler
-      className="relative cursor-pointer select-none border-b border-zinc-800 text-[10px] text-zinc-500"
+      className="relative cursor-pointer select-none overflow-hidden border-b border-zinc-800 text-[10px] text-zinc-500"
       style={{ height: RULER_HEIGHT }}
       onPointerDown={(e) => {
         if (e.button !== 0) return;

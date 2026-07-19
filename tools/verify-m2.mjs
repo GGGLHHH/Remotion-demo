@@ -47,6 +47,12 @@ const dragBy = async (x, y, dx, dy) => {
 
 await page.goto('http://localhost:5173', { waitUntil: 'networkidle' });
 
+// 默认缩放是 'fit'（自动适配）；本脚本的像素↔帧换算全部按 zoom=2 写，先固定
+await page.evaluate(() => window.__editorStore.getState().setTimelineZoom(2));
+
+// 非媒体轨道行高（timeline/constants.ts TRACK_HEIGHT）
+const ROW_H = 34;
+
 // 1) 条块显示
 if ((await page.locator('[data-item-block]').count()) !== 2) fail('expected 2 item blocks');
 
@@ -79,7 +85,7 @@ if ((await page.locator('[data-item-block]').count()) !== 2) fail('expected 2 it
   const { s: s0, solidId, textId } = await ids();
   const solidTrack = s0.items[solidId].trackId;
   const b = await blockBox(textId);
-  await dragBy(b.x + b.width / 2, b.y + b.height / 2, 0, 56);
+  await dragBy(b.x + b.width / 2, b.y + b.height / 2, 0, ROW_H);
   const s = await getStore();
   if (s.items[textId].trackId !== solidTrack) fail('butt-after: text not on solid track');
   if (s.items[textId].from !== 150) {
@@ -93,7 +99,7 @@ if ((await page.locator('[data-item-block]').count()) !== 2) fail('expected 2 it
   const { s: s0, solidId, textId } = await ids();
   const solidTrack = s0.items[solidId].trackId;
   const b = await blockBox(textId);
-  await dragBy(b.x + b.width / 2, b.y + b.height / 2, 400, 56);
+  await dragBy(b.x + b.width / 2, b.y + b.height / 2, 400, ROW_H);
   const s = await getStore();
   if (s.items[textId].trackId !== solidTrack) fail('cross-track: text not moved to solid track');
   if (s.items[textId].from !== 215) fail(`cross-track: from=${s.items[textId].from}, want 215`);
@@ -109,7 +115,7 @@ if ((await page.locator('[data-item-block]').count()) !== 2) fail('expected 2 it
   const { s: s0, textId } = await ids();
   const trackBefore = s0.items[textId].trackId;
   const b = await blockBox(textId);
-  await dragBy(b.x + b.width / 2, b.y + b.height / 2, 0, 2 * 56 + 10);
+  await dragBy(b.x + b.width / 2, b.y + b.height / 2, 0, 2 * ROW_H + 10);
   const s = await getStore();
   const newTrack = s.tracks[s.tracks.length - 1];
   if (s.items[textId].trackId === trackBefore) fail('text did not change track');

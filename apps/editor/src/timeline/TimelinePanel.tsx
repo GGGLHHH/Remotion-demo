@@ -1,6 +1,6 @@
 import type React from 'react';
-import { useEffect, useRef, useState } from 'react';
-import { Eye, EyeOff, Magnet, Scissors, Volume2, VolumeX } from 'lucide-react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { Eye, EyeOff, Magnet, Minus, Plus, Scissors, Volume2, VolumeX } from 'lucide-react';
 import type { EditorStarterItem, Track, UndoableState } from '@editor/shared';
 import { Button } from '@/components/ui/button';
 import {
@@ -15,7 +15,13 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { useEditorStore } from '../state/store';
 import { playerRef } from '../canvas/player-ref';
 import { calcDuration } from '@editor/shared/composition';
-import { HEADER_WIDTH, RULER_HEIGHT, SNAP_TOLERANCE_PX, TRACK_HEIGHT } from './constants';
+import {
+  HEADER_WIDTH,
+  MEDIA_TRACK_HEIGHT,
+  RULER_HEIGHT,
+  SNAP_TOLERANCE_PX,
+  TRACK_HEIGHT,
+} from './constants';
 import { ItemBlock } from './ItemBlock';
 import { Playhead } from './Playhead';
 import { Ruler, formatTime } from './Ruler';
@@ -42,6 +48,31 @@ const TRACK_GAP_PX = 4;
 /** 视口左右边缘自动滚动：触发范围与步长 */
 const AUTO_SCROLL_EDGE_PX = 40;
 const AUTO_SCROLL_STEP_PX = 24;
+
+// ---- 变高行几何（官方：含视频/音频的轨道行更高）：所有 y↔行 换算统一走前缀和 ----
+
+/** 单条轨道行高：含视频/音频项 ⇒ 媒体行高，否则普通行高 */
+const rowHeightOf = (st: UndoableState, trackId: string): number =>
+  Object.values(st.items).some(
+    (i) => i.trackId === trackId && (i.type === 'video' || i.type === 'audio'),
+  )
+    ? MEDIA_TRACK_HEIGHT
+    : TRACK_HEIGHT;
+
+/** 前缀和（内容坐标，含标尺）：tops[i] = 第 i 行顶部 y，tops[n] = 所有行底部 */
+const rowTops = (st: UndoableState): number[] => {
+  const tops = [RULER_HEIGHT];
+  for (const t of st.tracks) tops.push(tops[tops.length - 1] + rowHeightOf(st, t.id));
+  return tops;
+};
+
+/** y（内容坐标）→ 行号；标尺内 = -1，底行之下 = 轨道数 n */
+const trackIndexAtY = (st: UndoableState, y: number): number => {
+  if (y < RULER_HEIGHT) return -1;
+  const tops = rowTops(st);
+  for (let i = 0; i < st.tracks.length; i++) if (y < tops[i + 1]) return i;
+  return st.tracks.length;
+};
 
 type DragState =
   | {
@@ -112,7 +143,11 @@ const TrackBtn: React.FC<{
 );
 
 /** 轨道头：只显按位置实时计算的编号（自下而上，最底行 = 1），不用存储的 name */
-const TrackHeader: React.FC<{ track: Track; number: number }> = ({ track, number }) => {
+const TrackHeader: React.FC<{ track: Track; number: number; height: number }> = ({
+  track,
+  number,
+  height,
+}) => {
   const updateUndoable = useEditorStore((s) => s.updateUndoable);
   const toggle = (key: 'hidden' | 'muted') =>
     updateUndoable((s) => ({
@@ -122,7 +157,7 @@ const TrackHeader: React.FC<{ track: Track; number: number }> = ({ track, number
   return (
     <div
       className="flex items-center gap-1 border-b border-zinc-800/50 px-2 text-xs text-zinc-400"
-      style={{ height: TRACK_HEIGHT }}
+      style={{ height }}
     >
       <span className="flex-1 truncate tabular-nums">{number}</span>
       <TrackBtn title="隐藏/显示" active={track.hidden} onClick={() => toggle('hidden')}>
@@ -137,7 +172,7 @@ const TrackHeader: React.FC<{ track: Track; number: number }> = ({ track, number
 
 export const TimelinePanel: React.FC = () => {
   const undoable = useEditorStore((s) => s.undoable);
-  const zoom = useEditorStore((s) => s.timelineZoom);
+  const zoomSetting = useEditorStore((s) => s.timelineZoom);
   const setZoom = useEditorStore((s) => s.setTimelineZoom);
   const height = useEditorStore((s) => s.timelineHeight);
   const setHeight = useEditorStore((s) => s.setTimelineHeight);
@@ -166,7 +201,24 @@ export const TimelinePanel: React.FC = () => {
   const menuItemId = useRef<string | null>(null);
 
   const duration = calcDuration(undoable.items);
-  const contentWidth = duration * zoom + 240;
+
+  // ---- 有效缩放（唯一出口）：'fit' ⇒ 内容撑满可视宽度，随面板宽度/内容时长自动重算 ----
+  const [viewW, setViewW] = useState(0);
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setViewW(el.clientWidth));
+    ro.observe(el);
+    setViewW(el.clientWidth);
+    return () => ro.disconnect();
+  }, []);
+  const fitZoom = Math.min(8, Math.max(0.1, viewW / Math.max(1, duration)));
+  const zoom = zoomSetting === 'fit' ? fitZoom : zoomSetting;
+  /** 供拖拽 window 监听/播放跟随读取的最新有效缩放 */
+  const zoomRef = useRef(zoom);
+  zoomRef.current = zoom;
+  // fit 模式内容刚好占满（无横向滚动）；数字模式末尾留 240px 拖拽余量
+  const contentWidth = Math.max(duration * zoom + (zoomSetting === 'fit' ? 0 : 240), viewW);
   // 剪刀按钮：播放头没有落在任何可分割目标内部时禁用（官方行为）
   const splittable = resolveSplitTargets(undoable, frame, selectedIds).some((id) => {
     const it = undoable.items[id];
@@ -182,7 +234,7 @@ export const TimelinePanel: React.FC = () => {
       setFrame(e.detail.frame);
       const el = scrollRef.current;
       if (el && p.isPlaying()) {
-        const x = e.detail.frame * useEditorStore.getState().timelineZoom;
+        const x = e.detail.frame * zoomRef.current;
         const last = lastPlayheadX.current;
         lastPlayheadX.current = x;
         const rightEdge = el.scrollLeft + el.clientWidth - 40;
@@ -264,7 +316,7 @@ export const TimelinePanel: React.FC = () => {
       endMoveDrag(false);
       return;
     }
-    const z = store.timelineZoom;
+    const z = zoomRef.current;
     const cRect = contentEl.getBoundingClientRect();
     const x = clientX - cRect.left;
     const y = clientY - cRect.top;
@@ -272,16 +324,16 @@ export const TimelinePanel: React.FC = () => {
     // 轨道目标（按原始布局判定；虚拟行只是渲染层的事）：
     // 标尺及以上 ⇒ 顶部新轨道；底行以下 ⇒ 底部新轨道；行间 ±4px ⇒ 插入条；否则现有行
     const n = st.tracks.length;
-    const bottomY = RULER_HEIGHT + n * TRACK_HEIGHT;
+    const tops = rowTops(st);
     let target: TrackTarget;
     if (y < RULER_HEIGHT) {
       target = { kind: 'insert', index: 0, bar: false };
-    } else if (y >= bottomY) {
+    } else if (y >= tops[n]) {
       target = { kind: 'insert', index: n, bar: false };
     } else {
-      const row = Math.min(n - 1, Math.floor((y - RULER_HEIGHT) / TRACK_HEIGHT));
-      const distTop = y - (RULER_HEIGHT + row * TRACK_HEIGHT);
-      const distBottom = RULER_HEIGHT + (row + 1) * TRACK_HEIGHT - y;
+      const row = trackIndexAtY(st, y);
+      const distTop = y - tops[row];
+      const distBottom = tops[row + 1] - y;
       if (row > 0 && distTop <= TRACK_GAP_PX) target = { kind: 'insert', index: row, bar: true };
       else if (row < n - 1 && distBottom <= TRACK_GAP_PX)
         target = { kind: 'insert', index: row + 1, bar: true };
@@ -402,13 +454,16 @@ export const TimelinePanel: React.FC = () => {
     }
     store.setSelected(store.selectedItemIds.includes(item.id) ? store.selectedItemIds : [item.id]);
     // 官方行为：多选时拖拽也只移动被抓的块
-    const blockRect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const blockEl = e.currentTarget as HTMLElement;
+    const blockRect = blockEl.getBoundingClientRect();
+    // 行顶取块的父级行元素（不写死块的 inset，行高/块内边距变化都不受影响）
+    const rowTop = blockEl.parentElement?.getBoundingClientRect().top ?? blockRect.top;
     moveRef.current = {
       id: item.id,
       downX: e.clientX,
       downY: e.clientY,
       grabDX: e.clientX - blockRect.left,
-      grabDY: e.clientY - (blockRect.top - 6), // 块顶距行顶 6px（top-1.5）
+      grabDY: e.clientY - rowTop,
       moved: false,
       lastClientX: e.clientX,
       lastClientY: e.clientY,
@@ -482,8 +537,8 @@ export const TimelinePanel: React.FC = () => {
     // 命中：帧区间 × 轨道行相交
     const f1 = x1 / zoom;
     const f2 = x2 / zoom;
-    const r1 = Math.floor((y1 - RULER_HEIGHT) / TRACK_HEIGHT);
-    const r2 = Math.floor((y2 - RULER_HEIGHT) / TRACK_HEIGHT);
+    const r1 = trackIndexAtY(store.undoable, y1);
+    const r2 = trackIndexAtY(store.undoable, y2);
     const hit: string[] = [];
     for (const item of Object.values(store.undoable.items)) {
       const idx = store.undoable.tracks.findIndex((t) => t.id === item.trackId);
@@ -523,7 +578,7 @@ export const TimelinePanel: React.FC = () => {
     const y = e.clientY - rect.top;
     return {
       frame: Math.max(0, Math.round(x / zoom)),
-      trackIndex: Math.floor((y - RULER_HEIGHT) / TRACK_HEIGHT),
+      trackIndex: trackIndexAtY(undoable, y),
     };
   };
 
@@ -582,16 +637,20 @@ export const TimelinePanel: React.FC = () => {
       ? moveVisual.target.index
       : null;
 
+  /** 当前布局的行高与前缀和（渲染层与所有覆盖物统一使用） */
+  const rowHeights = undoable.tracks.map((t) => rowHeightOf(undoable, t.id));
+  const tops = rowTops(undoable);
+
   const headerRows = undoable.tracks.map((t, i) => (
-    <TrackHeader key={t.id} track={t} number={undoable.tracks.length - i} />
+    <TrackHeader key={t.id} track={t} number={undoable.tracks.length - i} height={rowHeights[i]} />
   ));
-  const laneRows = undoable.tracks.map((track) => {
+  const laneRows = undoable.tracks.map((track, ti) => {
     const rowItems = Object.values(undoable.items).filter((i) => i.trackId === track.id);
     return (
       <div
         key={track.id}
         className="relative border-b border-zinc-800/50"
-        style={{ height: TRACK_HEIGHT }}
+        style={{ height: rowHeights[ti] }}
       >
         {rowItems.map((item) => (
           <ItemBlock
@@ -691,27 +750,59 @@ export const TimelinePanel: React.FC = () => {
           <TooltipContent>在播放头处分割 (S)</TooltipContent>
         </Tooltip>
         <div className="flex-1" />
-        <span>缩放</span>
+        {/* 官方缩放模型：滑杆 0..1，0 = 适应（自动跟随内容/面板宽度），>0 在 [fit, 8] 间指数插值 */}
+        <span className="cursor-pointer" title="点击回到适应" onClick={() => setZoom('fit')}>
+          缩放
+        </span>
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          className="text-zinc-400 hover:text-zinc-200"
+          title="缩小"
+          onClick={() => setZoom(zoom / 2)}
+        >
+          <Minus className="size-3" />
+        </Button>
         <div className="w-32">
           <Slider
-            min={0.1}
-            max={8}
-            step={0.1}
-            value={[zoom]}
-            onValueChange={(v) => setZoom(Array.isArray(v) ? v[0] : v)}
+            min={0}
+            max={1}
+            step={0.01}
+            value={[
+              zoomSetting === 'fit'
+                ? 0
+                : 8 / fitZoom <= 1
+                  ? 1
+                  : Math.min(1, Math.max(0, Math.log(zoomSetting / fitZoom) / Math.log(8 / fitZoom))),
+            ]}
+            onValueChange={(v) => {
+              const pos = Array.isArray(v) ? v[0] : v;
+              if (pos <= 0) setZoom('fit');
+              else setZoom(8 / fitZoom <= 1 ? 8 : fitZoom * (8 / fitZoom) ** pos);
+            }}
           />
         </div>
         <Button
           variant="ghost"
-          size="xs"
+          size="icon-xs"
           className="text-zinc-400 hover:text-zinc-200"
+          title="放大"
+          onClick={() => setZoom(zoom * 2)}
+        >
+          <Plus className="size-3" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="xs"
+          className={
+            zoomSetting === 'fit'
+              ? 'text-blue-400 hover:text-blue-400'
+              : 'text-zinc-400 hover:text-zinc-200'
+          }
           title="适应：缩放到完整时长可见"
           onClick={() => {
-            const el = scrollRef.current;
-            if (!el || duration <= 0) return;
-            // 让完整合成时长撑满可视宽度（钳制在滑杆范围内）
-            setZoom(Math.min(8, Math.max(0.1, el.clientWidth / duration)));
-            el.scrollLeft = 0;
+            setZoom('fit');
+            if (scrollRef.current) scrollRef.current.scrollLeft = 0;
           }}
         >
           适应
@@ -772,12 +863,17 @@ export const TimelinePanel: React.FC = () => {
                         style={{
                           left,
                           width,
-                          top: RULER_HEIGHT + moveVisual.target.index * TRACK_HEIGHT - 2,
+                          top: tops[moveVisual.target.index] - 2,
                           height: 4,
                         }}
                       />
                     );
                   }
+                  // 现有行按该行行高；插入目标落在虚拟空行（普通行高）
+                  const slotRowH =
+                    moveVisual.target.kind === 'existing'
+                      ? rowHeights[moveVisual.target.index]
+                      : TRACK_HEIGHT;
                   return (
                     <div
                       data-move-slot
@@ -785,8 +881,8 @@ export const TimelinePanel: React.FC = () => {
                       style={{
                         left,
                         width,
-                        top: RULER_HEIGHT + moveVisual.target.index * TRACK_HEIGHT + 6,
-                        height: TRACK_HEIGHT - 12,
+                        top: tops[moveVisual.target.index] + 6,
+                        height: slotRowH - 12,
                       }}
                     />
                   );
@@ -819,8 +915,8 @@ export const TimelinePanel: React.FC = () => {
                       style={{
                         left,
                         width: frames * zoom,
-                        top: RULER_HEIGHT + trackIndex * TRACK_HEIGHT + 6,
-                        height: TRACK_HEIGHT - 12,
+                        top: tops[trackIndex] + 6,
+                        height: rowHeights[trackIndex] - 12,
                         background:
                           'repeating-linear-gradient(45deg, rgba(255,255,255,0.12) 0 6px, transparent 6px 12px)',
                       }}
@@ -839,8 +935,8 @@ export const TimelinePanel: React.FC = () => {
                   <div
                     className="pointer-events-none absolute left-0 right-0 z-10 bg-blue-400/10"
                     style={{
-                      top: RULER_HEIGHT + dropHint.trackIndex * TRACK_HEIGHT,
-                      height: TRACK_HEIGHT,
+                      top: tops[dropHint.trackIndex],
+                      height: rowHeights[dropHint.trackIndex],
                     }}
                   />
                 ) : null}
@@ -877,7 +973,11 @@ export const TimelinePanel: React.FC = () => {
             left: moveVisual.ghostX - movingItem.from * zoom,
             top: moveVisual.ghostY,
             width: (movingItem.from + movingItem.durationInFrames) * zoom,
-            height: TRACK_HEIGHT,
+            // 幽灵块保持自身类型对应的行高（媒体块拖拽中不缩小）
+            height:
+              movingItem.type === 'video' || movingItem.type === 'audio'
+                ? MEDIA_TRACK_HEIGHT
+                : TRACK_HEIGHT,
           }}
         >
           <ItemBlock item={movingItem} zoom={zoom} />

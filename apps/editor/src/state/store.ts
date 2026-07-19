@@ -43,9 +43,9 @@ export type EditorStore = {
   /** 画布缩放：'fit' 表示适配容器 */
   canvasZoom: number | 'fit';
   setCanvasZoom: (zoom: number | 'fit') => void;
-  /** 时间轴缩放（px/帧） */
-  timelineZoom: number;
-  setTimelineZoom: (zoom: number) => void;
+  /** 时间轴缩放（px/帧）；'fit' = 自动适配可视宽度（官方滑杆 0 位） */
+  timelineZoom: number | 'fit';
+  setTimelineZoom: (zoom: number | 'fit') => void;
   /** 时间轴面板高度（px） */
   timelineHeight: number;
   setTimelineHeight: (h: number) => void;
@@ -151,8 +151,9 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   setCanvasZoom: (zoom) =>
     set({ canvasZoom: zoom === 'fit' ? zoom : Math.min(4, Math.max(0.1, zoom)) }),
 
-  timelineZoom: 2,
-  setTimelineZoom: (zoom) => set({ timelineZoom: Math.min(8, Math.max(0.1, zoom)) }),
+  timelineZoom: 'fit',
+  setTimelineZoom: (zoom) =>
+    set({ timelineZoom: zoom === 'fit' ? zoom : Math.min(8, Math.max(0.1, zoom)) }),
   timelineHeight: 224,
   setTimelineHeight: (h) => set({ timelineHeight: Math.min(500, Math.max(120, h)) }),
   snappingEnabled: true,
