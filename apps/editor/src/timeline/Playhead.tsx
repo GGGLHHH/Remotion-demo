@@ -1,14 +1,36 @@
 import type React from 'react';
+import { useEffect, useRef } from 'react';
+import { getPlayerFrame, playerRef } from '../canvas/player-ref';
 
-export const Playhead: React.FC<{ frame: number; zoom: number; onSeek: (frame: number) => void }> = ({
-  frame,
+/**
+ * 播放头：位置不走 React state——直接订阅 frameupdate 改 style.left，
+ * 播放期间零 React 重渲（性能关键路径）。
+ */
+export const Playhead: React.FC<{ zoom: number; onSeek: (frame: number) => void }> = ({
   zoom,
   onSeek,
 }) => {
+  const ref = useRef<HTMLDivElement>(null);
+
+  // zoom 变化时重挂订阅并立即重定位（seek 也走 frameupdate，无需额外处理）
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.left = `${getPlayerFrame() * zoom}px`;
+    const p = playerRef.current;
+    if (!p) return;
+    const onFrame = (e: { detail: { frame: number } }) => {
+      el.style.left = `${e.detail.frame * zoom}px`;
+    };
+    p.addEventListener('frameupdate', onFrame);
+    return () => p.removeEventListener('frameupdate', onFrame);
+  }, [zoom]);
+
   return (
     <div
+      ref={ref}
       className="absolute bottom-0 top-0 z-20 -ml-1 w-2 cursor-ew-resize"
-      style={{ left: frame * zoom }}
+      style={{ left: getPlayerFrame() * zoom }}
       onPointerDown={(e) => {
         e.currentTarget.setPointerCapture(e.pointerId);
         e.stopPropagation();

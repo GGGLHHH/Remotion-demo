@@ -4,13 +4,23 @@ import { Maximize, Pause, Play, Repeat, SkipBack, SkipForward, Volume2, VolumeX 
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useEditorStore } from '../state/store';
-import { playerRef } from '../canvas/player-ref';
+import { playerRef, usePlayerFrame } from '../canvas/player-ref';
 import { calcDuration } from '@editor/shared/composition';
 import { formatTime } from '../timeline/Ruler';
 
 /** M:SS.FF，FF = 帧号 % fps 两位补零 */
 const formatTimecode = (frame: number, fps: number): string =>
   `${formatTime(frame, fps)}.${String(frame % fps).padStart(2, '0')}`;
+
+/** 时间码读数：每帧更新但只重渲这一个小 span，不再拖着整条控制条（7 个 Tooltip 按钮）陪跑 */
+const Timecode: React.FC<{ fps: number; durationInFrames: number }> = ({ fps, durationInFrames }) => {
+  const frame = usePlayerFrame();
+  return (
+    <span className="mx-2 text-xs tabular-nums text-zinc-400" data-timecode>
+      {formatTimecode(frame, fps)} / {formatTimecode(durationInFrames, fps)}
+    </span>
+  );
+};
 
 /** 图标按钮：保留 title（e2e 依赖 getByTitle）+ Tooltip 中文说明 */
 const Btn: React.FC<{
@@ -39,7 +49,6 @@ export const PlaybackBar: React.FC = () => {
   const playerMuted = useEditorStore((s) => s.playerMuted);
   const togglePlayerMuted = useEditorStore((s) => s.togglePlayerMuted);
   const [playing, setPlaying] = useState(false);
-  const [frame, setFrame] = useState(0);
   const durationInFrames = useMemo(() => calcDuration(items), [items]);
 
   useEffect(() => {
@@ -47,14 +56,11 @@ export const PlaybackBar: React.FC = () => {
     if (!p) return;
     const onPlay = () => setPlaying(true);
     const onPause = () => setPlaying(false);
-    const onFrame = (e: { detail: { frame: number } }) => setFrame(e.detail.frame);
     p.addEventListener('play', onPlay);
     p.addEventListener('pause', onPause);
-    p.addEventListener('frameupdate', onFrame);
     return () => {
       p.removeEventListener('play', onPlay);
       p.removeEventListener('pause', onPause);
-      p.removeEventListener('frameupdate', onFrame);
     };
   }, []);
 
@@ -77,9 +83,7 @@ export const PlaybackBar: React.FC = () => {
       <Btn title="跳到结尾" onClick={() => playerRef.current?.seekTo(durationInFrames - 1)}>
         <SkipForward />
       </Btn>
-      <span className="mx-2 text-xs tabular-nums text-zinc-400" data-timecode>
-        {formatTimecode(frame, fps)} / {formatTimecode(durationInFrames, fps)}
-      </span>
+      <Timecode fps={fps} durationInFrames={durationInFrames} />
       <Btn title="静音" active={playerMuted} onClick={togglePlayerMuted}>
         {playerMuted ? <VolumeX /> : <Volume2 />}
       </Btn>

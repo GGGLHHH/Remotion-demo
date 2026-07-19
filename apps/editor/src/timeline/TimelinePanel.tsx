@@ -1,5 +1,5 @@
 import type React from 'react';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Eye, EyeOff, Magnet, Minus, Plus, Scissors, Volume2, VolumeX } from 'lucide-react';
 import type { EditorStarterItem, Track, UndoableState } from '@editor/shared';
 import { Button } from '@/components/ui/button';
@@ -13,7 +13,7 @@ import {
 import { Slider } from '@/components/ui/slider';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useEditorStore } from '../state/store';
-import { playerRef } from '../canvas/player-ref';
+import { getPlayerFrame, playerRef, usePlayerFrameDerived } from '../canvas/player-ref';
 import { calcDuration } from '@editor/shared/composition';
 import {
   HEADER_WIDTH,
@@ -146,12 +146,13 @@ const TrackBtn: React.FC<{
   </Tooltip>
 );
 
-/** 轨道头：只显按位置实时计算的编号（自下而上，最底行 = 1），不用存储的 name */
-const TrackHeader: React.FC<{ track: Track; number: number; height: number }> = ({
+/** 轨道头：只显按位置实时计算的编号（自下而上，最底行 = 1），不用存储的 name。
+    memo：props 稳定（track 对象仅真实编辑时换引用），面板重渲时整行跳过 */
+const TrackHeader = memo<{ track: Track; number: number; height: number }>(function TrackHeader({
   track,
   number,
   height,
-}) => {
+}) {
   const updateUndoable = useEditorStore((s) => s.updateUndoable);
   const toggle = (key: 'hidden' | 'muted') =>
     updateUndoable((s) => ({
@@ -172,6 +173,16 @@ const TrackHeader: React.FC<{ track: Track; number: number; height: number }> = 
       </TrackBtn>
     </div>
   );
+});
+
+/** 工具栏时间码（当前/总时长）：秒级读数，仅显示文本变化时才重渲（播放中 ~1 次/秒） */
+const TimecodeReadout: React.FC<{ fps: number; duration: number }> = ({ fps, duration }) => {
+  const cur = usePlayerFrameDerived((f) => formatTime(f, fps));
+  return (
+    <span className="tabular-nums">
+      {cur} / {formatTime(duration, fps)}
+    </span>
+  );
 };
 
 export const TimelinePanel: React.FC = () => {
@@ -183,7 +194,6 @@ export const TimelinePanel: React.FC = () => {
   const snapping = useEditorStore((s) => s.snappingEnabled);
   const selectedIds = useEditorStore((s) => s.selectedItemIds);
 
-  const [frame, setFrame] = useState(0);
   const panelRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -223,19 +233,22 @@ export const TimelinePanel: React.FC = () => {
   zoomRef.current = zoom;
   // fit 模式内容刚好占满（无横向滚动）；数字模式末尾留 240px 拖拽余量
   const contentWidth = Math.max(duration * zoom + (zoomSetting === 'fit' ? 0 : 240), viewW);
-  // 剪刀按钮：播放头没有落在任何可分割目标内部时禁用（官方行为）
-  const splittable = resolveSplitTargets(undoable, frame, selectedIds).some((id) => {
-    const it = undoable.items[id];
-    return it && frame > it.from && frame < it.from + it.durationInFrames;
-  });
+  // 剪刀按钮：播放头没有落在任何可分割目标内部时禁用（官方行为）。
+  // 派生订阅：仅布尔值翻转时才重渲面板（播放中不再 30 次/秒全量重渲）
+  const splittable = usePlayerFrameDerived((f) =>
+    resolveSplitTargets(undoable, f, selectedIds).some((id) => {
+      const it = undoable.items[id];
+      return it !== undefined && f > it.from && f < it.from + it.durationInFrames;
+    }),
+  );
 
-  // 播放头跟随 + 播放时自动滚动（不与用户的手动滚动抢方向盘）
+  // 播放头跟随 + 播放时自动滚动（不与用户的手动滚动抢方向盘）。
+  // 直接改 scrollLeft，不进 React state——播放中零重渲
   const lastPlayheadX = useRef<number | null>(null);
   useEffect(() => {
     const p = playerRef.current;
     if (!p) return;
     const onFrame = (e: { detail: { frame: number } }) => {
-      setFrame(e.detail.frame);
       const el = scrollRef.current;
       if (el && p.isPlaying()) {
         const x = e.detail.frame * zoomRef.current;
@@ -257,10 +270,10 @@ export const TimelinePanel: React.FC = () => {
     return () => p.removeEventListener('frameupdate', onFrame);
   }, []);
 
+  // seek 触发 frameupdate，播放头/时间码各自订阅更新，这里无需本地 state
   const seekTo = (f: number) => {
     playerRef.current?.pause();
     playerRef.current?.seekTo(Math.max(0, f));
-    setFrame(Math.max(0, f));
   };
 
   // ---- 移动拖拽 ----
@@ -422,7 +435,7 @@ export const TimelinePanel: React.FC = () => {
 
   // ---- 修剪/框选拖拽 ----
 
-  const onItemPointerDown = (
+  const onItemPointerDownImpl = (
     e: React.PointerEvent,
     item: EditorStarterItem,
     mode: 'move' | 'trim-start' | 'trim-end',
@@ -475,6 +488,15 @@ export const TimelinePanel: React.FC = () => {
     };
     startMoveDrag();
   };
+
+  /** 引用恒定的块按下回调（useEvent 模式）：配合 memo(ItemBlock) 跳过无关重渲 */
+  const onItemPointerDownRef = useRef(onItemPointerDownImpl);
+  onItemPointerDownRef.current = onItemPointerDownImpl;
+  const onItemPointerDown = useCallback(
+    (e: React.PointerEvent, item: EditorStarterItem, mode: 'move' | 'trim-start' | 'trim-end') =>
+      onItemPointerDownRef.current(e, item, mode),
+    [],
+  );
 
   /** 相邻块边界滚动编辑（官方：4px ew-resize 热区，无需修饰键）：A 出点 + B 入点联动 */
   const onRollPointerDown = (e: React.PointerEvent, aId: string, bId: string) => {
@@ -710,9 +732,7 @@ export const TimelinePanel: React.FC = () => {
         onPointerDown={onResizePointerDown}
       />
       <div className="flex h-8 items-center gap-3 border-b border-zinc-800 px-3 text-xs text-zinc-400">
-        <span className="tabular-nums">
-          {formatTime(frame, undoable.fps)} / {formatTime(duration, undoable.fps)}
-        </span>
+        <TimecodeReadout fps={undoable.fps} duration={duration} />
         <Tooltip>
           <TooltipTrigger
             render={
@@ -741,7 +761,7 @@ export const TimelinePanel: React.FC = () => {
                 disabled={!splittable}
                 onClick={() => {
                   const store = useEditorStore.getState();
-                  const f = playerRef.current?.getCurrentFrame() ?? frame;
+                  const f = getPlayerFrame();
                   store.updateUndoable((s) =>
                     splitItemsAtFrame(s, f, resolveSplitTargets(s, f, store.selectedItemIds)),
                   );
@@ -853,7 +873,7 @@ export const TimelinePanel: React.FC = () => {
             >
             <Ruler durationInFrames={duration} fps={undoable.fps} zoom={zoom} onSeek={seekTo} />
             {laneRows}
-            <Playhead frame={frame} zoom={zoom} onSeek={seekTo} />
+            <Playhead zoom={zoom} onSeek={seekTo} />
             {/* 移动拖拽：落位槽（深灰圆角 = 松手后的合法落点）/ 行间插入条 */}
             {moveVisual && movingItem
               ? (() => {

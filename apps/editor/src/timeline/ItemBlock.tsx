@@ -1,5 +1,5 @@
 import type React from 'react';
-import { useRef, useState } from 'react';
+import { memo, useRef, useState } from 'react';
 import type { EditorStarterItem } from '@editor/shared';
 import { useEditorStore } from '../state/store';
 import { Filmstrip } from './Filmstrip';
@@ -87,13 +87,15 @@ const wedgePath = (w: number, h: number, side: 'in' | 'out'): string => {
   return `M ${x0} 0 L ${x0} ${h} ${pts.join(' ')} Z`;
 };
 
-export const ItemBlock: React.FC<{
+/** memo：props 恒定（item 引用仅真实编辑时变化、onPointerDown 引用恒定），
+    面板因时间码/剪刀态等重渲时所有块整体跳过（胶片/波形不重建元素树） */
+export const ItemBlock = memo<{
   item: EditorStarterItem;
   zoom: number;
   /** move 拖拽中隐藏原块（不卸载，保持指针捕获与布局） */
   hidden?: boolean;
   onPointerDown?: (e: React.PointerEvent, item: EditorStarterItem, mode: 'move' | 'trim-start' | 'trim-end') => void;
-}> = ({ item, zoom, hidden, onPointerDown }) => {
+}>(function ItemBlock({ item, zoom, hidden, onPointerDown }) {
   const selected = useEditorStore((s) => s.selectedItemIds.includes(item.id));
   const mediaUrl = useEditorStore((s) => {
     if (item.type !== 'video' && item.type !== 'audio') return null;
@@ -456,4 +458,4 @@ export const ItemBlock: React.FC<{
       )}
     </div>
   );
-};
+});

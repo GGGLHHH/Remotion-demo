@@ -36,7 +36,7 @@ import {
 import { Spinner } from '@/components/ui/spinner';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useEditorStore } from '../state/store';
-import { usePlayerFrame } from '../canvas/player-ref';
+import { usePlayerFrameDerived } from '../canvas/player-ref';
 import { startRender } from '../lib/render-client';
 import { generateCaptions } from '../lib/captioning';
 import { NumberField } from './NumberField';
@@ -460,10 +460,11 @@ const CropSection: React.FC<{
   patch: PatchFn;
 }> = ({ item, mediaW, mediaH, patch }) => {
   const setItemSelectedForCrop = useEditorStore((s) => s.setItemSelectedForCrop);
-  const playheadFrame = usePlayerFrame();
-  /** 播放头不在此元素时间范围内时画布上看不到它，裁剪按钮禁用（官方行为） */
-  const visibleAtPlayhead =
-    playheadFrame >= item.from && playheadFrame < item.from + item.durationInFrames;
+  /** 播放头不在此元素时间范围内时画布上看不到它，裁剪按钮禁用（官方行为）。
+      派生订阅：仅布尔值翻转时重渲（播放中不再每帧重渲整个分区） */
+  const visibleAtPlayhead = usePlayerFrameDerived(
+    (f) => f >= item.from && f < item.from + item.durationInFrames,
+  );
 
   const cur = item.crop ?? { left: 0, top: 0, width: mediaW, height: mediaH };
   const edges = {

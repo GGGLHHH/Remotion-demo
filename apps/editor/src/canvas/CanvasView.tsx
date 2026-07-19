@@ -28,9 +28,14 @@ export const CanvasView: React.FC<{
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [fitScale, setFitScale] = useState(0.1);
-  const [frame, setFrame] = useState(0);
 
   const durationInFrames = useMemo(() => calcDuration(undoable.items), [undoable.items]);
+
+  // inputProps 引用稳定（仅真实编辑时变化）：播放中 Player 子树不因包装对象换新而重渲
+  const inputProps = useMemo(
+    () => ({ state: undoable, assetUrlOverrides: localUrls, textFontOverride: fontHoverPreview }),
+    [undoable, localUrls, fontHoverPreview],
+  );
 
   // 适配缩放：跟随容器尺寸
   useLayoutEffect(() => {
@@ -49,15 +54,6 @@ export const CanvasView: React.FC<{
     observer.observe(el);
     return () => observer.disconnect();
   }, [undoable.compositionWidth, undoable.compositionHeight]);
-
-  // 当前帧（命中判定 + 选择框可见性用）
-  useEffect(() => {
-    const p = playerRef.current;
-    if (!p) return;
-    const onFrame = (e: { detail: { frame: number } }) => setFrame(e.detail.frame);
-    p.addEventListener('frameupdate', onFrame);
-    return () => p.removeEventListener('frameupdate', onFrame);
-  }, []);
 
   // Cmd/Ctrl + 滚轮缩放
   useEffect(() => {
@@ -154,11 +150,7 @@ export const CanvasView: React.FC<{
           <Player
             ref={playerRef}
             component={MainComposition}
-            inputProps={{
-              state: undoable,
-              assetUrlOverrides: localUrls,
-              textFontOverride: fontHoverPreview,
-            }}
+            inputProps={inputProps}
             durationInFrames={durationInFrames}
             compositionWidth={undoable.compositionWidth}
             compositionHeight={undoable.compositionHeight}
@@ -166,7 +158,7 @@ export const CanvasView: React.FC<{
             loop={loop}
             style={{ width: '100%', height: '100%' }}
           />
-          {cropMode ? null : <SelectionOverlay scale={scale} frame={frame} />}
+          {cropMode ? null : <SelectionOverlay scale={scale} />}
           <CropOverlay scale={scale} />
           <TextEditOverlay scale={scale} />
           {tool === 'solid' ? <DrawSolidOverlay scale={scale} onDone={onExitTool} /> : null}

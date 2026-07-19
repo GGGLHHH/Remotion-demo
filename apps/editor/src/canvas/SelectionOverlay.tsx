@@ -11,6 +11,7 @@ import {
 import { useEditorStore } from '../state/store';
 import { copySelection, duplicateSelection } from '../lib/clipboard';
 import { addTrack, moveItems, removeEmptyTracks } from '../timeline/ops';
+import { getPlayerFrame, usePlayerFrameDerived } from './player-ref';
 import { resizeRect, topmostItemAt, type Rect, type ResizeHandle } from './geometry';
 
 /** 官方样式：仅 4 个角手柄（约 8px 白色方块、蓝边） */
@@ -68,7 +69,11 @@ const snapCandidates = (
 const isMediaItem = (item: EditorStarterItem): boolean =>
   item.type === 'video' || item.type === 'image' || item.type === 'gif';
 
-export const SelectionOverlay: React.FC<{ scale: number; frame: number }> = ({ scale, frame }) => {
+/** item 在 f 帧是否上画布（音频不可见） */
+const visibleAt = (it: EditorStarterItem | undefined, f: number): boolean =>
+  Boolean(it && it.type !== 'audio' && f >= it.from && it.from + it.durationInFrames > f);
+
+export const SelectionOverlay: React.FC<{ scale: number }> = ({ scale }) => {
   const undoable = useEditorStore((s) => s.undoable);
   const selectedItemIds = useEditorStore((s) => s.selectedItemIds);
   const snappingEnabled = useEditorStore((s) => s.snappingEnabled);
@@ -79,6 +84,15 @@ export const SelectionOverlay: React.FC<{ scale: number; frame: number }> = ({ s
   const [hoverId, setHoverId] = useState<string | null>(null);
   /** 右键命中的 item（菜单动作目标）；菜单开合由 ContextMenu 组件管理 */
   const menuItemId = useRef<string | null>(null);
+
+  // 播放头帧：渲染时直接读（不进 state）；派生订阅只在所选/悬停项进出当前帧时触发重渲，
+  // 播放期间无选中/悬停 ⇒ 零重渲（性能关键路径）
+  const frame = getPlayerFrame();
+  usePlayerFrameDerived((f) => {
+    let key = hoverId && visibleAt(undoable.items[hoverId], f) ? 'H' : 'h';
+    for (const id of selectedItemIds) key += visibleAt(undoable.items[id], f) ? '1' : '0';
+    return key;
+  });
 
   const toComp = (e: React.PointerEvent | React.MouseEvent) => {
     const rect = (e.currentTarget as HTMLElement).closest('[data-stage]')!.getBoundingClientRect();
@@ -91,7 +105,7 @@ export const SelectionOverlay: React.FC<{ scale: number; frame: number }> = ({ s
     if (store.itemSelectedForCrop) return; // 裁剪模式由 CropOverlay 接管
     setHoverId(null);
     const { x, y } = toComp(e);
-    const hit = topmostItemAt(store.undoable, frame, x, y);
+    const hit = topmostItemAt(store.undoable, getPlayerFrame(), x, y);
     if (!hit) {
       store.setSelected([]);
       drag.current = { kind: 'marquee', startX: x, startY: y };
@@ -121,7 +135,7 @@ export const SelectionOverlay: React.FC<{ scale: number; frame: number }> = ({ s
   const onDoubleClick = (e: React.MouseEvent) => {
     const store = useEditorStore.getState();
     const { x, y } = toComp(e);
-    const hit = topmostItemAt(store.undoable, frame, x, y);
+    const hit = topmostItemAt(store.undoable, getPlayerFrame(), x, y);
     if (!hit) return;
     if (hit.type === 'text') store.setTextItemEditing(hit.id);
     else if (hit.type === 'video' || hit.type === 'image') store.setItemSelectedForCrop(hit.id);
@@ -154,7 +168,7 @@ export const SelectionOverlay: React.FC<{ scale: number; frame: number }> = ({ s
     if (!d) {
       // 悬停：未选中项显示 2px 蓝色描边
       const { x, y } = toComp(e);
-      const hit = topmostItemAt(store.undoable, frame, x, y);
+      const hit = topmostItemAt(store.undoable, getPlayerFrame(), x, y);
       setHoverId(hit && !store.selectedItemIds.includes(hit.id) ? hit.id : null);
       return;
     }
@@ -167,10 +181,11 @@ export const SelectionOverlay: React.FC<{ scale: number; frame: number }> = ({ s
       const y2 = Math.max(d.startY, y);
       setMarquee({ x: x1, y: y1, w: x2 - x1, h: y2 - y1 });
       // 触碰即预选中（松手即为最终选择）
+      const f = getPlayerFrame();
       const hits: string[] = [];
       for (const item of Object.values(store.undoable.items)) {
         if (item.type === 'audio') continue;
-        if (frame < item.from || frame >= item.from + item.durationInFrames) continue;
+        if (f < item.from || f >= item.from + item.durationInFrames) continue;
         if (item.left < x2 && x1 < item.left + item.width && item.top < y2 && y1 < item.top + item.height) {
           hits.push(item.id);
         }
@@ -320,7 +335,7 @@ export const SelectionOverlay: React.FC<{ scale: number; frame: number }> = ({ s
           // 仅在命中 item 时弹菜单；空白处右键既不弹菜单也不弹系统菜单
           const store = useEditorStore.getState();
           const { x, y } = toComp(e);
-          const hit = topmostItemAt(store.undoable, frame, x, y);
+          const hit = topmostItemAt(store.undoable, getPlayerFrame(), x, y);
           if (!hit) {
             e.preventDefault();
             e.preventBaseUIHandler();
