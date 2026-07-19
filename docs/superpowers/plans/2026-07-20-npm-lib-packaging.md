@@ -131,20 +131,17 @@ export type { EditorTransport, EditorStorage, NotifyFn, EditorInitialState, Edit
 
 React 19 零 `forwardRef`；Tailwind v4 必需；ESM-only；Remotion 单版本 peer；**库内零模块级可变单例**；**库内零直接 `window`/`localStorage`/`fetch('/api')`**（全走注入）；组件只用 Tailwind 工具类 + CSS 变量 token，零硬编码 hex（既有字面色记入遗留）。
 
-## 10. 反跑偏方法论：冻契约 → 一条竖切验证 → 再机械批量
+## 10. 反跑偏方法论：先原地解耦，再物理搬包（排序修正）
 
-**不要**对着未验证的契约一次性改 30 个文件。顺序：
+**store 是原子的**——一旦工厂化，180 个调用点同时失效，无法"只切一片"。因此竖切法不适用于 store；真正低风险的顺序是**先在 `apps/editor` 原地把耦合解干净（对着能跑的 app 逐步验证），最后再把已解耦的代码整体搬进 `packages/editor` 打包**（搬家只是物理位移 + import 重写，不含语义变化）。打包方案（tsup + 策略1 CSS）确定性高、风险低，放最后验证即可。
 
-1. **冻结本文件**（=本步）。
-2. **一条竖切验证契约**：建 `packages/editor` 骨架 + `createEditorStore`/`EditorProvider`/`useEditor` + 只改一个小叶子组件（`PlaybackBar`）跑通 → tsup 出包 → `apps/editor` demo 以消费方姿势 import 它 → typecheck + 现有 `verify-m*` e2e 全绿。契约被真实跑通后才继续。
-3. **机械批量**：把剩余 ~30 个文件按同一模式转换（`useEditorStore→useEditor`、`getState()→收参`、单例→instanceRefs）。
-4. 每步收尾必绿：`pnpm typecheck` + 单测 + `tools/verify-m*.mjs`。
+原则不变：**每步收尾必绿**——`pnpm typecheck` + 单测 + `tools/verify-m*.mjs`；红了不进下一步。
 
 ## 11. 分步计划（每步一个 DoD，绿了才进下一步）
 
-1. **`@gedatou/shared`**：改名 + peer + 去 private。DoD：typecheck 绿、shared 单测绿。
-2. **`packages/editor` 骨架 + store 契约 + 竖切**（PlaybackBar）。DoD：tsup 出包、demo 消费、typecheck + e2e 绿。
-3. **store 批量转换**：`useEditorStore→useEditor`、canvas 单例→`useEditorRefs`、`pendingBase`→闭包。DoD：全 e2e 绿。
-4. **注入接口**：`EditorTransport`/`EditorStorage`/`onNotify` + 8 个非组件模块收参 + demo 接默认适配器。DoD：demo 全功能（导入/渲染/字幕/保存）跑通。
-5. **打包定稿**：exports 子路径、`styles.css` token 层、`EditorRoot` + 单面板导出、`peerDependencies` 齐。DoD：`npm pack` 产物干净、demo 只靠公开 API 装配。
+1. ✅ **`@gedatou/shared`**：改名 + peer + 去 private。DoD：typecheck 绿、shared 单测绿。（已完成）
+2. **store 契约（原地，`apps/editor` 内）**：singleton → `createEditorStore` 工厂 + `<EditorProvider>` + `useEditor`/`useEditorApi`；`pendingBase` 进闭包；转换全部 24 个调用文件（组件 `useEditorStore(`→`useEditor(`、`.getState()`→`editorApi.getState()`；非组件模块收 `store` 参）；`App.tsx` 挂 Provider 并暴露 `window.__editorStore`。DoD：typecheck + 单测 + 全 e2e 绿，app 行为不变。
+3. **canvas 单例（原地）**：`playerRef/panRef/fitScaleRef/stageElRef` → `useEditorRefs()` instance-refs。DoD：全 e2e 绿。
+4. **注入接口（原地）**：`EditorTransport`/`EditorStorage`/`NotifyFn` + 8 个非组件模块 I/O 改走注入 + `App.tsx` 接默认适配器（http/browser/sonner）。DoD：demo 全功能（导入/渲染/字幕/保存）跑通。
+5. **物理搬包 + 打包**：feature 层移入 `packages/editor`，`@/` 别名处理，tsup（esm+dts+banner+sideEffects）、exports 子路径、`styles.css` token 层、`EditorRoot` + 单面板导出、peer 齐。DoD：`npm pack` 产物干净、`apps/editor` 只靠公开 API 装配、e2e 绿。
 6. **demo 收尾 + 文档**：`App.tsx` 全改用公开 API；README 写消费方三行 CSS + `<EditorRoot>` 用法。
