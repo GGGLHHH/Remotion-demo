@@ -23,7 +23,7 @@ export const CORNERS: { handle: ResizeHandle; x: number; y: number; cursor: stri
 ];
 
 /** 边缘全长隐形热区（±4px），沿整条边都可拖拽缩放 */
-const EDGES: { handle: ResizeHandle; cursor: string; style: React.CSSProperties }[] = [
+export const EDGES: { handle: ResizeHandle; cursor: string; style: React.CSSProperties }[] = [
   { handle: 'n', cursor: 'ns-resize', style: { left: 0, right: 0, top: -4, height: 8 } },
   { handle: 's', cursor: 'ns-resize', style: { left: 0, right: 0, bottom: -4, height: 8 } },
   { handle: 'w', cursor: 'ew-resize', style: { top: 0, bottom: 0, left: -4, width: 8 } },

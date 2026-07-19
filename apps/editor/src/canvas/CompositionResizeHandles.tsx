@@ -1,11 +1,13 @@
 import type React from 'react';
 import { useState } from 'react';
 import { useEditorStore } from '../state/store';
-import { SizeBadge } from './SelectionOverlay';
+import { CORNERS, EDGES, SizeBadge } from './SelectionOverlay';
+import type { ResizeHandle } from './geometry';
 
 /**
- * 画布（合成）缩放手柄：空选中时显示在合成右缘/下缘/右下角，
- * 拖拽直接改合成尺寸（内容锚定左上；宽高取偶满足渲染要求）。
+ * 画布（合成）缩放手柄：空选中时显示，与画布内元素完全同款——
+ * 4 个角白色方块（蓝边）+ 四条全长隐形边缘热区。
+ * 拖左/上边时同步平移所有元素坐标，内容在视觉上锚定不动；宽高取偶（渲染要求）。
  * 官方没有此功能（仅检查器数字输入），应用户要求增加。
  */
 export const CompositionResizeHandles: React.FC<{ scale: number }> = ({ scale }) => {
@@ -15,7 +17,7 @@ export const CompositionResizeHandles: React.FC<{ scale: number }> = ({ scale })
   const [dragging, setDragging] = useState(false);
   if (!empty) return null;
 
-  const start = (e: React.PointerEvent, dx: 0 | 1, dy: 0 | 1) => {
+  const start = (e: React.PointerEvent, handle: ResizeHandle) => {
     if (e.button !== 0) return;
     e.stopPropagation();
     e.preventDefault();
@@ -25,16 +27,38 @@ export const CompositionResizeHandles: React.FC<{ scale: number }> = ({ scale })
     const s0 = scale;
     const startX = e.clientX;
     const startY = e.clientY;
-    const w0 = w;
-    const h0 = h;
+    const st0 = useEditorStore.getState().undoable;
+    const w0 = st0.compositionWidth;
+    const h0 = st0.compositionHeight;
+    // 元素起始坐标快照：左/上拖拽的平移始终基于快照，避免取偶累积漂移
+    const items0 = new Map(Object.values(st0.items).map((i) => [i.id, { left: i.left, top: i.top }]));
     setDragging(true);
     const even = (n: number) => Math.max(2, Math.round(n / 2) * 2);
     const onMove = (ev: PointerEvent) => {
+      const dx = (ev.clientX - startX) / s0;
+      const dy = (ev.clientY - startY) / s0;
+      const newW = handle.includes('e') ? even(w0 + dx) : handle.includes('w') ? even(w0 - dx) : w0;
+      const newH = handle.includes('s') ? even(h0 + dy) : handle.includes('n') ? even(h0 - dy) : h0;
+      // 左/上边移动 = 坐标原点移动：元素坐标补偿平移，内容视觉锚定不动
+      const shiftX = handle.includes('w') ? newW - w0 : 0;
+      const shiftY = handle.includes('n') ? newH - h0 : 0;
       useEditorStore.getState().updateUndoable(
         (st) => ({
           ...st,
-          compositionWidth: dx ? even(w0 + (ev.clientX - startX) / s0) : st.compositionWidth,
-          compositionHeight: dy ? even(h0 + (ev.clientY - startY) / s0) : st.compositionHeight,
+          compositionWidth: newW,
+          compositionHeight: newH,
+          items:
+            shiftX || shiftY
+              ? Object.fromEntries(
+                  Object.entries(st.items).map(([id, it]) => {
+                    const base = items0.get(id);
+                    return [
+                      id,
+                      base ? { ...it, left: base.left + shiftX, top: base.top + shiftY } : it,
+                    ];
+                  }),
+                )
+              : st.items,
         }),
         { commit: false },
       );
@@ -49,24 +73,29 @@ export const CompositionResizeHandles: React.FC<{ scale: number }> = ({ scale })
     el.addEventListener('pointerup', onUp);
   };
 
-  const handleCls = 'absolute z-30 rounded-sm border border-[#0B84F3] bg-white';
   return (
     <>
-      <div
-        data-comp-resize="e"
-        className={`${handleCls} top-1/2 -right-1.5 h-6 w-2 -translate-y-1/2 cursor-ew-resize`}
-        onPointerDown={(e) => start(e, 1, 0)}
-      />
-      <div
-        data-comp-resize="s"
-        className={`${handleCls} left-1/2 -bottom-1.5 h-2 w-6 -translate-x-1/2 cursor-ns-resize`}
-        onPointerDown={(e) => start(e, 0, 1)}
-      />
-      <div
-        data-comp-resize="se"
-        className={`${handleCls} -right-1.5 -bottom-1.5 size-3 cursor-nwse-resize`}
-        onPointerDown={(e) => start(e, 1, 1)}
-      />
+      {dragging ? (
+        <div className="pointer-events-none absolute inset-0 z-20 border border-[#0B84F3]" />
+      ) : null}
+      {EDGES.map(({ handle, cursor, style }) => (
+        <div
+          key={handle}
+          data-comp-resize={handle}
+          className="absolute z-30"
+          style={{ ...style, cursor }}
+          onPointerDown={(e) => start(e, handle)}
+        />
+      ))}
+      {CORNERS.map(({ handle, x, y, cursor }) => (
+        <div
+          key={handle}
+          data-comp-resize={handle}
+          className="absolute z-30 size-2 border border-[#0B84F3] bg-white"
+          style={{ left: `calc(${x * 100}% - 4px)`, top: `calc(${y * 100}% - 4px)`, cursor }}
+          onPointerDown={(e) => start(e, handle)}
+        />
+      ))}
       {dragging ? <SizeBadge width={w} height={h} /> : null}
     </>
   );
