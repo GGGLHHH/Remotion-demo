@@ -91,3 +91,30 @@ describe('undo/redo', () => {
     expect(store().undoable.items[id]).toBeDefined();
   });
 });
+
+describe('空轨道自动移除（官方行为，updateUndoable 统一兜底）', () => {
+  test('删除轨道最后一个元素 ⇒ 多余空轨道移除；撤销还原', () => {
+    // 第二条轨道带元素，第一条的元素删掉后其轨道应消失
+    const t2 = createTrack('T2');
+    const it2 = createSolidItem({ trackId: t2.id, from: 0, width: 50, height: 50 });
+    store().updateUndoable((s) => ({
+      ...s,
+      tracks: [...s.tracks, t2],
+      items: { ...s.items, [it2.id]: it2 },
+    }));
+    const first = Object.values(store().undoable.items).find((i) => i.id !== it2.id)!;
+    useEditorStore.setState({ selectedItemIds: [first.id] });
+    store().deleteSelected();
+    expect(store().undoable.tracks.map((t) => t.id)).toEqual([t2.id]);
+    store().undo();
+    expect(store().undoable.tracks).toHaveLength(2);
+    expect(store().undoable.items[first.id]).toBeDefined();
+  });
+  test('全部元素删光 ⇒ 保底留一条轨道', () => {
+    const all = Object.keys(store().undoable.items);
+    useEditorStore.setState({ selectedItemIds: all });
+    store().deleteSelected();
+    expect(Object.keys(store().undoable.items)).toHaveLength(0);
+    expect(store().undoable.tracks).toHaveLength(1);
+  });
+});

@@ -8,6 +8,7 @@ import {
   type EditorStarterItem,
   type UndoableState,
 } from '@editor/shared';
+import { removeEmptyTracks } from '../timeline/ops';
 
 export type RenderingTask = {
   id: string;
@@ -109,7 +110,8 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
 
   updateUndoable: (updater, opts) => {
     const { undoable, past } = get();
-    const next = updater(undoable);
+    // 官方行为：空轨道随任意变更自动移除（必经之路统一兜底，删除/剪切等路径不再单独处理）
+    const next = removeEmptyTracks(updater(undoable));
     if (next === undoable) return;
     if (opts?.commit === false) {
       if (pendingBase === null) pendingBase = undoable;
