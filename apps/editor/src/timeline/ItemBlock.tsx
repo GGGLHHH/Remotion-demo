@@ -115,6 +115,8 @@ export const ItemBlock: React.FC<{
   };
 
   const onVolumePointerDown = (e: React.PointerEvent) => {
+    // 与修剪手柄一致：按下即独占选中
+    useEditorStore.getState().setSelected([item.id]);
     const rect = stripRef.current!.getBoundingClientRect();
     startHandleDrag(
       e,
@@ -136,6 +138,7 @@ export const ItemBlock: React.FC<{
   };
 
   const onFadePointerDown = (e: React.PointerEvent, side: 'in' | 'out') => {
+    useEditorStore.getState().setSelected([item.id]);
     const rect = blockRef.current!.getBoundingClientRect();
     startHandleDrag(
       e,

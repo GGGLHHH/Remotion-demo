@@ -36,7 +36,7 @@ if (!audio || !video) fail('missing imported items');
 
 // ---- 选中音频块：音量线 + 淡入淡出手柄存在 ----
 const audioBlock = page.locator(`[data-item-block="${audio.id}"]`);
-await audioBlock.click({ position: { x: 30, y: 25 } });
+await audioBlock.click({ position: { x: 30, y: 8 } });
 await page.waitForSelector(`[data-item-block="${audio.id}"] [data-volume-line]`, { timeout: 5000 });
 await page.waitForSelector(`[data-item-block="${audio.id}"] [data-fade="in"]`, { timeout: 5000 });
 
@@ -87,7 +87,7 @@ await page.mouse.up();
 if (!hatch) fail('max-trim indicator not shown during trim drag');
 
 // ---- 选中视频：裁剪数值输入存在 ----
-await page.locator(`[data-item-block="${video.id}"]`).click({ position: { x: 30, y: 25 } });
+await page.locator(`[data-item-block="${video.id}"]`).click({ position: { x: 30, y: 8 } });
 await page.waitForSelector('text=裁剪', { timeout: 5000 });
 // 视频块底部波形（有音轨的视频）
 await page.waitForFunction(
