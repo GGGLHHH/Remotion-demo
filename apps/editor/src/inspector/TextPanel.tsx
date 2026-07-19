@@ -13,7 +13,7 @@ import {
   SquareRoundCornerIcon,
   TypeIcon,
 } from 'lucide-react';
-import type { TextItem } from '@editor/shared';
+import type { TextItem } from '@gedatou/shared';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Command, CommandItem, CommandList } from '@/components/ui/command';

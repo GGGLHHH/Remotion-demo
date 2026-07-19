@@ -23,7 +23,7 @@ import type {
   Crop,
   EditorStarterAsset,
   EditorStarterItem,
-} from '@editor/shared';
+} from '@gedatou/shared';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {

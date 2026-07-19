@@ -7,7 +7,7 @@ import {
   type AssetStatus,
   type EditorStarterItem,
   type UndoableState,
-} from '@editor/shared';
+} from '@gedatou/shared';
 import { removeEmptyTracks } from '../timeline/ops';
 
 export type RenderingTask = {

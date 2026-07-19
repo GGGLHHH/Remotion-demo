@@ -1,5 +1,5 @@
 import { toast } from 'sonner';
-import { newId, type Caption, type CaptionAsset, type CaptionsItem } from '@editor/shared';
+import { newId, type Caption, type CaptionAsset, type CaptionsItem } from '@gedatou/shared';
 import { useEditorStore } from '../state/store';
 import { addTrack } from '../timeline/ops';
 import { extractWav } from './extract-audio';

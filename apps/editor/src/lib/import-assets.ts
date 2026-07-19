@@ -4,7 +4,7 @@ import {
   newId,
   type EditorStarterAsset,
   type EditorStarterItem,
-} from '@editor/shared';
+} from '@gedatou/shared';
 import { useEditorStore } from '../state/store';
 import { playerRef } from '../canvas/player-ref';
 import { addTrack, hasOverlap } from '../timeline/ops';

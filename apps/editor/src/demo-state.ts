@@ -6,7 +6,7 @@ import {
   createTextItem,
   createTrack,
   type UndoableState,
-} from '@editor/shared';
+} from '@gedatou/shared';
 
 export const buildDemoState = (): UndoableState => {
   const state = createEmptyState({

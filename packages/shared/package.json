@@ -1,6 +1,6 @@
 {
-  "name": "@editor/shared",
-  "private": true,
+  "name": "@gedatou/shared",
+  "version": "0.0.0",
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
@@ -10,20 +10,22 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
-  "dependencies": {
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "remotion": "4.0.491",
+    "@remotion/captions": "4.0.491",
+    "@remotion/gif": "4.0.491",
+    "@remotion/google-fonts": "4.0.491",
+    "@remotion/media": "4.0.491"
+  },
+  "devDependencies": {
     "@remotion/captions": "4.0.491",
     "@remotion/gif": "4.0.491",
     "@remotion/google-fonts": "4.0.491",
     "@remotion/media": "4.0.491",
-    "remotion": "4.0.491"
-  },
-  "devDependencies": {
     "@types/react": "^19.2.0",
     "react": "^19.2.0",
     "typescript": "^5.9.0",
     "vitest": "^3.2.0"
-  },
-  "peerDependencies": {
-    "react": "^19.0.0"
   }
 }

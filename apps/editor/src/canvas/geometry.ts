@@ -1,4 +1,4 @@
-import { getOrderedItems, type EditorStarterItem, type UndoableState } from '@editor/shared';
+import { getOrderedItems, type EditorStarterItem, type UndoableState } from '@gedatou/shared';
 
 export type Rect = { left: number; top: number; width: number; height: number };
 

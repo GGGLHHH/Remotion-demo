@@ -1,4 +1,4 @@
-import { createSolidItem, createTextItem } from '@editor/shared';
+import { createSolidItem, createTextItem } from '@gedatou/shared';
 import { useEditorStore } from '../state/store';
 import { playerRef } from '../canvas/player-ref';
 import { addTrack } from '../timeline/ops';

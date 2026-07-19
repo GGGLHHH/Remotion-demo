@@ -1,6 +1,6 @@
 import type React from 'react';
 import { memo, useRef, useState } from 'react';
-import type { EditorStarterItem } from '@editor/shared';
+import type { EditorStarterItem } from '@gedatou/shared';
 import { useEditorStore } from '../state/store';
 import { Filmstrip } from './Filmstrip';
 import { Waveform } from './Waveform';

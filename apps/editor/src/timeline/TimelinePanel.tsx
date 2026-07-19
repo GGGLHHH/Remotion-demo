@@ -1,7 +1,7 @@
 import type React from 'react';
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Eye, EyeOff, Magnet, Minus, Plus, Scissors, Volume2, VolumeX } from 'lucide-react';
-import type { EditorStarterItem, Track, UndoableState } from '@editor/shared';
+import type { EditorStarterItem, Track, UndoableState } from '@gedatou/shared';
 import { Button } from '@/components/ui/button';
 import {
   ContextMenu,
@@ -14,7 +14,7 @@ import { Slider } from '@/components/ui/slider';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useEditorStore } from '../state/store';
 import { getPlayerFrame, playerRef, usePlayerFrameDerived } from '../canvas/player-ref';
-import { calcDuration } from '@editor/shared/composition';
+import { calcDuration } from '@gedatou/shared/composition';
 import {
   HEADER_WIDTH,
   AUDIO_TRACK_HEIGHT,

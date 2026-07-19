@@ -17,12 +17,12 @@ importers:
       '@base-ui/react':
         specifier: ^1.6.0
         version: 1.6.0(@date-fns/tz@1.5.0)(@types/react@19.2.17)(date-fns@4.4.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
-      '@editor/shared':
-        specifier: workspace:*
-        version: link:../../packages/shared
       '@fontsource-variable/geist':
         specifier: ^5.2.9
         version: 5.2.9
+      '@gedatou/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       '@remotion/gif':
         specifier: 4.0.491
         version: 4.0.491(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
@@ -138,15 +138,15 @@ importers:
       '@aws-sdk/s3-request-presigner':
         specifier: ^3.700.0
         version: 3.1090.0
-      '@editor/shared':
-        specifier: workspace:*
-        version: link:../../packages/shared
       '@fastify/cors':
         specifier: ^11.0.0
         version: 11.3.0
       '@fastify/multipart':
         specifier: ^10.1.0
         version: 10.1.0
+      '@gedatou/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       '@remotion/bundler':
         specifier: 4.0.491
         version: 4.0.491(lightningcss@1.32.0)(postcss@8.5.19)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
@@ -175,6 +175,10 @@ importers:
 
   packages/shared:
     dependencies:
+      remotion:
+        specifier: 4.0.491
+        version: 4.0.491(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+    devDependencies:
       '@remotion/captions':
         specifier: 4.0.491
         version: 4.0.491
@@ -187,10 +191,6 @@ importers:
       '@remotion/media':
         specifier: 4.0.491
         version: 4.0.491(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
-      remotion:
-        specifier: 4.0.491
-        version: 4.0.491(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
-    devDependencies:
       '@types/react':
         specifier: ^19.2.0
         version: 19.2.17

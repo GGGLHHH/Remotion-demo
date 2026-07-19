@@ -1,4 +1,4 @@
-import { createTextItem, newId, type EditorStarterAsset, type EditorStarterItem } from '@editor/shared';
+import { createTextItem, newId, type EditorStarterAsset, type EditorStarterItem } from '@gedatou/shared';
 import { useEditorStore } from '../state/store';
 import { normalizeLegacyFades } from '../persistence/persistence';
 import { addTrack } from '../timeline/ops';

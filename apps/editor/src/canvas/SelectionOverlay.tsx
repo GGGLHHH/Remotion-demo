@@ -1,6 +1,6 @@
 import type React from 'react';
 import { useRef, useState } from 'react';
-import type { EditorStarterItem } from '@editor/shared';
+import type { EditorStarterItem } from '@gedatou/shared';
 import {
   ContextMenu,
   ContextMenuContent,

@@ -6,7 +6,7 @@ import {
   transcribe,
   type WhisperModel,
 } from '@remotion/install-whisper-cpp';
-import type { Caption } from '@editor/shared';
+import type { Caption } from '@gedatou/shared';
 
 const WHISPER_VERSION = '1.5.5';
 const WHISPER_DIR = path.join(import.meta.dirname, '..', '.whisper');

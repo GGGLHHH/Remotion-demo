@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import type { Caption } from '@editor/shared';
+import type { Caption } from '@gedatou/shared';
 import { audibleSegment, remapCaptionTimes } from '../captioning';
 
 const cap = (startMs: number, endMs: number): Caption => ({

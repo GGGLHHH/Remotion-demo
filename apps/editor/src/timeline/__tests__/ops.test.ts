@@ -8,7 +8,7 @@ import {
   type UndoableState,
   type VideoAsset,
   type VideoItem,
-} from '@editor/shared';
+} from '@gedatou/shared';
 import {
   addTrack,
   hasOverlap,

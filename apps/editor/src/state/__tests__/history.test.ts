@@ -5,8 +5,8 @@ import {
   createEmptyState,
   createSolidItem,
   createTrack,
-} from '@editor/shared';
-import { MAX_UNDO_STACK_SIZE } from '@editor/shared';
+} from '@gedatou/shared';
+import { MAX_UNDO_STACK_SIZE } from '@gedatou/shared';
 import { useEditorStore } from '../store';
 
 const buildState = () => {

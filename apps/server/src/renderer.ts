@@ -5,7 +5,7 @@ import fs from 'node:fs/promises';
 import { bundle } from '@remotion/bundler';
 import { ensureBrowser, renderMedia, selectComposition } from '@remotion/renderer';
 import { PutObjectCommand } from '@aws-sdk/client-s3';
-import { newId, type UndoableState } from '@editor/shared';
+import { newId, type UndoableState } from '@gedatou/shared';
 import { s3 } from './s3';
 import { config } from './config';
 

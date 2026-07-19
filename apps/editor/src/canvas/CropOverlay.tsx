@@ -1,6 +1,6 @@
 import type React from 'react';
 import { useRef } from 'react';
-import type { Crop, ImageItem, VideoItem } from '@editor/shared';
+import type { Crop, ImageItem, VideoItem } from '@gedatou/shared';
 import { useEditorStore } from '../state/store';
 import type { ResizeHandle } from './geometry';
 

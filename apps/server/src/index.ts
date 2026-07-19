@@ -6,7 +6,7 @@ import { pipeline } from 'node:stream/promises';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import multipart from '@fastify/multipart';
-import type { UndoableState } from '@editor/shared';
+import type { UndoableState } from '@gedatou/shared';
 import { config } from './config';
 import { createUploadUrl, deleteObject, ensureBucket } from './s3';
 import { enqueueRender, tasks } from './renderer';

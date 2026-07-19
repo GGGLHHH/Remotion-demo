@@ -1,5 +1,5 @@
 import { toast } from 'sonner';
-import type { EditorStarterItem, UndoableState } from '@editor/shared';
+import type { EditorStarterItem, UndoableState } from '@gedatou/shared';
 import { useEditorStore } from '../state/store';
 import { getCachedAsset } from '../caching/indexeddb';
 

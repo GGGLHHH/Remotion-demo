@@ -1,7 +1,7 @@
 import type React from 'react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Player } from '@remotion/player';
-import { MainComposition, calcDuration } from '@editor/shared/composition';
+import { MainComposition, calcDuration } from '@gedatou/shared/composition';
 import { useEditorStore } from '../state/store';
 import { importFiles } from '../lib/import-assets';
 import { playerRef } from './player-ref';

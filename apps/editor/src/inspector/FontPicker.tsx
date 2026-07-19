@@ -1,7 +1,7 @@
 import type React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDownIcon } from 'lucide-react';
-import { ensureFontLoaded, listFontFamilies } from '@editor/shared/composition';
+import { ensureFontLoaded, listFontFamilies } from '@gedatou/shared/composition';
 import {
   Command,
   CommandEmpty,

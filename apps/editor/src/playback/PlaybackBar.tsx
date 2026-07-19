@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useEditorStore } from '../state/store';
 import { playerRef, usePlayerFrame } from '../canvas/player-ref';
-import { calcDuration } from '@editor/shared/composition';
+import { calcDuration } from '@gedatou/shared/composition';
 import { formatTime } from '../timeline/Ruler';
 
 /** M:SS.FF，FF = 帧号 % fps 两位补零 */

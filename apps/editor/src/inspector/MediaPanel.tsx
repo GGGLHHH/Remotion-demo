@@ -1,5 +1,5 @@
 import type React from 'react';
-import type { AudioItem, GifItem, VideoItem } from '@editor/shared';
+import type { AudioItem, GifItem, VideoItem } from '@gedatou/shared';
 import { Switch } from '@/components/ui/switch';
 import { useEditorStore } from '../state/store';
 import { maxItemDurationInFrames } from '../timeline/ops';

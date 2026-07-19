@@ -1,4 +1,4 @@
-import { createTrack, type EditorStarterItem, type UndoableState } from '@editor/shared';
+import { createTrack, type EditorStarterItem, type UndoableState } from '@gedatou/shared';
 
 /** 媒体类 item（有 trimBefore/playbackRate） */
 const isMediaItem = (

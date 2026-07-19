@@ -1,4 +1,4 @@
-import { MAX_DURATION_ALLOWING_CAPTIONING_IN_SEC } from '@editor/shared';
+import { MAX_DURATION_ALLOWING_CAPTIONING_IN_SEC } from '@gedatou/shared';
 
 const SAMPLE_RATE = 16000; // whisper.cpp 要求 16kHz 单声道
 

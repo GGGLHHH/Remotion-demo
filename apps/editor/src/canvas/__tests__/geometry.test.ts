@@ -3,7 +3,7 @@ import {
   createEmptyState,
   createSolidItem,
   createTrack,
-} from '@editor/shared';
+} from '@gedatou/shared';
 import { hitTest, resizeRect, topmostItemAt } from '../geometry';
 
 describe('hitTest', () => {
