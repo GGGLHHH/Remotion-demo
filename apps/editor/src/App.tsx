@@ -313,7 +313,7 @@ export default function App() {
       </header>
       <div className="flex min-h-0 flex-1">
         <CanvasView tool={tool} onExitTool={() => setTool(null)} />
-        <aside className="w-72 shrink-0 overflow-y-auto border-l border-zinc-800 text-sm">
+        <aside className="w-[349px] shrink-0 overflow-y-auto border-l border-zinc-800 text-sm">
           <Inspector />
         </aside>
       </div>

@@ -41,8 +41,9 @@ const audioId = await page.evaluate(
       .id,
 );
 
-// 选中 audio item → 点"生成字幕"
+// 选中 audio item → 展开「字幕」折叠区（官方默认折叠）→ 点"生成字幕"
 await page.evaluate((id) => window.__editorStore.getState().setSelected([id]), audioId);
+await page.getByRole('button', { name: '字幕', exact: true }).click();
 await page.getByRole('button', { name: '生成字幕' }).click();
 
 // 等任务终态。首跑要编译 whisper.cpp + 下载 base 模型，最长 600s

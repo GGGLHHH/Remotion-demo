@@ -3,14 +3,19 @@ import type { AudioItem, GifItem, VideoItem } from '@editor/shared';
 import { Switch } from '@/components/ui/switch';
 import { useEditorStore } from '../state/store';
 import { maxItemDurationInFrames } from '../timeline/ops';
-import { Row, Section, SliderField } from './fields';
+import { FadeSliders, Row, Section, SliderField } from './fields';
 
 type MediaItem = VideoItem | AudioItem | GifItem;
 
-const toDb = (v: number) => (v <= 0 ? '-∞' : `${(20 * Math.log10(v)).toFixed(1)}dB`);
+// 官方音量域为 dB 滑杆（-60…+20，步进 0.5，允许增益到 +20dB）；
+// 与时间线音量线的映射一致（ItemBlock gainToTopFraction：80dB 跨度，顶 +20dB）
+const linearToDb = (v: number) =>
+  v <= 0.001 ? -60 : Math.max(-60, Math.min(20, 20 * Math.log10(v)));
+const dbToLinear = (db: number) => (db <= -60 ? 0 : 10 ** (db / 20));
 
 export const MediaPanel: React.FC<{ item: MediaItem }> = ({ item }) => {
   const updateUndoable = useEditorStore((s) => s.updateUndoable);
+  const fps = useEditorStore((s) => s.undoable.fps);
 
   const patch = (partial: Partial<MediaItem>, commit = true) =>
     updateUndoable(
@@ -35,41 +40,77 @@ export const MediaPanel: React.FC<{ item: MediaItem }> = ({ item }) => {
     });
   };
 
-  const hasAudio = item.type === 'video' || item.type === 'audio';
+  const rateSlider = (
+    <SliderField
+      label="速度"
+      value={item.playbackRate}
+      min={0.25}
+      max={5}
+      step={0.05}
+      display={`${item.playbackRate.toFixed(2)}x`}
+      onChange={(v, committing) => {
+        if (committing) setSpeed(v);
+      }}
+    />
+  );
 
-  return (
-    <Section title="媒体">
-      <SliderField
-        label="速度"
-        value={item.playbackRate}
-        min={0.25}
-        max={5}
-        step={0.05}
-        display={`${item.playbackRate.toFixed(2)}x`}
-        onChange={(v, committing) => {
-          if (committing) setSpeed(v);
-        }}
-      />
-      {hasAudio ? (
-        <>
-          <SliderField
-            label="音量"
-            value={(item as VideoItem | AudioItem).volume}
-            min={0}
-            max={1}
-            step={0.01}
-            display={toDb((item as VideoItem | AudioItem).volume)}
-            onChange={(v, committing) => patch({ volume: v } as Partial<MediaItem>, committing)}
+  const fadeSliders = (
+    <FadeSliders
+      fadeInFrames={item.fadeInDurationInFrames}
+      fadeOutFrames={item.fadeOutDurationInFrames}
+      durationInFrames={item.durationInFrames}
+      fps={fps}
+      onPatch={(p) => patch(p as Partial<MediaItem>, false)}
+    />
+  );
+
+  const audioRows = (it: VideoItem | AudioItem) => {
+    const db = Math.round(linearToDb(it.volume) * 2) / 2;
+    return (
+      <>
+        <SliderField
+          label="音量"
+          value={db}
+          min={-60}
+          max={20}
+          step={0.5}
+          display={db <= -60 ? '-∞ dB' : `${db.toFixed(1)} dB`}
+          onChange={(v) => patch({ volume: dbToLinear(v) } as Partial<MediaItem>, false)}
+        />
+        <Row label="静音">
+          <Switch
+            size="sm"
+            checked={it.muted}
+            onCheckedChange={(checked) => patch({ muted: checked } as Partial<MediaItem>)}
           />
-          <Row label="静音">
-            <Switch
-              size="sm"
-              checked={(item as VideoItem | AudioItem).muted}
-              onCheckedChange={(checked) => patch({ muted: checked } as Partial<MediaItem>)}
-            />
-          </Row>
-        </>
+        </Row>
+      </>
+    );
+  };
+
+  // 音频条目：官方结构里音量/淡入淡出/速度全部收在「音频」区
+  if (item.type === 'audio') {
+    return (
+      <Section title="音频" collapsible defaultOpen={false}>
+        {audioRows(item)}
+        {fadeSliders}
+        {rateSlider}
+      </Section>
+    );
+  }
+
+  // 视频/GIF：「视频」区放速度 + 淡入淡出；有音轨的视频再加「音频」区
+  return (
+    <>
+      <Section title="视频" collapsible defaultOpen={false}>
+        {rateSlider}
+        {fadeSliders}
+      </Section>
+      {item.type === 'video' ? (
+        <Section title="音频" collapsible defaultOpen={false}>
+          {audioRows(item)}
+        </Section>
       ) : null}
-    </Section>
+    </>
   );
 };

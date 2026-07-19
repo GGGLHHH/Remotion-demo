@@ -1,11 +1,17 @@
 import type React from 'react';
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import {
   AlignCenterIcon,
   AlignLeftIcon,
   AlignRightIcon,
   ChevronDownIcon,
-  ItalicIcon,
+  MoveHorizontalIcon,
+  MoveVerticalIcon,
+  PenLineIcon,
+  PilcrowLeftIcon,
+  PilcrowRightIcon,
+  SquareRoundCornerIcon,
+  TypeIcon,
 } from 'lucide-react';
 import type { TextItem } from '@editor/shared';
 import { Button } from '@/components/ui/button';
@@ -13,7 +19,6 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Command, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useEditorStore } from '../state/store';
 import { NumberField } from './NumberField';
 import { ColorField, Row, Section } from './fields';
@@ -26,34 +31,140 @@ export const detectDirection = (text: string): 'ltr' | 'rtl' => {
   return /[A-Za-z一-鿿]/.test(strong[0]) ? 'ltr' : 'rtl';
 };
 
-const WEIGHTS = ['100', '200', '300', '400', '500', '600', '700', '800', '900'];
+/** 官方字重命名（Thin…Black + Italic 变体），单下拉同时携带 fontWeight 与 fontStyle */
+const WEIGHT_NAMES: [string, string][] = [
+  ['100', 'Thin'],
+  ['200', 'Extra Light'],
+  ['300', 'Light'],
+  ['400', 'Regular'],
+  ['500', 'Medium'],
+  ['600', 'Semi Bold'],
+  ['700', 'Bold'],
+  ['800', 'Extra Bold'],
+  ['900', 'Black'],
+];
+const WEIGHT_OPTIONS = (['normal', 'italic'] as const).flatMap((style) =>
+  WEIGHT_NAMES.map(([weight, name]) => ({
+    weight,
+    style,
+    label: style === 'italic' ? (weight === '400' ? 'Italic' : `Italic ${name}`) : name,
+  })),
+);
 
-const ALIGN_ICONS = { left: AlignLeftIcon, center: AlignCenterIcon, right: AlignRightIcon } as const;
+const weightLabel = (weight: string, style: 'normal' | 'italic'): string =>
+  WEIGHT_OPTIONS.find((o) => o.weight === weight && o.style === style)?.label ??
+  `${style === 'italic' ? 'Italic ' : ''}${weight}`;
 
 /** 选中态按钮高亮（outline Button 之上叠加） */
 const activeCls = (active: boolean) => (active ? 'border-primary text-primary' : '');
+/** 拼接式按钮组（官方 joined segmented group） */
+const groupCls = (i: number, len: number) =>
+  `flex-1 rounded-none ${i === 0 ? 'rounded-l-lg' : '-ml-px'} ${i === len - 1 ? 'rounded-r-lg' : ''}`;
 
-export const TextPanel: React.FC<{ item: TextItem }> = ({ item }) => {
+const ALIGN_ICONS = { left: AlignLeftIcon, center: AlignCenterIcon, right: AlignRightIcon } as const;
+const DIR_ICONS = { ltr: PilcrowLeftIcon, rtl: PilcrowRightIcon } as const;
+
+type PatchFn = (partial: Partial<TextItem>, commit?: boolean) => void;
+
+const usePatch = (itemId: string): PatchFn => {
   const updateUndoable = useEditorStore((s) => s.updateUndoable);
+  return (partial, commit = true) =>
+    updateUndoable(
+      (s) => {
+        const cur = s.items[itemId];
+        if (!cur || cur.type !== 'text') return s;
+        return { ...s, items: { ...s.items, [itemId]: { ...cur, ...partial } } };
+      },
+      { commit },
+    );
+};
+
+/** 排版（官方 Typography）：字体/字重/字号/行高/字距/文本/对齐/方向 */
+export const TypographySection: React.FC<{ item: TextItem }> = ({ item }) => {
   const previewItemStyle = useEditorStore((s) => s.previewItemStyle);
   const cancelItemStylePreview = useEditorStore((s) => s.cancelItemStylePreview);
   const commitPending = useEditorStore((s) => s.commitPending);
   const [weightOpen, setWeightOpen] = useState(false);
-  // 悬停预览会把 item.fontStyle 改成预览值，点击时需要预览前的真实值来算切换目标
-  const italicBase = useRef<'normal' | 'italic' | null>(null);
-  const patch = (partial: Partial<TextItem>, commit = true) =>
-    updateUndoable(
-      (s) => {
-        const cur = s.items[item.id];
-        if (!cur || cur.type !== 'text') return s;
-        return { ...s, items: { ...s.items, [item.id]: { ...cur, ...partial } } };
-      },
-      { commit },
-    );
+  const patch = usePatch(item.id);
 
   return (
-    <>
-      <Section title="文本">
+    <Section title="排版" collapsible defaultOpen>
+      <Row label="字体">
+        <FontPicker itemId={item.id} value={item.fontFamily} onCommit={(f) => patch({ fontFamily: f })} />
+      </Row>
+      <Row label="字重">
+        {/* Popover + Command 下拉：悬停即在画布实时预览字重/斜体（commit:false），点击才提交；
+            shadcn Select 无法逐项 hover 回调，故用 CommandItem 挂 onMouseEnter */}
+        <Popover
+          open={weightOpen}
+          onOpenChange={(o) => {
+            setWeightOpen(o);
+            if (!o) cancelItemStylePreview(); // 关闭（点外部/Esc）时撤掉悬停预览
+          }}
+        >
+          <PopoverTrigger className="flex h-7 w-full min-w-0 items-center justify-between gap-1.5 rounded-lg border border-input bg-transparent px-2 text-left text-xs transition-colors outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30 dark:hover:bg-input/50">
+            <span className="truncate">{weightLabel(item.fontWeight, item.fontStyle)}</span>
+            <ChevronDownIcon className="size-3.5 shrink-0 text-muted-foreground" />
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-(--anchor-width) p-0">
+            <Command className="rounded-lg!">
+              <CommandList className="max-h-64" onMouseLeave={cancelItemStylePreview}>
+                {WEIGHT_OPTIONS.map((o) => {
+                  const checked = o.weight === item.fontWeight && o.style === item.fontStyle;
+                  return (
+                    <CommandItem
+                      key={o.label}
+                      value={o.label}
+                      data-checked={checked || undefined}
+                      className={`py-1 text-xs ${checked ? 'bg-accent text-accent-foreground' : ''}`}
+                      style={{ fontFamily: item.fontFamily, fontWeight: o.weight, fontStyle: o.style }}
+                      onMouseEnter={() =>
+                        previewItemStyle(item.id, { fontWeight: o.weight, fontStyle: o.style })
+                      }
+                      onSelect={() => {
+                        previewItemStyle(item.id, { fontWeight: o.weight, fontStyle: o.style });
+                        commitPending();
+                        setWeightOpen(false);
+                      }}
+                    >
+                      {o.label}
+                    </CommandItem>
+                  );
+                })}
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
+      </Row>
+      <NumberField
+        label="字号"
+        icon={TypeIcon}
+        value={item.fontSize}
+        min={1}
+        max={500}
+        onChange={(v, c) => patch({ fontSize: v }, c)}
+      />
+      <div className="grid grid-cols-2 gap-2">
+        <NumberField
+          label="行高"
+          icon={MoveVerticalIcon}
+          value={item.lineHeight}
+          min={0.5}
+          max={5}
+          step={0.1}
+          onChange={(v, c) => patch({ lineHeight: v }, c)}
+        />
+        <NumberField
+          label="字距"
+          icon={MoveHorizontalIcon}
+          value={item.letterSpacing}
+          min={-10}
+          max={50}
+          onChange={(v, c) => patch({ letterSpacing: v }, c)}
+        />
+      </div>
+      <div className="flex flex-col gap-1">
+        <span className="text-xs text-muted-foreground">文本</span>
         <Textarea
           key={item.id}
           className="min-h-16 resize-y text-xs md:text-xs"
@@ -63,169 +174,115 @@ export const TextPanel: React.FC<{ item: TextItem }> = ({ item }) => {
             if (text !== item.text) patch({ text, direction: detectDirection(text) });
           }}
         />
-        <Row label="字体">
-          <FontPicker itemId={item.id} value={item.fontFamily} onCommit={(f) => patch({ fontFamily: f })} />
-        </Row>
-        <Row label="字重">
-          {/* Popover + Command 下拉：悬停即在画布实时预览字重（commit:false），点击才提交；
-              shadcn Select 无法逐项 hover 回调，故用 CommandItem 挂 onMouseEnter */}
-          <Popover
-            open={weightOpen}
-            onOpenChange={(o) => {
-              setWeightOpen(o);
-              if (!o) cancelItemStylePreview(); // 关闭（点外部/Esc）时撤掉悬停预览
-            }}
-          >
-            <PopoverTrigger className="flex h-7 w-full min-w-0 items-center justify-between gap-1.5 rounded-lg border border-input bg-transparent px-2 text-left text-xs transition-colors outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30 dark:hover:bg-input/50">
-              {item.fontWeight}
-              <ChevronDownIcon className="size-3.5 shrink-0 text-muted-foreground" />
-            </PopoverTrigger>
-            <PopoverContent align="start" className="w-(--anchor-width) p-0">
-              <Command className="rounded-lg!">
-                <CommandList onMouseLeave={cancelItemStylePreview}>
-                  {WEIGHTS.map((w) => (
-                    <CommandItem
-                      key={w}
-                      value={w}
-                      data-checked={w === item.fontWeight || undefined}
-                      className={`py-1 text-xs ${
-                        w === item.fontWeight ? 'bg-accent text-accent-foreground' : ''
-                      }`}
-                      style={{ fontFamily: item.fontFamily, fontWeight: w }}
-                      onMouseEnter={() => previewItemStyle(item.id, { fontWeight: w })}
-                      onSelect={() => {
-                        previewItemStyle(item.id, { fontWeight: w });
-                        commitPending();
-                        setWeightOpen(false);
-                      }}
-                    >
-                      {w}
-                    </CommandItem>
-                  ))}
-                </CommandList>
-              </Command>
-            </PopoverContent>
-          </Popover>
-          <Tooltip>
-            <TooltipTrigger
-              render={
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        {/* e2e 依赖 label:has-text("对齐") 下 button 顺序：left 在首位 */}
+        <label className="flex flex-col gap-1">
+          <span className="text-xs text-muted-foreground">对齐</span>
+          <div className="flex">
+            {(['left', 'center', 'right'] as const).map((a, i) => {
+              const Icon = ALIGN_ICONS[a];
+              return (
                 <Button
+                  key={a}
                   variant="outline"
                   size="icon-sm"
-                  className={activeCls(item.fontStyle === 'italic')}
-                  onMouseEnter={() => {
-                    italicBase.current = item.fontStyle;
-                    previewItemStyle(item.id, {
-                      fontStyle: item.fontStyle === 'italic' ? 'normal' : 'italic',
-                    });
-                  }}
-                  onMouseLeave={() => {
-                    italicBase.current = null;
-                    cancelItemStylePreview();
-                  }}
-                  onClick={() => {
-                    const base = italicBase.current ?? item.fontStyle;
-                    previewItemStyle(item.id, {
-                      fontStyle: base === 'italic' ? 'normal' : 'italic',
-                    });
-                    commitPending();
-                    italicBase.current = null;
-                  }}
+                  className={`${groupCls(i, 3)} ${activeCls(item.textAlign === a)}`}
+                  onClick={() => patch({ textAlign: a })}
                 >
-                  <ItalicIcon />
+                  <Icon />
                 </Button>
-              }
-            />
-            <TooltipContent>斜体</TooltipContent>
-          </Tooltip>
-        </Row>
-        <NumberField label="字号" value={item.fontSize} min={4} max={800} onCommit={(v) => patch({ fontSize: v })} />
-        <ColorField label="颜色" value={item.color} onChange={(v) => patch({ color: v })} />
-        <NumberField
-          label="描边宽"
-          value={item.strokeWidth}
-          min={0}
-          max={40}
-          onCommit={(v) => patch({ strokeWidth: v })}
+              );
+            })}
+          </div>
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="text-xs text-muted-foreground">方向</span>
+          <div className="flex">
+            {(['ltr', 'rtl'] as const).map((d, i) => {
+              const Icon = DIR_ICONS[d];
+              return (
+                <Button
+                  key={d}
+                  variant="outline"
+                  size="icon-sm"
+                  title={d.toUpperCase()}
+                  className={`${groupCls(i, 2)} ${activeCls(item.direction === d)}`}
+                  onClick={() => patch({ direction: d })}
+                >
+                  <Icon />
+                </Button>
+              );
+            })}
+          </div>
+        </label>
+      </div>
+    </Section>
+  );
+};
+
+/** 描边（官方 Stroke，默认折叠）：宽度 + 颜色始终可见 */
+export const StrokeSection: React.FC<{ item: TextItem }> = ({ item }) => {
+  const patch = usePatch(item.id);
+  return (
+    <Section title="描边" collapsible defaultOpen={false}>
+      <NumberField
+        label="宽度"
+        icon={PenLineIcon}
+        value={item.strokeWidth}
+        min={0}
+        max={100}
+        onChange={(v, c) => patch({ strokeWidth: v }, c)}
+      />
+      <ColorField label="颜色" value={item.strokeColor} onChange={(v) => patch({ strokeColor: v })} />
+    </Section>
+  );
+};
+
+/** 背景（官方 Background）。启用 checkbox 是 e2e 钩子（verify-m4），保留；
+ * 启用时写入官方默认值：#808080 / 圆角 20 / 内边距 40 */
+export const BackgroundSection: React.FC<{ item: TextItem }> = ({ item }) => {
+  const patch = usePatch(item.id);
+  return (
+    <Section title="背景" collapsible defaultOpen>
+      <Row label="启用">
+        <Checkbox
+          checked={item.backgroundColor !== null}
+          onCheckedChange={(checked) =>
+            patch(
+              checked
+                ? { backgroundColor: '#808080', backgroundBorderRadius: 20, backgroundPadding: 40 }
+                : { backgroundColor: null },
+            )
+          }
         />
-        {item.strokeWidth > 0 ? (
-          <ColorField label="描边色" value={item.strokeColor} onChange={(v) => patch({ strokeColor: v })} />
-        ) : null}
-        <NumberField
-          label="行高"
-          value={item.lineHeight}
-          min={0.5}
-          max={5}
-          step={0.1}
-          onCommit={(v) => patch({ lineHeight: v })}
-        />
-        <NumberField
-          label="字距"
-          value={item.letterSpacing}
-          min={-10}
-          max={50}
-          onCommit={(v) => patch({ letterSpacing: v })}
-        />
-        {/* e2e 依赖 label:has-text("对齐") 下 button 顺序：left 在首位 */}
-        <Row label="对齐">
-          {(['left', 'center', 'right'] as const).map((a) => {
-            const Icon = ALIGN_ICONS[a];
-            return (
-              <Button
-                key={a}
-                variant="outline"
-                size="icon-sm"
-                className={`flex-1 ${activeCls(item.textAlign === a)}`}
-                onClick={() => patch({ textAlign: a })}
-              >
-                <Icon />
-              </Button>
-            );
-          })}
-        </Row>
-        <Row label="方向">
-          {(['ltr', 'rtl'] as const).map((d) => (
-            <Button
-              key={d}
-              variant="outline"
-              size="sm"
-              className={`flex-1 uppercase ${activeCls(item.direction === d)}`}
-              onClick={() => patch({ direction: d })}
-            >
-              {d}
-            </Button>
-          ))}
-        </Row>
-      </Section>
-      <Section title="文字背景">
-        <Row label="启用">
-          <Checkbox
-            checked={item.backgroundColor !== null}
-            onCheckedChange={(checked) => patch({ backgroundColor: checked ? '#000000' : null })}
+      </Row>
+      {item.backgroundColor !== null ? (
+        <>
+          <ColorField
+            label="颜色"
+            value={item.backgroundColor}
+            onChange={(v) => patch({ backgroundColor: v })}
           />
-        </Row>
-        {item.backgroundColor !== null ? (
-          <>
-            <ColorField
-              label="背景色"
-              value={item.backgroundColor}
-              onChange={(v) => patch({ backgroundColor: v })}
+          <div className="grid grid-cols-2 gap-2">
+            <NumberField
+              label="圆角"
+              icon={SquareRoundCornerIcon}
+              value={item.backgroundBorderRadius}
+              min={0}
+              onChange={(v, c) => patch({ backgroundBorderRadius: v }, c)}
             />
             <NumberField
               label="内边距"
+              icon={MoveHorizontalIcon}
               value={item.backgroundPadding}
               min={0}
-              onCommit={(v) => patch({ backgroundPadding: v })}
+              max={100}
+              onChange={(v, c) => patch({ backgroundPadding: v }, c)}
             />
-            <NumberField
-              label="圆角"
-              value={item.backgroundBorderRadius}
-              min={0}
-              onCommit={(v) => patch({ backgroundBorderRadius: v })}
-            />
-          </>
-        ) : null}
-      </Section>
-    </>
+          </div>
+        </>
+      ) : null}
+    </Section>
   );
 };

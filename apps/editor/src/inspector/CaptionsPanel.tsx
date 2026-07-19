@@ -11,12 +11,15 @@ export const CaptionsPanel: React.FC<{ item: CaptionsItem }> = ({ item }) => {
   const asset = useEditorStore((s) => s.undoable.assets[item.assetId]);
   const captions = asset?.type === 'caption' ? asset.captions : [];
 
-  const patch = (partial: Partial<CaptionsItem>) =>
-    updateUndoable((s) => {
-      const cur = s.items[item.id];
-      if (!cur || cur.type !== 'captions') return s;
-      return { ...s, items: { ...s.items, [item.id]: { ...cur, ...partial } } };
-    });
+  const patch = (partial: Partial<CaptionsItem>, commit = true) =>
+    updateUndoable(
+      (s) => {
+        const cur = s.items[item.id];
+        if (!cur || cur.type !== 'captions') return s;
+        return { ...s, items: { ...s.items, [item.id]: { ...cur, ...partial } } };
+      },
+      { commit },
+    );
 
   /** 不可变更新 asset.captions 里第 i 条 token */
   const patchCaption = (index: number, partial: Partial<Caption>) =>
@@ -33,7 +36,7 @@ export const CaptionsPanel: React.FC<{ item: CaptionsItem }> = ({ item }) => {
         <Row label="字体">
           <FontPicker itemId={item.id} value={item.fontFamily} onCommit={(f) => patch({ fontFamily: f })} />
         </Row>
-        <NumberField label="字号" value={item.fontSize} min={4} max={800} onCommit={(v) => patch({ fontSize: v })} />
+        <NumberField label="字号" value={item.fontSize} min={4} max={800} onChange={(v, c) => patch({ fontSize: v }, c)} />
         <ColorField label="颜色" value={item.color} onChange={(v) => patch({ color: v })} />
         <ColorField label="高亮色" value={item.highlightColor} onChange={(v) => patch({ highlightColor: v })} />
         <NumberField
@@ -42,14 +45,14 @@ export const CaptionsPanel: React.FC<{ item: CaptionsItem }> = ({ item }) => {
           min={100}
           max={10000}
           step={100}
-          onCommit={(v) => patch({ pageDurationInMs: v })}
+          onChange={(v, c) => patch({ pageDurationInMs: v }, c)}
         />
         <NumberField
           label="最大行数"
           value={item.maxLines}
           min={1}
           max={10}
-          onCommit={(v) => patch({ maxLines: Math.round(v) })}
+          onChange={(v, c) => patch({ maxLines: Math.round(v) }, c)}
         />
       </Section>
       <Section title="逐词修正">

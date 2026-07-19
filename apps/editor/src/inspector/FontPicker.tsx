@@ -68,7 +68,8 @@ export const FontPicker: React.FC<{
         <span className="truncate">{value}</span>
         <ChevronDownIcon className="size-3.5 shrink-0 text-muted-foreground" />
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-(--anchor-width) p-0">
+      {/* 官方行为：字体弹层从触发器左侧弹出 */}
+      <PopoverContent side="left" align="start" className="w-(--anchor-width) p-0">
         <Command shouldFilter={false} className="rounded-lg!">
           <CommandInput
             autoFocus
