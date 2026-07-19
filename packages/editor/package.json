@@ -1,15 +1,27 @@
 {
   "name": "@gedatou/editor",
   "version": "0.0.0",
+  "description": "Embeddable Remotion video editor React components — timeline, canvas, inspector; shadcn-authored, theme-able",
+  "keywords": ["remotion", "video-editor", "react", "timeline", "shadcn", "tailwind"],
+  "homepage": "https://github.com/GGGLHHH/remotion-editor#readme",
+  "bugs": { "url": "https://github.com/GGGLHHH/remotion-editor/issues" },
+  "license": "MIT",
+  "author": "ge Datou (https://github.com/GGGLHHH)",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GGGLHHH/remotion-editor.git",
+    "directory": "packages/editor"
+  },
   "type": "module",
   "sideEffects": ["**/*.css"],
-  "files": ["dist", "src/styles.css"],
+  "files": ["dist", "src/styles.css", "README.md"],
   "exports": {
     ".": "./src/index.ts",
     "./adapters": "./src/lib/adapters/index.ts",
     "./styles.css": "./src/styles.css"
   },
   "publishConfig": {
+    "access": "public",
     "exports": {
       ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
       "./adapters": { "types": "./dist/adapters.d.ts", "import": "./dist/adapters.js" },

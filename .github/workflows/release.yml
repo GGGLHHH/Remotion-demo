@@ -1,0 +1,56 @@
+name: Release
+
+# 由本地 `pnpm release`（bumpp）推送的 v* tag 触发：校验版本一致 → 构建 → 发布两个包。
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+  id-token: write # 供 npm provenance / 可信发布（trusted publishing）用
+
+jobs:
+  release:
+    name: Publish @gedatou/{shared,editor} to npm
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify tag matches package version
+        shell: bash
+        run: |
+          tag_version="${GITHUB_REF_NAME#v}"
+          pkg_version="$(node -p "require('./packages/editor/package.json').version")"
+          if [ "$tag_version" != "$pkg_version" ]; then
+            echo "Tag version $tag_version 与 packages/editor 版本 $pkg_version 不一致"
+            exit 1
+          fi
+
+      - name: Build packages
+        run: pnpm build
+
+      # 发布顺序由 pnpm 按 workspace 依赖拓扑决定（shared 先于 editor），
+      # 并把 editor 里的 "@gedatou/shared": "workspace:*" 替换为真实版本号。
+      - name: Publish to npm
+        run: pnpm --filter "@gedatou/*" publish --access public --no-git-checks
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        # 启用 provenance（供应链溯源）：确认 repository 字段指向真实公开仓库后，
+        # 在上面 publish 命令追加 --provenance；或改用 npm 可信发布（trusted publishing）删掉 NODE_AUTH_TOKEN。
