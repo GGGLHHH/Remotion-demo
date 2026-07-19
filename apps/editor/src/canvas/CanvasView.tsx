@@ -81,6 +81,12 @@ export const CanvasView: React.FC<{
       <div
         ref={containerRef}
         className="flex min-h-0 flex-1 items-center justify-center overflow-auto"
+        onPointerDown={(e) => {
+          // 合成外的空白区域点击：取消选择（合成内的空白由 SelectionOverlay 处理）
+          if (e.button === 0 && e.target === e.currentTarget) {
+            useEditorStore.getState().setSelected([]);
+          }
+        }}
         onDragOver={(e) => e.preventDefault()}
         onDrop={(e) => {
           e.preventDefault();
