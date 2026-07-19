@@ -1,6 +1,6 @@
 import type React from 'react';
 import type { Caption, CaptionsItem } from '@gedatou/shared';
-import { Input } from '@/components/ui/input';
+import { Input } from '../components/ui/input';
 import { useEditor } from '../state/context';
 import { NumberField } from './NumberField';
 import { ColorField, Row, Section } from './fields';

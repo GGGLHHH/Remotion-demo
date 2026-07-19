@@ -14,11 +14,11 @@ import {
   TypeIcon,
 } from 'lucide-react';
 import type { TextItem } from '@gedatou/shared';
-import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Command, CommandItem, CommandList } from '@/components/ui/command';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Textarea } from '@/components/ui/textarea';
+import { Button } from '../components/ui/button';
+import { Checkbox } from '../components/ui/checkbox';
+import { Command, CommandItem, CommandList } from '../components/ui/command';
+import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popover';
+import { Textarea } from '../components/ui/textarea';
 import { useEditor } from '../state/context';
 import { NumberField } from './NumberField';
 import { ColorField, Row, Section } from './fields';

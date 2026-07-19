@@ -8,8 +8,8 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-} from '@/components/ui/command';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+} from '../components/ui/command';
+import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popover';
 import { useEditor } from '../state/context';
 
 /** 字体选择器：shadcn Popover + Command，搜索 + 悬停画布实时预览。

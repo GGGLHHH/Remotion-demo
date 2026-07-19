@@ -1,7 +1,7 @@
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import type { LucideIcon } from 'lucide-react';
-import { Input } from '@/components/ui/input';
+import { Input } from '../components/ui/input';
 import { useEditorApi } from '../state/context';
 
 /** 按步进取整，消除浮点噪音 */

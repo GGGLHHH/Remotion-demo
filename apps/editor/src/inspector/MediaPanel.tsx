@@ -1,6 +1,6 @@
 import type React from 'react';
 import type { AudioItem, GifItem, VideoItem } from '@gedatou/shared';
-import { Switch } from '@/components/ui/switch';
+import { Switch } from '../components/ui/switch';
 import { useEditor } from '../state/context';
 import { maxItemDurationInFrames } from '../timeline/ops';
 import { FadeSliders, Row, Section, SliderField } from './fields';

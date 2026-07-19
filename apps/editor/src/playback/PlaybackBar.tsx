@@ -1,8 +1,8 @@
 import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { Maximize, Pause, Play, Repeat, SkipBack, SkipForward, Volume2, VolumeX } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Button } from '../components/ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '../components/ui/tooltip';
 import { useEditor, useEditorRefs } from '../state/context';
 import { usePlayerFrame } from '../canvas/player-ref';
 import { calcDuration } from '@gedatou/shared/composition';

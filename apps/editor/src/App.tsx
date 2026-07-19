@@ -14,9 +14,9 @@ import {
   Undo2,
   Upload,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Button } from './components/ui/button';
+import { Badge } from './components/ui/badge';
+import { Tooltip, TooltipContent, TooltipTrigger } from './components/ui/tooltip';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,7 +27,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
+} from './components/ui/alert-dialog';
 import { useEditor, useEditorApi, useEditorDeps, useEditorRefs } from './state/context';
 import { useShortcuts } from './shortcuts/useShortcuts';
 import { CanvasView, type CanvasTool } from './canvas/CanvasView';

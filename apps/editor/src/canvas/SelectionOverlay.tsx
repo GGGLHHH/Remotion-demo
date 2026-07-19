@@ -7,7 +7,7 @@ import {
   ContextMenuItem,
   ContextMenuSeparator,
   ContextMenuTrigger,
-} from '@/components/ui/context-menu';
+} from '../components/ui/context-menu';
 import { useEditor, useEditorApi, useEditorRefs } from '../state/context';
 import { copySelection, duplicateSelection } from '../lib/clipboard';
 import { addTrack, moveItems, removeEmptyTracks } from '../timeline/ops';

@@ -24,17 +24,17 @@ import type {
   EditorStarterAsset,
   EditorStarterItem,
 } from '@gedatou/shared';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { Badge } from '../components/ui/badge';
+import { Button } from '../components/ui/button';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Spinner } from '@/components/ui/spinner';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+} from '../components/ui/select';
+import { Spinner } from '../components/ui/spinner';
+import { Tooltip, TooltipContent, TooltipTrigger } from '../components/ui/tooltip';
 import { useEditor, useEditorApi, useEditorDeps } from '../state/context';
 import { usePlayerFrameDerived } from '../canvas/player-ref';
 import { startRender } from '../lib/render-client';

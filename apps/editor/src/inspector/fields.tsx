@@ -1,7 +1,7 @@
 import type React from 'react';
 import { useState } from 'react';
 import { ChevronDownIcon, ChevronRightIcon } from 'lucide-react';
-import { Slider } from '@/components/ui/slider';
+import { Slider } from '../components/ui/slider';
 import { useEditorApi } from '../state/context';
 
 /**

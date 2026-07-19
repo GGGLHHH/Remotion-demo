@@ -2,16 +2,16 @@ import type React from 'react';
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Eye, EyeOff, Magnet, Minus, Plus, Scissors, Volume2, VolumeX } from 'lucide-react';
 import type { EditorStarterItem, Track, UndoableState } from '@gedatou/shared';
-import { Button } from '@/components/ui/button';
+import { Button } from '../components/ui/button';
 import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuSeparator,
   ContextMenuTrigger,
-} from '@/components/ui/context-menu';
-import { Slider } from '@/components/ui/slider';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+} from '../components/ui/context-menu';
+import { Slider } from '../components/ui/slider';
+import { Tooltip, TooltipContent, TooltipTrigger } from '../components/ui/tooltip';
 import { useEditor, useEditorApi, useEditorDeps, useEditorRefs } from '../state/context';
 import { usePlayerFrameDerived } from '../canvas/player-ref';
 import { calcDuration } from '@gedatou/shared/composition';
