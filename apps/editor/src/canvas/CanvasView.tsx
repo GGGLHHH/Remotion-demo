@@ -5,7 +5,7 @@ import { MainComposition, calcDuration } from '@editor/shared/composition';
 import { useEditorStore } from '../state/store';
 import { importFiles } from '../lib/import-assets';
 import { playerRef } from './player-ref';
-import { fitScaleRef } from './fit-scale';
+import { canvasRefitRef, fitScaleRef, suppressRefitRef } from './fit-scale';
 import { SelectionOverlay } from './SelectionOverlay';
 import { CompositionResizeHandles } from './CompositionResizeHandles';
 import { CropOverlay } from './CropOverlay';
@@ -43,6 +43,8 @@ export const CanvasView: React.FC<{
     const el = containerRef.current;
     if (!el) return;
     const update = () => {
+      // 画布手柄拖拽中冻结重算：比例中途变化会让内容在屏幕上漂移
+      if (suppressRefitRef.current) return;
       const PADDING = 48;
       const w = el.clientWidth - PADDING;
       const h = el.clientHeight - PADDING;
@@ -50,6 +52,7 @@ export const CanvasView: React.FC<{
       fitScaleRef.current = s; // 快捷键/工具栏相对缩放的基准
       setFitScale(s);
     };
+    canvasRefitRef.current = update;
     update();
     const observer = new ResizeObserver(update);
     observer.observe(el);

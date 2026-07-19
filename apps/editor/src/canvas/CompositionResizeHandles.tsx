@@ -1,6 +1,7 @@
 import type React from 'react';
 import { useState } from 'react';
 import { useEditorStore } from '../state/store';
+import { canvasRefitRef, suppressRefitRef } from './fit-scale';
 import { CORNERS, EDGES, SizeBadge } from './SelectionOverlay';
 import type { ResizeHandle } from './geometry';
 
@@ -23,7 +24,9 @@ export const CompositionResizeHandles: React.FC<{ scale: number }> = ({ scale })
     e.preventDefault();
     const el = e.currentTarget as HTMLElement;
     el.setPointerCapture(e.pointerId);
-    // 锁定起始缩放：fit 模式下缩放随尺寸实时重算，锁定后拖拽手感可预测
+    const stage = el.closest('[data-stage]') as HTMLElement | null;
+    // 拖拽期间：冻结适配重算 + 锁定起始缩放——比例中途变化会让内容漂移
+    suppressRefitRef.current = true;
     const s0 = scale;
     const startX = e.clientX;
     const startY = e.clientY;
@@ -42,10 +45,28 @@ export const CompositionResizeHandles: React.FC<{ scale: number }> = ({ scale })
         (st) => ({ ...st, compositionWidth: newW, compositionHeight: newH }),
         { commit: false },
       );
+      // 舞台居中布局会把尺寸增量对半分到两侧：反向位移抵消，
+      // 让被拖的边严格跟手、对边在屏幕上锚定不动（拉窗口边框的手感）
+      if (stage) {
+        const tx = handle.includes('e')
+          ? ((newW - w0) * s0) / 2
+          : handle.includes('w')
+            ? -((newW - w0) * s0) / 2
+            : 0;
+        const ty = handle.includes('s')
+          ? ((newH - h0) * s0) / 2
+          : handle.includes('n')
+            ? -((newH - h0) * s0) / 2
+            : 0;
+        stage.style.transform = `translate(${tx}px, ${ty}px)`;
+      }
     };
     const onUp = () => {
       el.removeEventListener('pointermove', onMove);
       el.removeEventListener('pointerup', onUp);
+      if (stage) stage.style.transform = '';
+      suppressRefitRef.current = false;
+      canvasRefitRef.current(); // 松手后一次性恢复居中与适配
       setDragging(false);
       useEditorStore.getState().commitPending();
     };
