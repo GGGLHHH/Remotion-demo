@@ -1,14 +1,22 @@
 import type React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDownIcon, SearchIcon } from 'lucide-react';
+import { ChevronDownIcon } from 'lucide-react';
 import { ensureFontLoaded, listFontFamilies } from '@editor/shared/composition';
-import { Input } from '@/components/ui/input';
+import {
+  Command,
+  CommandEmpty,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useEditorStore } from '../state/store';
 
-/** 字体选择器：搜索 + 下拉 + 悬停画布实时预览。
+/** 字体选择器：shadcn Popover + Command，搜索 + 悬停画布实时预览。
  * 下拉项用各自字体渲染（官方 FEATURE_FONT_FAMILY_DROPDOWN_RENDER_IN_FONT）：
  * IntersectionObserver 在行进入可视区时才懒加载该字体，加载完成前显示回退字体。
- * 悬停预览依赖每行的 mouseenter 回调，保持自定义下拉，仅按 shadcn popover 风格改样式 */
+ * 过滤保持手动（shouldFilter=false）：全量字体上千，需截前 100 行控制 DOM 数量，
+ * 且 cmdk 内置模糊评分对字体名易误排序；query 变化时重挂 observer 覆盖新出现的行 */
 export const FontPicker: React.FC<{
   itemId: string;
   value: string;
@@ -46,54 +54,56 @@ export const FontPicker: React.FC<{
   }, [open, families]);
 
   return (
-    <div className="relative w-full min-w-0">
-      <button
-        className="flex h-7 w-full items-center justify-between gap-1.5 rounded-lg border border-input bg-transparent px-2 text-left text-xs transition-colors outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30 dark:hover:bg-input/50"
+    <Popover
+      open={open}
+      onOpenChange={(o) => {
+        setOpen(o);
+        if (!o) setFontHoverPreview(null); // 关闭（点外部/Esc）时清掉悬停预览
+      }}
+    >
+      <PopoverTrigger
+        className="flex h-7 w-full min-w-0 items-center justify-between gap-1.5 rounded-lg border border-input bg-transparent px-2 text-left text-xs transition-colors outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30 dark:hover:bg-input/50"
         style={{ fontFamily: value }}
-        onClick={() => setOpen((o) => !o)}
       >
         <span className="truncate">{value}</span>
         <ChevronDownIcon className="size-3.5 shrink-0 text-muted-foreground" />
-      </button>
-      {open ? (
-        <div className="absolute z-30 mt-1 w-full overflow-hidden rounded-lg bg-popover text-popover-foreground shadow-md ring-1 ring-foreground/10">
-          <div className="relative border-b border-border">
-            <SearchIcon className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              autoFocus
-              placeholder="搜索字体…"
-              className="h-8 rounded-none border-0 bg-transparent pl-7 text-xs focus-visible:ring-0 md:text-xs dark:bg-transparent"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
-          </div>
-          {/* e2e 依赖 div.max-h-64 button 选择器，容器 class 保持 */}
-          <div
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-(--anchor-width) p-0">
+        <Command shouldFilter={false} className="rounded-lg!">
+          <CommandInput
+            autoFocus
+            placeholder="搜索字体…"
+            className="text-xs"
+            value={query}
+            onValueChange={setQuery}
+          />
+          <CommandList
             ref={listRef}
-            className="max-h-64 overflow-y-auto p-1"
+            className="max-h-64"
             onMouseLeave={() => setFontHoverPreview(null)}
           >
+            <CommandEmpty>无匹配字体</CommandEmpty>
             {families.map((f) => (
-              <button
+              <CommandItem
                 key={f}
+                value={f}
                 data-font={f}
-                className={`block w-full truncate rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent hover:text-accent-foreground ${
-                  f === value ? 'bg-accent text-accent-foreground' : ''
-                }`}
+                data-checked={f === value || undefined}
+                className={f === value ? 'bg-accent text-accent-foreground' : ''}
                 style={{ fontFamily: f }}
                 onMouseEnter={() => setFontHoverPreview({ itemId, fontFamily: f })}
-                onClick={() => {
+                onSelect={() => {
                   onCommit(f);
                   setFontHoverPreview(null);
                   setOpen(false);
                 }}
               >
                 {f}
-              </button>
+              </CommandItem>
             ))}
-          </div>
-        </div>
-      ) : null}
-    </div>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   );
 };

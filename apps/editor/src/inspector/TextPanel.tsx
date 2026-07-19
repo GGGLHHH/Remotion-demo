@@ -9,6 +9,9 @@ import {
 } from 'lucide-react';
 import type { TextItem } from '@editor/shared';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Command, CommandItem, CommandList } from '@/components/ui/command';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useEditorStore } from '../state/store';
@@ -64,41 +67,45 @@ export const TextPanel: React.FC<{ item: TextItem }> = ({ item }) => {
           <FontPicker itemId={item.id} value={item.fontFamily} onCommit={(f) => patch({ fontFamily: f })} />
         </Row>
         <Row label="字重">
-          {/* 自定义下拉：悬停即在画布实时预览字重（commit:false），点击才提交；
-              shadcn Select 无法逐项 hover 回调，保留自定义结构、按 popover 风格改样式 */}
-          <div className="relative w-full min-w-0">
-            <button
-              className="flex h-7 w-full items-center justify-between gap-1.5 rounded-lg border border-input bg-transparent px-2 text-left text-xs transition-colors outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30 dark:hover:bg-input/50"
-              onClick={() => setWeightOpen((o) => !o)}
-            >
+          {/* Popover + Command 下拉：悬停即在画布实时预览字重（commit:false），点击才提交；
+              shadcn Select 无法逐项 hover 回调，故用 CommandItem 挂 onMouseEnter */}
+          <Popover
+            open={weightOpen}
+            onOpenChange={(o) => {
+              setWeightOpen(o);
+              if (!o) cancelItemStylePreview(); // 关闭（点外部/Esc）时撤掉悬停预览
+            }}
+          >
+            <PopoverTrigger className="flex h-7 w-full min-w-0 items-center justify-between gap-1.5 rounded-lg border border-input bg-transparent px-2 text-left text-xs transition-colors outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30 dark:hover:bg-input/50">
               {item.fontWeight}
               <ChevronDownIcon className="size-3.5 shrink-0 text-muted-foreground" />
-            </button>
-            {weightOpen ? (
-              <div
-                className="absolute z-30 mt-1 w-full overflow-hidden rounded-lg bg-popover p-1 text-popover-foreground shadow-md ring-1 ring-foreground/10"
-                onMouseLeave={cancelItemStylePreview}
-              >
-                {WEIGHTS.map((w) => (
-                  <button
-                    key={w}
-                    className={`block w-full rounded-md px-2 py-1 text-left text-xs hover:bg-accent hover:text-accent-foreground ${
-                      w === item.fontWeight ? 'bg-accent text-accent-foreground' : ''
-                    }`}
-                    style={{ fontFamily: item.fontFamily, fontWeight: w }}
-                    onMouseEnter={() => previewItemStyle(item.id, { fontWeight: w })}
-                    onClick={() => {
-                      previewItemStyle(item.id, { fontWeight: w });
-                      commitPending();
-                      setWeightOpen(false);
-                    }}
-                  >
-                    {w}
-                  </button>
-                ))}
-              </div>
-            ) : null}
-          </div>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-(--anchor-width) p-0">
+              <Command className="rounded-lg!">
+                <CommandList onMouseLeave={cancelItemStylePreview}>
+                  {WEIGHTS.map((w) => (
+                    <CommandItem
+                      key={w}
+                      value={w}
+                      data-checked={w === item.fontWeight || undefined}
+                      className={`py-1 text-xs ${
+                        w === item.fontWeight ? 'bg-accent text-accent-foreground' : ''
+                      }`}
+                      style={{ fontFamily: item.fontFamily, fontWeight: w }}
+                      onMouseEnter={() => previewItemStyle(item.id, { fontWeight: w })}
+                      onSelect={() => {
+                        previewItemStyle(item.id, { fontWeight: w });
+                        commitPending();
+                        setWeightOpen(false);
+                      }}
+                    >
+                      {w}
+                    </CommandItem>
+                  ))}
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
           <Tooltip>
             <TooltipTrigger
               render={
@@ -192,12 +199,9 @@ export const TextPanel: React.FC<{ item: TextItem }> = ({ item }) => {
       </Section>
       <Section title="文字背景">
         <Row label="启用">
-          {/* e2e 依赖原生 checkbox input（.check()），保留原生控件仅改配色 */}
-          <input
-            type="checkbox"
-            className="size-4 accent-primary"
+          <Checkbox
             checked={item.backgroundColor !== null}
-            onChange={(e) => patch({ backgroundColor: e.target.checked ? '#000000' : null })}
+            onCheckedChange={(checked) => patch({ backgroundColor: checked ? '#000000' : null })}
           />
         </Row>
         {item.backgroundColor !== null ? (

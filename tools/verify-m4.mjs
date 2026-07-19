@@ -42,7 +42,9 @@ const selectId = (id) => page.evaluate((i) => window.__editorStore.getState().se
   await page.locator('label:has-text("对齐")').nth(1).locator('button').first().click();
   s = await S();
   if (s.items[id].textAlign !== 'left') fail('textAlign not left');
-  await page.locator('label:has-text("启用") input').check();
+  // shadcn Checkbox：button[role=checkbox]，无原生 input；未勾选时点一下（等价原 .check()）
+  const bgCheck = page.locator('label:has-text("启用") [role="checkbox"]');
+  if ((await bgCheck.getAttribute('aria-checked')) !== 'true') await bgCheck.click();
   s = await S();
   if (s.items[id].backgroundColor === null) fail('backgroundColor still null');
 }
@@ -53,7 +55,8 @@ const selectId = (id) => page.evaluate((i) => window.__editorStore.getState().se
   await selectId(id);
   await page.locator('label:has-text("字体") button').click();
   await page.locator('input[placeholder="搜索字体…"]').fill('Roboto');
-  await page.locator('div.max-h-64 button', { hasText: /^Roboto$/ }).first().click();
+  // shadcn Command：字体行是 role=option（cmdk），不再是 button
+  await page.getByRole('option', { name: 'Roboto', exact: true }).click();
   const s = await S();
   if (s.items[id].fontFamily !== 'Roboto') fail(`fontFamily ${s.items[id].fontFamily}`);
 }
