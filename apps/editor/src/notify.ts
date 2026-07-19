@@ -1,5 +1,5 @@
 import { toast } from 'sonner';
-import type { NotifyFn } from '../../state/runtime';
+import type { NotifyFn } from '@gedatou/editor';
 
 /** 默认 notify：sonner toast。仅 demo 用——库内提示走注入的 NotifyFn。 */
 export const sonnerNotify: NotifyFn = (msg, level) =>

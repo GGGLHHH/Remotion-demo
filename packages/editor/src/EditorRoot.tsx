@@ -28,7 +28,17 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from './components/ui/alert-dialog';
-import { useEditor, useEditorApi, useEditorDeps, useEditorRefs } from './state/context';
+import {
+  EditorProvider,
+  useEditor,
+  useEditorApi,
+  useEditorDeps,
+  useEditorRefs,
+} from './state/context';
+import { TooltipProvider } from './components/ui/tooltip';
+import type { EditorDeps } from './state/runtime';
+import type { EditorInitialState, EditorStoreApi } from './state/store';
+import type { EditorInstanceRefs } from './state/instance-refs';
 import { useShortcuts } from './shortcuts/useShortcuts';
 import { CanvasView, type CanvasTool } from './canvas/CanvasView';
 import { Inspector } from './inspector/Inspector';
@@ -198,7 +208,7 @@ const CleanupAssetsButton = () => {
   );
 };
 
-export default function App() {
+function EditorShell() {
   useShortcuts();
   const editorApi = useEditorApi();
   const deps = useEditorDeps();
@@ -308,5 +318,31 @@ export default function App() {
       <PlaybackBar />
       <TimelinePanel />
     </div>
+  );
+}
+
+export type EditorRootProps = {
+  /** I/O 依赖注入：transport（后端）/ storage（持久化）/ notify（提示）。必填。 */
+  deps: EditorDeps;
+  /** 受控 store（宿主自持/暴露句柄）；不传则 Provider 按 initialState 自建 */
+  store?: EditorStoreApi;
+  /** 受控 refs 袋子（宿主暴露 player 等）；不传则 Provider 自建 */
+  refs?: EditorInstanceRefs;
+  /** 初始工程状态（非受控 store 时的播种） */
+  initialState?: EditorInitialState;
+};
+
+/**
+ * 一站式编辑器根组件：自带 <EditorProvider>（store/refs/deps 隔离）+ TooltipProvider，
+ * 内部装配工具栏 + 画布 + 检查器 + 播放条 + 时间线。放进去 + 传 deps 即可运行，一页可多个。
+ * 想自定义布局的用 <EditorProvider> + 单面板（Canvas/Timeline/Inspector/PlaybackBar）。
+ */
+export function EditorRoot({ deps, store, refs, initialState }: EditorRootProps) {
+  return (
+    <EditorProvider deps={deps} store={store} refs={refs} initialState={initialState}>
+      <TooltipProvider>
+        <EditorShell />
+      </TooltipProvider>
+    </EditorProvider>
   );
 }

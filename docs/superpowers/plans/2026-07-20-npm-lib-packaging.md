@@ -143,5 +143,6 @@ React 19 零 `forwardRef`；Tailwind v4 必需；ESM-only；Remotion 单版本 p
 2. **store 契约（原地，`apps/editor` 内）**：singleton → `createEditorStore` 工厂 + `<EditorProvider>` + `useEditor`/`useEditorApi`；`pendingBase` 进闭包；转换全部 24 个调用文件（组件 `useEditorStore(`→`useEditor(`、`.getState()`→`editorApi.getState()`；非组件模块收 `store` 参）；`App.tsx` 挂 Provider 并暴露 `window.__editorStore`。DoD：typecheck + 单测 + 全 e2e 绿，app 行为不变。
 3. **canvas 单例（原地）**：`playerRef/panRef/fitScaleRef/stageElRef` → `useEditorRefs()` instance-refs。DoD：全 e2e 绿。
 4. **注入接口（原地）**：`EditorTransport`/`EditorStorage`/`NotifyFn` + 8 个非组件模块 I/O 改走注入 + `App.tsx` 接默认适配器（http/browser/sonner）。DoD：demo 全功能（导入/渲染/字幕/保存）跑通。
-5. **物理搬包 + 打包**：feature 层移入 `packages/editor`，`@/` 别名处理，tsup（esm+dts+banner+sideEffects）、exports 子路径、`styles.css` token 层、`EditorRoot` + 单面板导出、peer 齐。DoD：`npm pack` 产物干净、`apps/editor` 只靠公开 API 装配、e2e 绿。
-6. **demo 收尾 + 文档**：`App.tsx` 全改用公开 API；README 写消费方三行 CSS + `<EditorRoot>` 用法。
+5. ✅ **物理搬包 + 打包**（已完成）：feature 层移入 `packages/editor`（含 16 个实际用到的 shadcn 原语，删 43 未用）；`@/` 先 codemod 成相对路径（5a）再搬；tsup（esm+dts+sideEffects，`ignoreDeprecations:6.0` 修 TS6 dts）；exports 子路径（`.` / `./adapters` / `./styles.css`，publishConfig→dist）；`styles.css` token 层随包发布，demo 侧 `@source` + import；`EditorRoot`（自带 Provider+TooltipProvider，从 App.tsx 抽出）+ 单面板导出；peer 全 external。`npm pack` 11 文件干净、apps/editor 纯公开 API 装配、m1–m8 e2e 绿。
+   - **偏离记录**：① 仅搬实际用到的 16 个 ui 原语（闭包），删 43 个未用（recharts/embla/day-picker 等重依赖不进包）；② sonner 留 demo（Toaster + notify 适配器），包 sonner-free，`/adapters` 只发 http-transport + browser-storage；③ `"use client"` banner 在 splitting bundle 下被 esbuild 忽略，已移除；RSC 逐文件指令保留留作后续（需 preserve-directives 插件）。
+6. **demo 收尾 + 文档**（进行中）：apps/editor 已是纯消费方；待补 README（消费方三行 CSS + `<EditorRoot>` 用法 + peer 安装说明）+ 清理 apps/editor 残留未用 deps。

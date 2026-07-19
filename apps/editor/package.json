@@ -8,11 +8,11 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "typecheck": "tsc -b",
-    "test": "vitest run"
+    "typecheck": "tsc -b"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
+    "@gedatou/editor": "workspace:*",
     "@gedatou/shared": "workspace:*",
     "@fontsource-variable/geist": "^5.2.9",
     "@remotion/gif": "4.0.491",
