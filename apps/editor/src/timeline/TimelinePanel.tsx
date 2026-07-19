@@ -26,6 +26,7 @@ import {
   removeEmptyTracks,
   resolveMovePlacement,
   resolveSplitTargets,
+  rollEdit,
   sendToBack,
   snapFrame,
   splitItemsAtFrame,
@@ -34,8 +35,8 @@ import {
 import { importFiles } from '../lib/import-assets';
 import { copySelection, duplicateSelection } from '../lib/clipboard';
 
-/** 修剪吸附阈值（官方约 3px） */
-const TRIM_SNAP_PX = 3;
+/** 修剪吸附阈值（官方约 10px） */
+const TRIM_SNAP_PX = 10;
 /** 行间边界 ±4px ⇒ 插入新轨道 */
 const TRACK_GAP_PX = 4;
 /** 视口左右边缘自动滚动：触发范围与步长 */
@@ -49,7 +50,7 @@ type DragState =
       id: string;
       startX: number;
       snapshot: UndoableState;
-      /** Alt+拖：滚动编辑联动的相邻项 */
+      /** 滚动编辑（相邻块边界热区）联动的相邻项 */
       rollingNeighborId: string | null;
     }
   | { kind: 'marquee'; startX: number; startY: number; curX: number; curY: number };
@@ -361,24 +362,15 @@ export const TimelinePanel: React.FC = () => {
 
     if (mode === 'trim-start' || mode === 'trim-end') {
       const edge = mode === 'trim-start' ? 'start' : 'end';
-      let rollingNeighborId: string | null = null;
-      if (e.altKey) {
-        const boundary = edge === 'start' ? item.from : item.from + item.durationInFrames;
-        const neighbor = Object.values(store.undoable.items).find(
-          (o) =>
-            o.trackId === item.trackId &&
-            o.id !== item.id &&
-            (edge === 'start' ? o.from + o.durationInFrames === boundary : o.from === boundary),
-        );
-        rollingNeighborId = neighbor?.id ?? null;
-      }
+      // 官方：按下修剪手柄立即独占选中该项（mousedown 即生效，无需移动）
+      store.setSelected([item.id]);
       drag.current = {
         kind: 'trim',
         edge,
         id: item.id,
         startX: e.clientX,
         snapshot: store.undoable,
-        rollingNeighborId,
+        rollingNeighborId: null,
       };
       setTrimming({ id: item.id, edge });
       return;
@@ -409,22 +401,43 @@ export const TimelinePanel: React.FC = () => {
     startMoveDrag();
   };
 
+  /** 相邻块边界滚动编辑（官方：4px ew-resize 热区，无需修饰键）：A 出点 + B 入点联动 */
+  const onRollPointerDown = (e: React.PointerEvent, aId: string, bId: string) => {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    drag.current = {
+      kind: 'trim',
+      edge: 'end',
+      id: aId,
+      startX: e.clientX,
+      snapshot: useEditorStore.getState().undoable,
+      rollingNeighborId: bId,
+    };
+  };
+
   const onPointerMove = (e: React.PointerEvent) => {
     const d = drag.current;
     if (!d) return;
     const store = useEditorStore.getState();
 
     if (d.kind === 'trim') {
+      // 官方：按住 Shift 完全抑制修剪（边缘回到起拖位置，松开恢复）
+      if (e.shiftKey) {
+        setTrimGuide(null);
+        store.updateUndoable(() => d.snapshot, { commit: false });
+        return;
+      }
       let delta = Math.round((e.clientX - d.startX) / zoom);
       const orig = d.snapshot.items[d.id];
       let guide: number | null = null;
       if (snapping && orig) {
-        // 修剪吸附（~3px 阈值）：以被拖的边缘为准
+        // 修剪吸附（官方约 10px 阈值）：以被拖的边缘为准；播放头不是修剪吸附目标
         const tol = Math.max(1, Math.round(TRIM_SNAP_PX / zoom));
         const edgeFrame =
           d.edge === 'start' ? orig.from + delta : orig.from + orig.durationInFrames + delta;
         const ignoreIds = d.rollingNeighborId ? [d.id, d.rollingNeighborId] : [d.id];
-        const snapped = snapFrame(d.snapshot, edgeFrame, tol, { playheadFrame: frame, ignoreIds });
+        const snapped = snapFrame(d.snapshot, edgeFrame, tol, { ignoreIds });
         if (snapped !== edgeFrame) {
           delta += snapped - edgeFrame;
           guide = snapped;
@@ -432,18 +445,10 @@ export const TimelinePanel: React.FC = () => {
       }
       setTrimGuide(guide);
       store.updateUndoable(
-        () => {
-          if (!d.rollingNeighborId) return trimItem(d.snapshot, d.id, d.edge, delta);
-          // 滚动编辑：先收缩的一侧先算，腾出空间给扩展侧
-          const neighborEdge = d.edge === 'end' ? 'start' : 'end';
-          const itemShrinks = d.edge === 'end' ? delta < 0 : delta > 0;
-          if (itemShrinks) {
-            const st = trimItem(d.snapshot, d.id, d.edge, delta);
-            return trimItem(st, d.rollingNeighborId, neighborEdge, delta);
-          }
-          const st = trimItem(d.snapshot, d.rollingNeighborId, neighborEdge, delta);
-          return trimItem(st, d.id, d.edge, delta);
-        },
+        () =>
+          d.rollingNeighborId
+            ? rollEdit(d.snapshot, d.id, d.rollingNeighborId, delta)
+            : trimItem(d.snapshot, d.id, d.edge, delta),
         { commit: false },
       );
       return;
@@ -564,15 +569,15 @@ export const TimelinePanel: React.FC = () => {
   const headerRows = undoable.tracks.map((t, i) => (
     <TrackHeader key={t.id} track={t} number={undoable.tracks.length - i} />
   ));
-  const laneRows = undoable.tracks.map((track) => (
-    <div
-      key={track.id}
-      className="relative border-b border-zinc-800/50"
-      style={{ height: TRACK_HEIGHT }}
-    >
-      {Object.values(undoable.items)
-        .filter((i) => i.trackId === track.id)
-        .map((item) => (
+  const laneRows = undoable.tracks.map((track) => {
+    const rowItems = Object.values(undoable.items).filter((i) => i.trackId === track.id);
+    return (
+      <div
+        key={track.id}
+        className="relative border-b border-zinc-800/50"
+        style={{ height: TRACK_HEIGHT }}
+      >
+        {rowItems.map((item) => (
           <ItemBlock
             key={item.id}
             item={item}
@@ -581,8 +586,23 @@ export const TimelinePanel: React.FC = () => {
             onPointerDown={onItemPointerDown}
           />
         ))}
-    </div>
-  ));
+        {/* 帧级相邻的两块边界：4px 滚动编辑热区（压在两侧修剪手柄之上） */}
+        {rowItems.flatMap((a) => {
+          const b = rowItems.find((o) => o.from === a.from + a.durationInFrames);
+          if (!b) return [];
+          return [
+            <div
+              key={`roll-${a.id}`}
+              data-roll
+              className="absolute inset-y-1.5 z-40 w-1 cursor-ew-resize"
+              style={{ left: b.from * zoom - 2 }}
+              onPointerDown={(e) => onRollPointerDown(e, a.id, b.id)}
+            />,
+          ];
+        })}
+      </div>
+    );
+  });
   if (virtualRowIndex !== null) {
     headerRows.splice(
       virtualRowIndex,
@@ -755,10 +775,10 @@ export const TimelinePanel: React.FC = () => {
                   );
                 })()
               : null}
-            {/* 吸附线：贯穿整个时间线高度 */}
+            {/* 吸附线：贯穿整个时间线高度（官方 1px neutral-700） */}
             {guideFrame !== null ? (
               <div
-                className="pointer-events-none absolute inset-y-0 z-30 w-px bg-white/40"
+                className="pointer-events-none absolute inset-y-0 z-30 w-px bg-neutral-700"
                 style={{ left: guideFrame * zoom }}
               />
             ) : null}

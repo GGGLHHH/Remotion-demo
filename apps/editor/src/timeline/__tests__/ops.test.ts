@@ -17,6 +17,7 @@ import {
   moveItems,
   removeEmptyTracks,
   resolveMovePlacement,
+  rollEdit,
   snapFrame,
   resolveSplitTargets,
   splitItemsAtFrame,
@@ -193,6 +194,56 @@ describe('resolveMovePlacement', () => {
     const a = solidAt(state, t1.id, 0, 30);
     expect(resolveMovePlacement(state, a.id, -5, { kind: 'insert', index: 0 }).from).toBe(0);
     expect(resolveMovePlacement(state, a.id, 40, { kind: 'insert', index: 2 }).from).toBe(40);
+  });
+});
+
+describe('rollEdit', () => {
+  test('联动：A 出点与 B 入点同移，B 结尾不动', () => {
+    const { state, t1 } = build();
+    const a = solidAt(state, t1.id, 0, 50);
+    const b = solidAt(state, t1.id, 50, 50);
+    const next = rollEdit(state, a.id, b.id, 10);
+    expect(next.items[a.id].durationInFrames).toBe(60);
+    expect(next.items[b.id].from).toBe(60);
+    expect(next.items[b.id].durationInFrames).toBe(40);
+    const back = rollEdit(state, a.id, b.id, -10);
+    expect(back.items[a.id].durationInFrames).toBe(40);
+    expect(back.items[b.id].from).toBe(40);
+    expect(back.items[b.id].durationInFrames).toBe(60);
+  });
+  test('两侧各保最小 1 帧（无缝无叠）', () => {
+    const { state, t1 } = build();
+    const a = solidAt(state, t1.id, 0, 50);
+    const b = solidAt(state, t1.id, 50, 50);
+    const grow = rollEdit(state, a.id, b.id, 500);
+    expect(grow.items[a.id].durationInFrames).toBe(99);
+    expect(grow.items[b.id].from).toBe(99);
+    expect(grow.items[b.id].durationInFrames).toBe(1);
+    const shrink = rollEdit(state, a.id, b.id, -500);
+    expect(shrink.items[a.id].durationInFrames).toBe(1);
+    expect(shrink.items[b.id].from).toBe(1);
+    expect(shrink.items[b.id].durationInFrames).toBe(99);
+  });
+  test('A 为媒体：出点不能超素材末尾；delta 0 时引用不变', () => {
+    const { state, t1 } = build();
+    // 素材 300 帧全占 ⇒ A 无法再扩展
+    const { item: a } = addVideo(state, t1.id, { from: 0, durationInFrames: 300 });
+    const b = solidAt(state, t1.id, 300, 50);
+    expect(rollEdit(state, a.id, b.id, 10)).toBe(state);
+    const shrunk = rollEdit(state, a.id, b.id, -20);
+    expect(shrunk.items[a.id].durationInFrames).toBe(280);
+    expect(shrunk.items[b.id].from).toBe(280);
+    expect(shrunk.items[b.id].durationInFrames).toBe(70);
+  });
+  test('B 为媒体：trimBefore=0 时入点无法左移；右移增加 trimBefore', () => {
+    const { state, t1 } = build();
+    const a = solidAt(state, t1.id, 0, 60);
+    const { item: b } = addVideo(state, t1.id, { from: 60, trimBefore: 0 });
+    expect(rollEdit(state, a.id, b.id, -10)).toBe(state);
+    const next = rollEdit(state, a.id, b.id, 10);
+    expect(next.items[a.id].durationInFrames).toBe(70);
+    expect(next.items[b.id].from).toBe(70);
+    expect((next.items[b.id] as VideoItem).trimBefore).toBe(10);
   });
 });
 

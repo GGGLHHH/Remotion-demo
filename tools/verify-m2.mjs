@@ -120,14 +120,14 @@ if ((await page.locator('[data-item-block]').count()) !== 2) fail('expected 2 it
   if (s2.items[textId].trackId !== trackBefore) fail('cross-track undo failed');
 }
 
-// 7) 修剪 solid 末端 -40px ⇒ 130 帧
+// 7) 修剪 solid 末端 -60px ⇒ 120 帧（避开 text 末端 135 的吸附范围，阈值约 10px）
 {
   const { solidId } = await ids();
   const b = await blockBox(solidId);
-  await dragBy(b.x + b.width - 2, b.y + b.height / 2, -40, 0);
+  await dragBy(b.x + b.width - 2, b.y + b.height / 2, -60, 0);
   const s = await getStore();
-  if (s.items[solidId].durationInFrames !== 130) {
-    fail(`trim end: dur=${s.items[solidId].durationInFrames}, want 130`);
+  if (s.items[solidId].durationInFrames !== 120) {
+    fail(`trim end: dur=${s.items[solidId].durationInFrames}, want 120`);
   }
   await page.keyboard.press('Meta+z');
 }

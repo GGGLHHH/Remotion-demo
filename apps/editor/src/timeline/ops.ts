@@ -182,6 +182,35 @@ export const trimItem = (
   };
 };
 
+/**
+ * 滚动编辑（官方：相邻块边界 4px 热区）：A 的出点与 B 的入点同步移动，B 的结尾不动。
+ * 钳制：双方各保 >= 1 帧；A 扩展不超素材末尾；B 入点左移不早于素材开头。
+ * 先钳出双方都能接受的同一 delta，再按"收缩侧先算"应用，保证无缝无叠。
+ */
+export const rollEdit = (
+  state: UndoableState,
+  aId: string,
+  bId: string,
+  deltaFrames: number,
+): UndoableState => {
+  const a = state.items[aId];
+  const b = state.items[bId];
+  if (!a || !b || deltaFrames === 0) return state;
+  let delta = deltaFrames;
+  delta = Math.max(delta, 1 - a.durationInFrames);
+  delta = Math.min(delta, b.durationInFrames - 1);
+  const maxA = maxItemDurationInFrames(state, aId);
+  if (maxA !== null) delta = Math.min(delta, maxA - a.durationInFrames);
+  if (isMediaItem(b)) delta = Math.max(delta, -Math.floor(b.trimBefore / b.playbackRate));
+  if (delta === 0) return state;
+  if (delta > 0) {
+    // B 先右移入点腾位，A 再扩展
+    return trimItem(trimItem(state, bId, 'start', delta), aId, 'end', delta);
+  }
+  // A 先收缩，B 再左移入点补位
+  return trimItem(trimItem(state, aId, 'end', delta), bId, 'start', delta);
+};
+
 export const splitItemsAtFrame = (
   state: UndoableState,
   frame: number,

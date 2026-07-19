@@ -136,12 +136,14 @@ export const ItemBlock: React.FC<{
     <div
       ref={blockRef}
       data-item-block={item.id}
-      className={`group absolute top-1.5 bottom-1.5 flex cursor-pointer items-center overflow-hidden rounded border px-2 text-xs text-white/90 ${COLORS[item.type]} ${
+      className={`group absolute top-1.5 bottom-1.5 cursor-pointer rounded border text-xs text-white/90 ${COLORS[item.type]} ${
         selected ? 'border-[#0B84F3]' : 'border-white/10'
       }`}
       style={{ left: item.from * zoom, width: widthPx, visibility: hidden ? 'hidden' : undefined }}
       onPointerDown={(e) => onPointerDown?.(e, item, 'move')}
     >
+      {/* 内容裁剪层：条纹/波形/标签等在此裁剪；修剪手柄留在外层以便悬出块外 */}
+      <div className="absolute inset-0 flex items-center overflow-hidden rounded px-2">
       {item.type === 'video' && mediaUrl ? (
         <Filmstrip assetId={item.assetId} url={mediaUrl} widthPx={widthPx} />
       ) : null}
@@ -207,10 +209,11 @@ export const ItemBlock: React.FC<{
             : `${fadeDrag!.side === 'in' ? '淡入' : '淡出'} ${(fadeDrag!.frames / fps).toFixed(1)}s`}
         </div>
       ) : null}
-      {/* 修剪手柄（官方：左缘 e-resize、右缘 w-resize） */}
+      </div>
+      {/* 修剪手柄（官方：不可见、6px 宽、向块外悬出 1px；左缘 e-resize、右缘 w-resize） */}
       <div
         data-trim="start"
-        className="absolute inset-y-0 left-0 z-30 w-1.5 cursor-e-resize bg-white/0 hover:bg-white/40"
+        className="absolute inset-y-0 -left-px z-30 w-1.5 cursor-e-resize"
         onPointerDown={(e) => {
           e.stopPropagation();
           onPointerDown?.(e, item, 'trim-start');
@@ -218,7 +221,7 @@ export const ItemBlock: React.FC<{
       />
       <div
         data-trim="end"
-        className="absolute inset-y-0 right-0 z-30 w-1.5 cursor-w-resize bg-white/0 hover:bg-white/40"
+        className="absolute inset-y-0 -right-px z-30 w-1.5 cursor-w-resize"
         onPointerDown={(e) => {
           e.stopPropagation();
           onPointerDown?.(e, item, 'trim-end');
