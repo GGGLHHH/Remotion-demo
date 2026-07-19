@@ -1,20 +1,35 @@
 {
   "name": "@gedatou/editor",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Embeddable Remotion video editor React components — timeline, canvas, inspector; shadcn-authored, theme-able",
-  "keywords": ["remotion", "video-editor", "react", "timeline", "shadcn", "tailwind"],
-  "homepage": "https://github.com/GGGLHHH/remotion-editor#readme",
-  "bugs": { "url": "https://github.com/GGGLHHH/remotion-editor/issues" },
+  "keywords": [
+    "remotion",
+    "video-editor",
+    "react",
+    "timeline",
+    "shadcn",
+    "tailwind"
+  ],
+  "homepage": "https://github.com/GGGLHHH/Remotion-demo#readme",
+  "bugs": {
+    "url": "https://github.com/GGGLHHH/Remotion-demo/issues"
+  },
   "license": "MIT",
   "author": "ge Datou (https://github.com/GGGLHHH)",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/GGGLHHH/remotion-editor.git",
+    "url": "git+https://github.com/GGGLHHH/Remotion-demo.git",
     "directory": "packages/editor"
   },
   "type": "module",
-  "sideEffects": ["**/*.css"],
-  "files": ["dist", "src/styles.css", "README.md"],
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "files": [
+    "dist",
+    "src/styles.css",
+    "README.md"
+  ],
   "exports": {
     ".": "./src/index.ts",
     "./adapters": "./src/lib/adapters/index.ts",
@@ -23,8 +38,14 @@
   "publishConfig": {
     "access": "public",
     "exports": {
-      ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
-      "./adapters": { "types": "./dist/adapters.d.ts", "import": "./dist/adapters.js" },
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      },
+      "./adapters": {
+        "types": "./dist/adapters.d.ts",
+        "import": "./dist/adapters.js"
+      },
       "./styles.css": "./src/styles.css"
     }
   },

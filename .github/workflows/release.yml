@@ -46,11 +46,10 @@ jobs:
       - name: Build packages
         run: pnpm build
 
+      # OIDC 可信发布（Trusted Publishing）：无 NPM_TOKEN，npm 自动附带 provenance 溯源。
+      # 前置：① 首个版本已在 npm 存在（新包首发需本地手动发一次，OIDC 无法引导不存在的包）；
+      #       ② 已在 npmjs.com 各包 Settings → Trusted publishing 配好本仓库 + 本 workflow。
       # 发布顺序由 pnpm 按 workspace 依赖拓扑决定（shared 先于 editor），
       # 并把 editor 里的 "@gedatou/shared": "workspace:*" 替换为真实版本号。
-      - name: Publish to npm
+      - name: Publish to npm (OIDC trusted publishing)
         run: pnpm --filter "@gedatou/*" publish --access public --no-git-checks
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        # 启用 provenance（供应链溯源）：确认 repository 字段指向真实公开仓库后，
-        # 在上面 publish 命令追加 --provenance；或改用 npm 可信发布（trusted publishing）删掉 NODE_AUTH_TOKEN。

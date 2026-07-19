@@ -1,20 +1,28 @@
 {
   "name": "@gedatou/shared",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Shared data model and Remotion composition for the @gedatou/editor video editor",
-  "keywords": ["remotion", "video-editor", "composition"],
-  "homepage": "https://github.com/GGGLHHH/remotion-editor#readme",
-  "bugs": { "url": "https://github.com/GGGLHHH/remotion-editor/issues" },
+  "keywords": [
+    "remotion",
+    "video-editor",
+    "composition"
+  ],
+  "homepage": "https://github.com/GGGLHHH/Remotion-demo#readme",
+  "bugs": {
+    "url": "https://github.com/GGGLHHH/Remotion-demo/issues"
+  },
   "license": "MIT",
   "author": "ge Datou (https://github.com/GGGLHHH)",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/GGGLHHH/remotion-editor.git",
+    "url": "git+https://github.com/GGGLHHH/Remotion-demo.git",
     "directory": "packages/shared"
   },
   "type": "module",
   "sideEffects": false,
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "exports": {
     ".": "./src/index.ts",
     "./composition": "./src/composition/index.ts"
@@ -22,8 +30,14 @@
   "publishConfig": {
     "access": "public",
     "exports": {
-      ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
-      "./composition": { "types": "./dist/composition.d.ts", "import": "./dist/composition.js" }
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      },
+      "./composition": {
+        "types": "./dist/composition.d.ts",
+        "import": "./dist/composition.js"
+      }
     }
   },
   "scripts": {
