@@ -33,16 +33,37 @@ export const CompositionResizeHandles: React.FC<{ scale: number }> = ({ scale })
     const st0 = useEditorStore.getState().undoable;
     const w0 = st0.compositionWidth;
     const h0 = st0.compositionHeight;
+    // 元素起始坐标快照：左/上拖拽的补偿基于快照计算，避免取偶累积漂移
+    const items0 = new Map(Object.values(st0.items).map((i) => [i.id, { left: i.left, top: i.top }]));
     setDragging(true);
     const even = (n: number) => Math.max(2, Math.round(n / 2) * 2);
     const onMove = (ev: PointerEvent) => {
       const dx = (ev.clientX - startX) / s0;
       const dy = (ev.clientY - startY) / s0;
-      // 常见语义（Figma/Premiere/检查器数字输入一致）：只改画布尺寸，不碰元素坐标
       const newW = handle.includes('e') ? even(w0 + dx) : handle.includes('w') ? even(w0 - dx) : w0;
       const newH = handle.includes('s') ? even(h0 + dy) : handle.includes('n') ? even(h0 - dy) : h0;
+      // Figma 式标准：拖左/上边 = 原点移动，改写元素坐标让内容在屏幕上纹丝不动；
+      // 拖右/下边坐标天然不变。配合下方的反向位移，任何边拖拽内容都视觉静止
+      const shiftX = handle.includes('w') ? newW - w0 : 0;
+      const shiftY = handle.includes('n') ? newH - h0 : 0;
       useEditorStore.getState().updateUndoable(
-        (st) => ({ ...st, compositionWidth: newW, compositionHeight: newH }),
+        (st) => ({
+          ...st,
+          compositionWidth: newW,
+          compositionHeight: newH,
+          items:
+            shiftX || shiftY
+              ? Object.fromEntries(
+                  Object.entries(st.items).map(([id, it]) => {
+                    const base = items0.get(id);
+                    return [
+                      id,
+                      base ? { ...it, left: base.left + shiftX, top: base.top + shiftY } : it,
+                    ];
+                  }),
+                )
+              : st.items,
+        }),
         { commit: false },
       );
       // 舞台居中布局会把尺寸增量对半分到两侧：反向位移抵消，
