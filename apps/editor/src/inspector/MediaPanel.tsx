@@ -99,7 +99,8 @@ export const MediaPanel: React.FC<{ item: MediaItem }> = ({ item }) => {
     );
   }
 
-  // 视频/GIF：「视频」区放速度 + 淡入淡出；有音轨的视频再加「音频」区
+  // 视频/GIF：「视频」区放速度 + 视觉淡入淡出（不透明度）；
+  // 有音轨的视频再加「音频」区（独立的音频淡变对，官方行为）
   return (
     <>
       <Section title="视频" collapsible defaultOpen={false}>
@@ -109,6 +110,15 @@ export const MediaPanel: React.FC<{ item: MediaItem }> = ({ item }) => {
       {item.type === 'video' ? (
         <Section title="音频" collapsible defaultOpen={false}>
           {audioRows(item)}
+          <FadeSliders
+            fadeInFrames={item.audioFadeInDurationInFrames ?? 0}
+            fadeOutFrames={item.audioFadeOutDurationInFrames ?? 0}
+            durationInFrames={item.durationInFrames}
+            fps={fps}
+            fadeInField="audioFadeInDurationInFrames"
+            fadeOutField="audioFadeOutDurationInFrames"
+            onPatch={(p) => patch(p as Partial<MediaItem>, false)}
+          />
         </Section>
       ) : null}
     </>

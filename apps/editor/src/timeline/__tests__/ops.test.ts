@@ -259,6 +259,29 @@ describe('splitItemsAtFrame', () => {
     expect(left.durationInFrames + right.durationInFrames).toBe(60);
     expect((right as VideoItem).trimBefore).toBe(5 + 20);
   });
+  test('视频分割：左半清淡出+音频淡出，右半清淡入+音频淡入，另一侧保留', () => {
+    const { state, t1 } = build();
+    const { item } = addVideo(state, t1.id, {
+      from: 10,
+      durationInFrames: 60,
+      fadeInDurationInFrames: 10,
+      fadeOutDurationInFrames: 12,
+      audioFadeInDurationInFrames: 8,
+      audioFadeOutDurationInFrames: 9,
+    });
+    const next = splitItemsAtFrame(state, 30, [item.id]);
+    const parts = Object.values(next.items) as VideoItem[];
+    const left = parts.find((p) => p.from === 10)!;
+    const right = parts.find((p) => p.from === 30)!;
+    expect(left.fadeOutDurationInFrames).toBe(0);
+    expect(left.audioFadeOutDurationInFrames).toBe(0);
+    expect(left.fadeInDurationInFrames).toBe(10);
+    expect(left.audioFadeInDurationInFrames).toBe(8);
+    expect(right.fadeInDurationInFrames).toBe(0);
+    expect(right.audioFadeInDurationInFrames).toBe(0);
+    expect(right.fadeOutDurationInFrames).toBe(12);
+    expect(right.audioFadeOutDurationInFrames).toBe(9);
+  });
   test('帧在项外不变', () => {
     const { state, t1 } = build();
     const a = solidAt(state, t1.id, 10, 30);

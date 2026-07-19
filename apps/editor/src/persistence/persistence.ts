@@ -1,9 +1,19 @@
 import { toast } from 'sonner';
-import type { UndoableState } from '@editor/shared';
+import type { EditorStarterItem, UndoableState } from '@editor/shared';
 import { useEditorStore } from '../state/store';
 import { getCachedAsset } from '../caching/indexeddb';
 
 const STORAGE_KEY = 'remotion-editor-state-v1';
+
+/** 旧数据迁移：视频缺 audioFade* 时继承视觉淡变（旧模型单对同时驱动画面与音量），原地修改 */
+export const normalizeLegacyFades = (items: Iterable<EditorStarterItem>): void => {
+  for (const item of items) {
+    if (item && item.type === 'video') {
+      item.audioFadeInDurationInFrames ??= item.fadeInDurationInFrames;
+      item.audioFadeOutDurationInFrames ??= item.fadeOutDurationInFrames;
+    }
+  }
+};
 
 export const serializeState = (state: UndoableState): string => JSON.stringify(state);
 
@@ -11,6 +21,7 @@ export const deserializeState = (raw: string): UndoableState | null => {
   try {
     const parsed = JSON.parse(raw) as UndoableState;
     if (!parsed || !Array.isArray(parsed.tracks) || typeof parsed.items !== 'object') return null;
+    normalizeLegacyFades(Object.values(parsed.items));
     return parsed;
   } catch {
     return null;

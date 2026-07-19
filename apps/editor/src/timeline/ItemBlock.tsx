@@ -40,6 +40,24 @@ const gainToTopFraction = (gain: number): number =>
 const topFractionToGain = (f: number): number =>
   f >= 1 ? 0 : 10 ** ((20 - 80 * Math.min(1, Math.max(0, f))) / 20);
 
+/**
+ * 时间轴块操作的淡变对（官方行为）：视频块的角标/楔形操作独立的音频淡变对
+ * （视觉淡变在检查器「视频」区）；音频与非媒体块沿用基础淡变对。
+ */
+const readFadePair = (it: EditorStarterItem): { fadeIn: number; fadeOut: number } =>
+  it.type === 'video'
+    ? { fadeIn: it.audioFadeInDurationInFrames ?? 0, fadeOut: it.audioFadeOutDurationInFrames ?? 0 }
+    : { fadeIn: it.fadeInDurationInFrames, fadeOut: it.fadeOutDurationInFrames };
+
+const writeFade = (it: EditorStarterItem, side: 'in' | 'out', v: number): EditorStarterItem =>
+  it.type === 'video'
+    ? side === 'in'
+      ? { ...it, audioFadeInDurationInFrames: v }
+      : { ...it, audioFadeOutDurationInFrames: v }
+    : side === 'in'
+      ? { ...it, fadeInDurationInFrames: v }
+      : { ...it, fadeOutDurationInFrames: v };
+
 /** 等功率淡变楔形路径（官方：黑色 SVG，覆盖未达全音量的区域） */
 const wedgePath = (w: number, h: number, side: 'in' | 'out'): string => {
   const N = 12;
@@ -91,6 +109,8 @@ export const ItemBlock: React.FC<{
   const [dragTip, setDragTip] = useState<{ label: string; x: number; y: number } | null>(null);
   /** 是否渲染底部音频条带（有音轨的媒体块） */
   const hasAudioStrip = item.type === 'audio' || (item.type === 'video' && videoHasAudio);
+  /** 本块角标/楔形/斜坡显示与写入的淡变对（视频 = 音频淡变对，其余 = 基础对） */
+  const { fadeIn: fadeInFrames, fadeOut: fadeOutFrames } = readFadePair(item);
 
   /** 手柄小拖拽骨架：捕获指针，move 期间 commit:false，抬起 commitPending（一次拖拽 = 一条撤销） */
   const startHandleDrag = (
@@ -151,22 +171,20 @@ export const ItemBlock: React.FC<{
             ? Math.round((ev.clientX - rect.left) / zoom)
             : Math.round((rect.right - ev.clientX) / zoom);
         // 淡入 + 淡出 不超过项时长
-        const other = side === 'in' ? it.fadeOutDurationInFrames : it.fadeInDurationInFrames;
+        const pair = readFadePair(it);
+        const other = side === 'in' ? pair.fadeOut : pair.fadeIn;
         const v = Math.min(Math.max(0, raw), Math.max(0, it.durationInFrames - other));
         setDragTip({
           label: `${side === 'in' ? '淡入' : '淡出'} ${(v / fps).toFixed(1)}s`,
           x: ev.clientX,
           y: ev.clientY,
         });
-        const cur = side === 'in' ? it.fadeInDurationInFrames : it.fadeOutDurationInFrames;
-        if (cur === v) return;
+        if ((side === 'in' ? pair.fadeIn : pair.fadeOut) === v) return;
         store.updateUndoable(
           (s) => {
             const cu = s.items[item.id];
             if (!cu) return s;
-            const next =
-              side === 'in' ? { ...cu, fadeInDurationInFrames: v } : { ...cu, fadeOutDurationInFrames: v };
-            return { ...s, items: { ...s.items, [item.id]: next } };
+            return { ...s, items: { ...s.items, [item.id]: writeFade(cu, side, v) } };
           },
           { commit: false },
         );
@@ -227,27 +245,27 @@ export const ItemBlock: React.FC<{
             gain={'volume' in item ? item.volume : 1}
             heightPx={AUDIO_STRIP_H}
           />
-          {item.fadeInDurationInFrames > 0 ? (
+          {fadeInFrames > 0 ? (
             <svg
               className="pointer-events-none absolute left-0 top-0"
-              width={Math.min(widthPx, item.fadeInDurationInFrames * zoom)}
+              width={Math.min(widthPx, fadeInFrames * zoom)}
               height={AUDIO_STRIP_H}
             >
               <path
-                d={wedgePath(Math.min(widthPx, item.fadeInDurationInFrames * zoom), AUDIO_STRIP_H, 'in')}
+                d={wedgePath(Math.min(widthPx, fadeInFrames * zoom), AUDIO_STRIP_H, 'in')}
                 fill="black"
                 fillOpacity={0.55}
               />
             </svg>
           ) : null}
-          {item.fadeOutDurationInFrames > 0 ? (
+          {fadeOutFrames > 0 ? (
             <svg
               className="pointer-events-none absolute right-0 top-0"
-              width={Math.min(widthPx, item.fadeOutDurationInFrames * zoom)}
+              width={Math.min(widthPx, fadeOutFrames * zoom)}
               height={AUDIO_STRIP_H}
             >
               <path
-                d={wedgePath(Math.min(widthPx, item.fadeOutDurationInFrames * zoom), AUDIO_STRIP_H, 'out')}
+                d={wedgePath(Math.min(widthPx, fadeOutFrames * zoom), AUDIO_STRIP_H, 'out')}
                 fill="black"
                 fillOpacity={0.55}
               />
@@ -275,21 +293,21 @@ export const ItemBlock: React.FC<{
           })()}
         </div>
       ) : null}
-      {/* 非条带块的淡入/淡出斜坡（视觉元素保留原样式） */}
-      {!hasAudioStrip && item.fadeInDurationInFrames > 0 ? (
+      {/* 非条带块的淡入/淡出斜坡（视觉元素保留原样式；与角标同一淡变对） */}
+      {!hasAudioStrip && fadeInFrames > 0 ? (
         <div
           className="pointer-events-none absolute inset-y-0 left-0"
           style={{
-            width: item.fadeInDurationInFrames * zoom,
+            width: fadeInFrames * zoom,
             background: 'linear-gradient(to top left, transparent 49.5%, rgba(0,0,0,0.45) 50%)',
           }}
         />
       ) : null}
-      {!hasAudioStrip && item.fadeOutDurationInFrames > 0 ? (
+      {!hasAudioStrip && fadeOutFrames > 0 ? (
         <div
           className="pointer-events-none absolute inset-y-0 right-0"
           style={{
-            width: item.fadeOutDurationInFrames * zoom,
+            width: fadeOutFrames * zoom,
             background: 'linear-gradient(to top right, transparent 49.5%, rgba(0,0,0,0.45) 50%)',
           }}
         />
@@ -335,14 +353,14 @@ export const ItemBlock: React.FC<{
       <div
         data-fade="in"
         className={fadeHandleCls}
-        style={{ left: item.fadeInDurationInFrames * zoom }}
+        style={{ left: fadeInFrames * zoom }}
         title="淡入"
         onPointerDown={(e) => onFadePointerDown(e, 'in')}
       />
       <div
         data-fade="out"
         className={fadeHandleCls}
-        style={{ left: widthPx - item.fadeOutDurationInFrames * zoom }}
+        style={{ left: widthPx - fadeOutFrames * zoom }}
         title="淡出"
         onPointerDown={(e) => onFadePointerDown(e, 'out')}
       />

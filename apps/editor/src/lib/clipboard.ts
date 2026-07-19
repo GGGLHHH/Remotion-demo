@@ -1,5 +1,6 @@
 import { createTextItem, newId, type EditorStarterAsset, type EditorStarterItem } from '@editor/shared';
 import { useEditorStore } from '../state/store';
+import { normalizeLegacyFades } from '../persistence/persistence';
 import { addTrack } from '../timeline/ops';
 
 /** 系统剪贴板 text/html 载荷的标记属性（与官方 editor-starter 同名，格式互通） */
@@ -51,6 +52,8 @@ export const parseClipboardHtml = (html: string): ClipboardPayload | null => {
     if (!Array.isArray(parsed.items)) return null;
     const items = parsed.items.filter((i) => i && typeof i === 'object' && 'type' in i && 'durationInFrames' in i);
     if (!items.length) return null;
+    // 旧版本载荷的视频单淡变对同时驱动画面与音量 ⇒ 粘贴时迁移
+    normalizeLegacyFades(items);
     return { items, assets: parsed.assets ?? {} };
   } catch {
     return null;

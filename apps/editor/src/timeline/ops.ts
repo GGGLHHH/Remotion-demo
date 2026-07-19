@@ -225,11 +225,13 @@ export const splitItemsAtFrame = (
     const leftDur = frame - item.from;
     const rightDur = item.durationInFrames - leftDur;
     const rightId = `${id}-r${frame}`;
+    // 切口两侧清零对应淡变：左半清淡出、右半清淡入（视频同时清独立的音频淡变对）
     const left: EditorStarterItem = {
       ...item,
       durationInFrames: leftDur,
       fadeOutDurationInFrames: 0,
     };
+    if (left.type === 'video') left.audioFadeOutDurationInFrames = 0;
     const right: EditorStarterItem = {
       ...item,
       id: rightId,
@@ -237,6 +239,7 @@ export const splitItemsAtFrame = (
       durationInFrames: rightDur,
       fadeInDurationInFrames: 0,
     };
+    if (right.type === 'video') right.audioFadeInDurationInFrames = 0;
     if (isMediaItem(right) && isMediaItem(item)) {
       right.trimBefore = item.trimBefore + Math.round(leftDur * item.playbackRate);
     }

@@ -25,14 +25,17 @@ const croppedStyle = (
   };
 };
 
-/** 音量回调：基础音量 × 淡入淡出（f 为 Sequence 内帧） */
-export const volumeWithFades = (item: {
-  volume: number;
-  fadeInDurationInFrames: number;
-  fadeOutDurationInFrames: number;
-  durationInFrames: number;
-}) => {
-  const { volume, fadeInDurationInFrames: fi, fadeOutDurationInFrames: fo, durationInFrames: dur } = item;
+/**
+ * 音量回调：基础音量 × 淡入淡出（f 为 Sequence 内帧）。
+ * 视频用独立的音频淡变对（audioFade*，视觉淡变只管不透明度）；
+ * 音频条目无视觉，沿用基础淡变对。
+ */
+export const volumeWithFades = (item: VideoItem | AudioItem) => {
+  const fi =
+    item.type === 'video' ? (item.audioFadeInDurationInFrames ?? 0) : item.fadeInDurationInFrames;
+  const fo =
+    item.type === 'video' ? (item.audioFadeOutDurationInFrames ?? 0) : item.fadeOutDurationInFrames;
+  const { volume, durationInFrames: dur } = item;
   if (fi === 0 && fo === 0) return volume;
   return (f: number) => {
     let v = volume;

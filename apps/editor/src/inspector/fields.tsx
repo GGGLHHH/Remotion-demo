@@ -113,15 +113,32 @@ export const SliderField: React.FC<{
   );
 };
 
+type FadeField =
+  | 'fadeInDurationInFrames'
+  | 'fadeOutDurationInFrames'
+  | 'audioFadeInDurationInFrames'
+  | 'audioFadeOutDurationInFrames';
+
 /** 淡入/淡出滑杆对：0 → 条目时长（秒），步进 0.1，读数 '0.0s'（官方 Fade 控件） */
 export const FadeSliders: React.FC<{
   fadeInFrames: number;
   fadeOutFrames: number;
   durationInFrames: number;
   fps: number;
+  /** 写入的字段名对：默认视觉淡变；视频「音频」区传 audioFade* 对 */
+  fadeInField?: FadeField;
+  fadeOutField?: FadeField;
   /** 始终 commit:false 更新，松手由 SliderField 自动 commitPending */
-  onPatch: (p: { fadeInDurationInFrames?: number; fadeOutDurationInFrames?: number }) => void;
-}> = ({ fadeInFrames, fadeOutFrames, durationInFrames, fps, onPatch }) => {
+  onPatch: (p: Partial<Record<FadeField, number>>) => void;
+}> = ({
+  fadeInFrames,
+  fadeOutFrames,
+  durationInFrames,
+  fps,
+  fadeInField = 'fadeInDurationInFrames',
+  fadeOutField = 'fadeOutDurationInFrames',
+  onPatch,
+}) => {
   const maxS = Math.max(0.1, durationInFrames / fps);
   return (
     <>
@@ -132,7 +149,7 @@ export const FadeSliders: React.FC<{
         max={maxS}
         step={0.1}
         display={`${(fadeInFrames / fps).toFixed(1)}s`}
-        onChange={(v) => onPatch({ fadeInDurationInFrames: Math.round(v * fps) })}
+        onChange={(v) => onPatch({ [fadeInField]: Math.round(v * fps) })}
       />
       <SliderField
         label="淡出s"
@@ -141,7 +158,7 @@ export const FadeSliders: React.FC<{
         max={maxS}
         step={0.1}
         display={`${(fadeOutFrames / fps).toFixed(1)}s`}
-        onChange={(v) => onPatch({ fadeOutDurationInFrames: Math.round(v * fps) })}
+        onChange={(v) => onPatch({ [fadeOutField]: Math.round(v * fps) })}
       />
     </>
   );

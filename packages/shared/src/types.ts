@@ -49,7 +49,7 @@ type BaseItem = {
   rotation: number; // 度
   opacity: number; // 0-1
   borderRadius: number;
-  /** 淡入淡出时长（帧），同时作用于不透明度与音量 */
+  /** 淡入淡出时长（帧）：视觉不透明度淡变；audio 条目同时作为音量淡变（视频音量淡变见 audioFade*） */
   fadeInDurationInFrames: number;
   fadeOutDurationInFrames: number;
 };
@@ -69,7 +69,17 @@ type AudioProps = {
 
 export type ImageItem = BaseItem & { type: 'image'; assetId: string; crop: Crop | null };
 export type GifItem = BaseItem & { type: 'gif'; assetId: string } & MediaTiming;
-export type VideoItem = BaseItem & { type: 'video'; assetId: string; crop: Crop | null } & MediaTiming &
+export type VideoItem = BaseItem & {
+  type: 'video';
+  assetId: string;
+  crop: Crop | null;
+  /**
+   * 音频淡入/淡出（帧），与视觉淡变（基础 fade* 对）相互独立（官方行为）。
+   * 缺省视为 0；旧存档（单对同时驱动画面与音量）在加载/粘贴时迁移为继承视觉淡变。
+   */
+  audioFadeInDurationInFrames?: number;
+  audioFadeOutDurationInFrames?: number;
+} & MediaTiming &
   AudioProps;
 export type AudioItem = BaseItem & { type: 'audio'; assetId: string } & MediaTiming & AudioProps;
 export type SolidItem = BaseItem & { type: 'solid'; color: string };
