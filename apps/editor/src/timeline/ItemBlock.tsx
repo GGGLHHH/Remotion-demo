@@ -21,8 +21,38 @@ export const itemLabel = (item: EditorStarterItem): string => {
   return item.type;
 };
 
-/** 与检查器一致的 dB 显示 */
-const toDb = (v: number) => (v <= 0 ? '-∞' : `${(20 * Math.log10(v)).toFixed(1)}dB`);
+/** 官方格式的 dB 显示：+8.0 dB / 0.0 dB / -∞ dB */
+const formatDb = (gain: number): string => {
+  if (gain <= 0) return '-∞ dB';
+  const d = 20 * Math.log10(gain);
+  return `${d > 0 ? '+' : ''}${d.toFixed(1)} dB`;
+};
+
+/** 音频条带高度（官方 20px）：波形/音量线/淡变楔形都住在这里 */
+const AUDIO_STRIP_H = 20;
+
+/**
+ * 音量线纵向位置（官方实测映射，dB 线性）：top% = (20 − dB) / 80，
+ * 0dB 在条带 25% 处；顶 = +20dB（10 倍增益）；底 = −∞ 静音。
+ */
+const gainToTopFraction = (gain: number): number =>
+  gain <= 0 ? 1 : Math.min(1, Math.max(0, (20 - 20 * Math.log10(gain)) / 80));
+const topFractionToGain = (f: number): number =>
+  f >= 1 ? 0 : 10 ** ((20 - 80 * Math.min(1, Math.max(0, f))) / 20);
+
+/** 等功率淡变楔形路径（官方：黑色 SVG，覆盖未达全音量的区域） */
+const wedgePath = (w: number, h: number, side: 'in' | 'out'): string => {
+  const N = 12;
+  const pts: string[] = [];
+  for (let i = 0; i <= N; i++) {
+    const t = i / N;
+    const gain = Math.sin((Math.PI / 2) * t); // 等功率曲线
+    const x = side === 'in' ? t * w : w - t * w;
+    pts.push(`L ${x.toFixed(1)} ${(h * (1 - gain)).toFixed(1)}`);
+  }
+  const x0 = side === 'in' ? 0 : w;
+  return `M ${x0} 0 L ${x0} ${h} ${pts.join(' ')} Z`;
+};
 
 export const ItemBlock: React.FC<{
   item: EditorStarterItem;
@@ -56,9 +86,11 @@ export const ItemBlock: React.FC<{
   const visibleSec =
     (('playbackRate' in item ? item.playbackRate : 1) * item.durationInFrames) / fps;
   const blockRef = useRef<HTMLDivElement>(null);
-  const [volDrag, setVolDrag] = useState<number | null>(null);
-  /** 淡变拖拽中的提示：淡入/淡出 + 当前帧数 */
-  const [fadeDrag, setFadeDrag] = useState<{ side: 'in' | 'out'; frames: number } | null>(null);
+  const stripRef = useRef<HTMLDivElement>(null);
+  /** 拖拽中的跟随光标提示（官方：黑色小盒随光标移动） */
+  const [dragTip, setDragTip] = useState<{ label: string; x: number; y: number } | null>(null);
+  /** 是否渲染底部音频条带（有音轨的媒体块） */
+  const hasAudioStrip = item.type === 'audio' || (item.type === 'video' && videoHasAudio);
 
   /** 手柄小拖拽骨架：捕获指针，move 期间 commit:false，抬起 commitPending（一次拖拽 = 一条撤销） */
   const startHandleDrag = (
@@ -83,13 +115,13 @@ export const ItemBlock: React.FC<{
   };
 
   const onVolumePointerDown = (e: React.PointerEvent) => {
-    const rect = blockRef.current!.getBoundingClientRect();
+    const rect = stripRef.current!.getBoundingClientRect();
     startHandleDrag(
       e,
       (ev) => {
-        const vol =
-          Math.round(Math.min(1, Math.max(0, 1 - (ev.clientY - rect.top) / rect.height)) * 100) / 100;
-        setVolDrag(vol);
+        const f = (ev.clientY - rect.top) / rect.height;
+        const vol = Math.round(topFractionToGain(f) * 10000) / 10000;
+        setDragTip({ label: formatDb(vol), x: ev.clientX, y: ev.clientY });
         useEditorStore.getState().updateUndoable(
           (s) => {
             const it = s.items[item.id];
@@ -99,7 +131,7 @@ export const ItemBlock: React.FC<{
           { commit: false },
         );
       },
-      () => setVolDrag(null),
+      () => setDragTip(null),
     );
   };
 
@@ -118,7 +150,11 @@ export const ItemBlock: React.FC<{
         // 淡入 + 淡出 不超过项时长
         const other = side === 'in' ? it.fadeOutDurationInFrames : it.fadeInDurationInFrames;
         const v = Math.min(Math.max(0, raw), Math.max(0, it.durationInFrames - other));
-        setFadeDrag({ side, frames: v });
+        setDragTip({
+          label: `${side === 'in' ? '淡入' : '淡出'} ${(v / fps).toFixed(1)}s`,
+          x: ev.clientX,
+          y: ev.clientY,
+        });
         const cur = side === 'in' ? it.fadeInDurationInFrames : it.fadeOutDurationInFrames;
         if (cur === v) return;
         store.updateUndoable(
@@ -132,7 +168,7 @@ export const ItemBlock: React.FC<{
           { commit: false },
         );
       },
-      () => setFadeDrag(null),
+      () => setDragTip(null),
     );
   };
 
@@ -152,41 +188,92 @@ export const ItemBlock: React.FC<{
       onPointerDown={(e) => onPointerDown?.(e, item, 'move')}
     >
       {/* 内容裁剪层：条纹/波形/标签等在此裁剪；修剪手柄留在外层以便悬出块外 */}
-      <div className="absolute inset-0 flex items-center overflow-hidden rounded px-2">
+      <div
+        className="absolute inset-0 flex items-center overflow-hidden rounded px-2"
+        style={hasAudioStrip ? { paddingBottom: AUDIO_STRIP_H } : undefined}
+      >
       {item.type === 'video' && mediaUrl ? (
-        <Filmstrip
-          assetId={item.assetId}
-          url={mediaUrl}
-          widthPx={widthPx}
-          assetDurationSec={assetDurationSec}
-          trimBeforeSec={trimBeforeSec}
-          visibleSec={visibleSec}
-        />
+        <div
+          className="absolute inset-x-0 top-0"
+          style={{ bottom: hasAudioStrip ? AUDIO_STRIP_H : 0 }}
+        >
+          <Filmstrip
+            assetId={item.assetId}
+            url={mediaUrl}
+            widthPx={widthPx}
+            assetDurationSec={assetDurationSec}
+            trimBeforeSec={trimBeforeSec}
+            visibleSec={visibleSec}
+          />
+        </div>
       ) : null}
-      {item.type === 'audio' && mediaUrl ? (
-        <Waveform
-          assetId={item.assetId}
-          url={mediaUrl}
-          widthPx={widthPx}
-          assetDurationSec={assetDurationSec}
-          trimBeforeSec={trimBeforeSec}
-          visibleSec={visibleSec}
-        />
+      {/* 音频条带（官方 20px）：波形 + 淡变楔形 + 音量线都住在这里 */}
+      {hasAudioStrip && mediaUrl ? (
+        <div
+          ref={stripRef}
+          className="absolute inset-x-0 bottom-0 z-10 bg-black/30"
+          style={{ height: AUDIO_STRIP_H }}
+        >
+          <Waveform
+            assetId={item.assetId}
+            url={mediaUrl}
+            widthPx={widthPx}
+            assetDurationSec={assetDurationSec}
+            trimBeforeSec={trimBeforeSec}
+            visibleSec={visibleSec}
+            gain={'volume' in item ? item.volume : 1}
+            heightPx={AUDIO_STRIP_H}
+          />
+          {item.fadeInDurationInFrames > 0 ? (
+            <svg
+              className="pointer-events-none absolute left-0 top-0"
+              width={Math.min(widthPx, item.fadeInDurationInFrames * zoom)}
+              height={AUDIO_STRIP_H}
+            >
+              <path
+                d={wedgePath(Math.min(widthPx, item.fadeInDurationInFrames * zoom), AUDIO_STRIP_H, 'in')}
+                fill="black"
+                fillOpacity={0.55}
+              />
+            </svg>
+          ) : null}
+          {item.fadeOutDurationInFrames > 0 ? (
+            <svg
+              className="pointer-events-none absolute right-0 top-0"
+              width={Math.min(widthPx, item.fadeOutDurationInFrames * zoom)}
+              height={AUDIO_STRIP_H}
+            >
+              <path
+                d={wedgePath(Math.min(widthPx, item.fadeOutDurationInFrames * zoom), AUDIO_STRIP_H, 'out')}
+                fill="black"
+                fillOpacity={0.55}
+              />
+            </svg>
+          ) : null}
+          {/* 音量线：dB 线性映射（0dB 在 25% 处，顶 +20dB，底 −∞）；
+              抓取带钳制在条带内（极值处线在带内偏移，避免被块裁剪抓不到） */}
+          {(() => {
+            const linePx = gainToTopFraction('volume' in item ? item.volume : 1) * AUDIO_STRIP_H;
+            const bandTop = Math.min(AUDIO_STRIP_H - 6, Math.max(0, linePx - 3));
+            return (
+              <div
+                data-volume-line
+                className="absolute inset-x-0 z-20 cursor-ns-resize"
+                style={{ top: bandTop, height: 6 }}
+                title="音量"
+                onPointerDown={onVolumePointerDown}
+              >
+                <div
+                  className="absolute inset-x-0 h-px bg-white/20"
+                  style={{ top: Math.min(5, Math.max(0, linePx - bandTop)) }}
+                />
+              </div>
+            );
+          })()}
+        </div>
       ) : null}
-      {/* 视频底部音频波形窄条（无音轨则不渲染） */}
-      {item.type === 'video' && videoHasAudio && mediaUrl ? (
-        <Waveform
-          assetId={item.assetId}
-          url={mediaUrl}
-          widthPx={widthPx}
-          assetDurationSec={assetDurationSec}
-          trimBeforeSec={trimBeforeSec}
-          visibleSec={visibleSec}
-          heightPx={14}
-        />
-      ) : null}
-      {/* 淡入/淡出斜坡 */}
-      {item.fadeInDurationInFrames > 0 ? (
+      {/* 非条带块的淡入/淡出斜坡（视觉元素保留原样式） */}
+      {!hasAudioStrip && item.fadeInDurationInFrames > 0 ? (
         <div
           className="pointer-events-none absolute inset-y-0 left-0"
           style={{
@@ -195,7 +282,7 @@ export const ItemBlock: React.FC<{
           }}
         />
       ) : null}
-      {item.fadeOutDurationInFrames > 0 ? (
+      {!hasAudioStrip && item.fadeOutDurationInFrames > 0 ? (
         <div
           className="pointer-events-none absolute inset-y-0 right-0"
           style={{
@@ -214,33 +301,16 @@ export const ItemBlock: React.FC<{
       ) : (
         <span className="relative z-10 truncate select-none">{itemLabel(item)}</span>
       )}
-      {/* 音量线（上 = 100%，下 = 0%）：1px 白线 + 线下浅灰填充 */}
-      {item.type === 'video' || item.type === 'audio' ? (
-        <>
-          <div
-            className="pointer-events-none absolute inset-x-0 bottom-0 z-10 bg-zinc-400/15"
-            style={{ top: `${(1 - item.volume) * 100}%` }}
-          />
-          <div
-            data-volume-line
-            className="absolute inset-x-0 z-20 flex cursor-ns-resize items-center"
-            style={{ top: `calc(${(1 - item.volume) * 100}% - 3px)`, height: 6 }}
-            title="音量"
-            onPointerDown={onVolumePointerDown}
-          >
-            <div className="h-px w-full bg-white/25" />
-          </div>
-        </>
-      ) : null}
-      {/* 拖拽中的深色提示：音量 dB / 淡入淡出秒数 */}
-      {volDrag !== null || fadeDrag !== null ? (
-        <div className="pointer-events-none absolute left-1/2 top-1 z-30 -translate-x-1/2 rounded bg-black/80 px-1.5 py-0.5 text-[10px] tabular-nums whitespace-nowrap text-white">
-          {volDrag !== null
-            ? toDb(volDrag)
-            : `${fadeDrag!.side === 'in' ? '淡入' : '淡出'} ${(fadeDrag!.frames / fps).toFixed(1)}s`}
+      </div>
+      {/* 拖拽中的提示：黑色小盒跟随光标（官方样式） */}
+      {dragTip ? (
+        <div
+          className="pointer-events-none fixed z-50 flex h-[26px] items-center rounded bg-black/90 px-2 text-xs font-medium tabular-nums whitespace-nowrap text-neutral-300"
+          style={{ left: dragTip.x + 25, top: dragTip.y - 15 }}
+        >
+          {dragTip.label}
         </div>
       ) : null}
-      </div>
       {/* 修剪手柄（官方：不可见、6px 宽、向块外悬出 1px；左缘 e-resize、右缘 w-resize） */}
       <div
         data-trim="start"

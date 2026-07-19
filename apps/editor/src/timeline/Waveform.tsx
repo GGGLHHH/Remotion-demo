@@ -39,9 +39,11 @@ export const Waveform: React.FC<{
   trimBeforeSec: number;
   /** 块覆盖的素材时长（秒） */
   visibleSec: number;
-  /** 波形条带高度（px）：音频项占满块高，视频项为底部窄条 */
+  /** 当前音量增益（官方行为：波形随音量实时缩放，削波峰值画珊瑚色） */
+  gain?: number;
+  /** 波形条带高度（px） */
   heightPx?: number;
-}> = ({ assetId, url, widthPx, assetDurationSec, trimBeforeSec, visibleSec, heightPx = 44 }) => {
+}> = ({ assetId, url, widthPx, assetDurationSec, trimBeforeSec, visibleSec, gain = 1, heightPx = 20 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -57,19 +59,28 @@ export const Waveform: React.FC<{
       canvas.width = w;
       canvas.height = heightPx;
       const ctx = canvas.getContext('2d')!;
-      ctx.fillStyle = 'rgba(255,255,255,0.55)';
       for (let x = 0; x < w; x += 2) {
-        // 像素 → 素材秒 → 峰值桶（时间锚定）
+        // 像素 → 素材秒 → 峰值桶（时间锚定），幅度随增益缩放
         const sec = trimBeforeSec + (x / w) * visibleSec;
         const p = peaks[Math.floor((sec / Math.max(0.001, assetDurationSec)) * BUCKETS)] ?? 0;
-        const h = Math.max(1, p * (heightPx - 4));
-        ctx.fillRect(x, (heightPx - h) / 2, 1.5, h);
+        const amp = p * gain;
+        const clipped = amp > 1;
+        const h = Math.max(1, Math.min(1, amp) * (heightPx - 4));
+        const y = (heightPx - h) / 2;
+        ctx.fillStyle = 'rgba(255,255,255,0.55)';
+        ctx.fillRect(x, y, 1.5, h);
+        if (clipped) {
+          // 削波峰值：上下端画珊瑚色小帽（官方 coral）
+          ctx.fillStyle = 'rgb(255,127,80)';
+          ctx.fillRect(x, y, 1.5, 1.5);
+          ctx.fillRect(x, y + h - 1.5, 1.5, 1.5);
+        }
       }
     });
     return () => {
       alive = false;
     };
-  }, [assetId, url, widthPx, heightPx, assetDurationSec, trimBeforeSec, visibleSec]);
+  }, [assetId, url, widthPx, heightPx, assetDurationSec, trimBeforeSec, visibleSec, gain]);
 
   return (
     <canvas
