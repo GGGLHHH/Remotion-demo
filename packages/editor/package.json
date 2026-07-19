@@ -1,6 +1,6 @@
 {
   "name": "@gedatou/editor",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Embeddable Remotion video editor React components — timeline, canvas, inspector; shadcn-authored, theme-able",
   "keywords": [
     "remotion",
