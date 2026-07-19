@@ -89,6 +89,37 @@ await page.waitForFunction(
   { timeout: 15000 },
 );
 
+// ---- 刷新后预览恢复：清空 IndexedDB 强制走远程 URL（需 crossOrigin 抽帧）----
+await page.getByRole('button', { name: '保存' }).click();
+await page.evaluate(async () => {
+  const dbs = await indexedDB.databases();
+  await Promise.all(
+    dbs.map(
+      (d) =>
+        new Promise((res) => {
+          const r = indexedDB.deleteDatabase(d.name);
+          r.onsuccess = r.onerror = r.onblocked = () => res(null);
+        }),
+    ),
+  );
+});
+await page.reload({ waitUntil: 'networkidle' });
+// 胶片重新出现（远程 URL 路径）；波形 canvas 必须真的画了内容
+await page.waitForFunction(
+  () => {
+    const strips = document.querySelectorAll('[data-item-block] div[style*="background-image"]');
+    const waves = [...document.querySelectorAll('[data-item-block] canvas')].filter((c) => {
+      if (!(c instanceof HTMLCanvasElement) || c.width === 0) return false;
+      const ctx = c.getContext('2d');
+      const d = ctx.getImageData(0, 0, Math.min(c.width, 200), c.height).data;
+      for (let i = 3; i < d.length; i += 4) if (d[i] > 0) return true;
+      return false;
+    });
+    return strips.length >= 1 && waves.length >= 1;
+  },
+  { timeout: 20000 },
+);
+
 await page.screenshot({ path: process.argv[2] ?? 'm3.png' });
 await browser.close();
 if (errors.length) fail('page errors: ' + errors.join('; '));

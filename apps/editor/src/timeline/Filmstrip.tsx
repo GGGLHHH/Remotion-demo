@@ -11,6 +11,8 @@ const generate = async (url: string, count: number): Promise<string> => {
   const video = document.createElement('video');
   video.muted = true;
   video.preload = 'auto';
+  // 远程素材（MinIO）需带 CORS 凭据加载，否则 canvas 被污染、toDataURL 抛 SecurityError
+  video.crossOrigin = 'anonymous';
   video.src = url;
   await new Promise<void>((resolve, reject) => {
     video.onloadedmetadata = () => resolve();
@@ -44,7 +46,8 @@ export const Filmstrip: React.FC<{ assetId: string; url: string; widthPx: number
   const [dataUrl, setDataUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    const key = `${assetId}:${count}`;
+    // key 含 url：远程失败的 Promise 不会挡住随后恢复的 blob URL 重试
+    const key = `${assetId}:${count}:${url}`;
     if (!cache.has(key)) cache.set(key, generate(url, count));
     let alive = true;
     cache

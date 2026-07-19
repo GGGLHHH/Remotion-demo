@@ -39,9 +39,11 @@ export const Waveform: React.FC<{
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
-    if (!peaksCache.has(assetId)) peaksCache.set(assetId, computePeaks(url));
+    // key 含 url：远程解码失败的 null 不会挡住随后恢复的 blob URL 重试
+    const key = `${assetId}:${url}`;
+    if (!peaksCache.has(key)) peaksCache.set(key, computePeaks(url));
     let alive = true;
-    void peaksCache.get(assetId)!.then((peaks) => {
+    void peaksCache.get(key)!.then((peaks) => {
       if (!alive || !peaks) return;
       const canvas = canvasRef.current;
       if (!canvas) return;
