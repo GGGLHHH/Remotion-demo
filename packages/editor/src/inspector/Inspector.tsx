@@ -108,9 +108,10 @@ const ExportSection: React.FC = () => {
               {t.codec}
             </Badge>
             {t.status === 'done' && t.url ? (
+              /* 产物带 Content-Disposition: attachment（文件名由服务端定；跨源 URL 下
+                 a[download] 的文件名会被浏览器忽略），故不加 target=_blank 免闪空白页 */
               <a
                 href={t.url}
-                target="_blank"
                 rel="noreferrer"
                 className="text-primary underline-offset-4 hover:underline"
               >

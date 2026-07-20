@@ -37,8 +37,8 @@ export function createHttpTransport({ baseUrl = '/api' }: { baseUrl?: string } =
       const key = new URL(url).pathname.split('/').slice(2).join('/');
       await post('/delete-asset', { key }).catch(() => null);
     },
-    async startRender({ state, codec }) {
-      const res = await post('/render', { state, codec });
+    async startRender({ state, codec, baseName }) {
+      const res = await post('/render', { state, codec, baseName });
       if (!res.ok) throw new Error(`render request failed: ${res.status}`);
       return (await res.json()) as { taskId: string };
     },

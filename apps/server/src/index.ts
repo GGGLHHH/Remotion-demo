@@ -43,14 +43,14 @@ app.post<{ Body: { key: string } }>('/api/delete-asset', async (req, reply) => {
   return { ok: true };
 });
 
-app.post<{ Body: { state: UndoableState; codec: 'mp4' | 'webm' } }>(
+app.post<{ Body: { state: UndoableState; codec: 'mp4' | 'webm'; baseName?: string } }>(
   '/api/render',
   async (req, reply) => {
-    const { state, codec } = req.body ?? {};
+    const { state, codec, baseName } = req.body ?? {};
     if (!state || (codec !== 'mp4' && codec !== 'webm')) {
       return reply.code(400).send({ error: 'state and codec (mp4|webm) required' });
     }
-    return { taskId: enqueueRender(state, codec) };
+    return { taskId: enqueueRender(state, codec, baseName) };
   },
 );
 

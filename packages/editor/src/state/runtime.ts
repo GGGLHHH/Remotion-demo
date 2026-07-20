@@ -17,8 +17,14 @@ export interface EditorTransport {
   uploadAsset(file: File, opts?: { onProgress?: (pct: number) => void }): Promise<{ url: string }>;
   /** 删除远端素材（传素材 url，实现方自行推导对象 key） */
   deleteRemoteAsset(url: string): Promise<void>;
-  /** 发起渲染 → 任务 id */
-  startRender(input: { state: UndoableState; codec: 'mp4' | 'webm' }): Promise<{ taskId: string }>;
+  /** 发起渲染 → 任务 id。
+   * baseName = 导出文件基础名（如项目地址），不含时间戳与扩展名；服务端拼上渲染完成时间
+   * 生成下载文件名（Content-Disposition）。不传则文件名只有时间戳。 */
+  startRender(input: {
+    state: UndoableState;
+    codec: 'mp4' | 'webm';
+    baseName?: string;
+  }): Promise<{ taskId: string }>;
   /** 查一次渲染进度（轮询循环在调用方） */
   renderProgress(taskId: string): Promise<RenderProgress>;
   /** 音频（wav）→ 字幕（whisper 转录；抽音在客户端） */
@@ -46,4 +52,14 @@ export interface EditorStorage {
 export type NotifyFn = (message: string, level?: 'info' | 'success' | 'error') => void;
 
 /** 非 React I/O 模块统一收此依赖包（连同 store 一起从 Provider 线程进来） */
-export type EditorDeps = { transport: EditorTransport; storage: EditorStorage; notify: NotifyFn };
+export type EditorDeps = {
+  transport: EditorTransport;
+  storage: EditorStorage;
+  notify: NotifyFn;
+  /**
+   * 导出文件基础名（如项目地址）。库本身不知道「项目」，由消费方注入。
+   * 用取值函数而非常量：消费方切换当前项目时无需重建 editor。
+   * 最终下载名 = `${exportBaseName()} ${渲染完成时间}.${codec}`（服务端拼接）。
+   */
+  exportBaseName?: () => string | undefined;
+};

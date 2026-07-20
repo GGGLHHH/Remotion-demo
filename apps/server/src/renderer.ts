@@ -5,7 +5,12 @@ import fs from 'node:fs/promises';
 import { bundle } from '@remotion/bundler';
 import { ensureBrowser, renderMedia, selectComposition } from '@remotion/renderer';
 import { PutObjectCommand } from '@aws-sdk/client-s3';
-import { newId, type UndoableState } from '@gedatou/shared';
+import {
+  buildDownloadName,
+  contentDisposition,
+  newId,
+  type UndoableState,
+} from '@gedatou/shared';
 import { s3 } from './s3';
 import { config } from './config';
 
@@ -42,7 +47,11 @@ const pump = async (): Promise<void> => {
   running = false;
 };
 
-export const enqueueRender = (state: UndoableState, codec: 'mp4' | 'webm'): string => {
+export const enqueueRender = (
+  state: UndoableState,
+  codec: 'mp4' | 'webm',
+  baseName?: string,
+): string => {
   const taskId = newId();
   tasks.set(taskId, { status: 'queued', progress: 0 });
   queue.push(async () => {
@@ -63,11 +72,14 @@ export const enqueueRender = (state: UndoableState, codec: 'mp4' | 'webm'): stri
           task.progress = progress;
         },
       });
+      // 对象 key 用 taskId（唯一、纯 ASCII、不撞名）；给人看的名字只走 Content-Disposition。
       const key = `renders/${taskId}.${codec}`;
+      const downloadName = buildDownloadName(codec, baseName, new Date());
       await s3.send(
         new PutObjectCommand({
           Bucket: config.s3.bucket,
           Key: key,
+          ContentDisposition: contentDisposition(downloadName),
           Body: await fs.readFile(outputLocation),
           ContentType: codec === 'mp4' ? 'video/mp4' : 'video/webm',
         }),

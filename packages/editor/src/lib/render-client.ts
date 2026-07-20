@@ -11,7 +11,12 @@ export const startRender = async (
   const { undoable, upsertRenderingTask } = store.getState();
   let taskId: string;
   try {
-    ({ taskId } = await deps.transport.startRender({ state: undoable, codec }));
+    // baseName 由消费方注入（库不知道「项目」）；服务端拼渲染完成时间成最终下载名
+    ({ taskId } = await deps.transport.startRender({
+      state: undoable,
+      codec,
+      baseName: deps.exportBaseName?.(),
+    }));
   } catch (err) {
     upsertRenderingTask({ id: `local-${Date.now()}`, status: 'error', progress: 0, error: String(err), codec });
     deps.notify('渲染任务创建失败', 'error');
