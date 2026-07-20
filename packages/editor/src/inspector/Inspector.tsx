@@ -103,10 +103,12 @@ const ExportSection: React.FC = () => {
       </Button>
       {renderingTasks.map((t) => (
         <div key={t.id} className="rounded-lg border border-border p-2 text-xs">
-          <div className="flex items-center justify-between">
-            <Badge variant="outline" className="uppercase">
-              {t.codec}
-            </Badge>
+          <div className="flex items-center justify-between gap-2">
+            {/* 文件名由前端在发起渲染时就组装好（见 lib/render-client），故全程可显示，
+                且就是实际下载到的名字。codec 已体现在扩展名里，不再另挂徽章。 */}
+            <span className="min-w-0 flex-1 truncate font-medium" title={t.fileName ?? t.codec}>
+              {t.fileName ?? t.codec}
+            </span>
             {t.status === 'done' && t.url ? (
               /* 产物带 Content-Disposition: attachment（文件名由服务端定；跨源 URL 下
                  a[download] 的文件名会被浏览器忽略），故不加 target=_blank 免闪空白页 */

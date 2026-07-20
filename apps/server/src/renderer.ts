@@ -5,12 +5,7 @@ import fs from 'node:fs/promises';
 import { bundle } from '@remotion/bundler';
 import { ensureBrowser, renderMedia, selectComposition } from '@remotion/renderer';
 import { PutObjectCommand } from '@aws-sdk/client-s3';
-import {
-  buildDownloadName,
-  contentDisposition,
-  newId,
-  type UndoableState,
-} from '@gedatou/shared';
+import { contentDisposition, newId, sanitizeFileName, type UndoableState } from '@gedatou/shared';
 import { s3 } from './s3';
 import { config } from './config';
 
@@ -50,7 +45,7 @@ const pump = async (): Promise<void> => {
 export const enqueueRender = (
   state: UndoableState,
   codec: 'mp4' | 'webm',
-  baseName?: string,
+  fileName?: string,
 ): string => {
   const taskId = newId();
   tasks.set(taskId, { status: 'queued', progress: 0 });
@@ -73,8 +68,9 @@ export const enqueueRender = (
         },
       });
       // 对象 key 用 taskId（唯一、纯 ASCII、不撞名）；给人看的名字只走 Content-Disposition。
+      // 名字由前端组装传入，这里只做防御性清洗——客户端输入不可信；给不出就回退 taskId 名。
       const key = `renders/${taskId}.${codec}`;
-      const downloadName = buildDownloadName(codec, baseName, new Date());
+      const downloadName = sanitizeFileName(fileName ?? '') || `${taskId}.${codec}`;
       await s3.send(
         new PutObjectCommand({
           Bucket: config.s3.bucket,

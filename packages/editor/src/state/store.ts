@@ -17,6 +17,8 @@ export type RenderingTask = {
   url?: string;
   error?: string;
   codec: string;
+  /** 服务端生成的下载文件名（渲染完成才有，见 RenderProgress.fileName） */
+  fileName?: string;
 };
 
 export type CaptioningTask = {

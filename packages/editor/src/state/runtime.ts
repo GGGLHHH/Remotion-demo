@@ -18,12 +18,12 @@ export interface EditorTransport {
   /** 删除远端素材（传素材 url，实现方自行推导对象 key） */
   deleteRemoteAsset(url: string): Promise<void>;
   /** 发起渲染 → 任务 id。
-   * baseName = 导出文件基础名（如项目地址），不含时间戳与扩展名；服务端拼上渲染完成时间
-   * 生成下载文件名（Content-Disposition）。不传则文件名只有时间戳。 */
+   * fileName = 完整下载文件名（含扩展名），由前端组装（见 lib/render-client）；
+   * 服务端清洗后挂到产物的 Content-Disposition。不传则由服务端用自己的默认名。 */
   startRender(input: {
     state: UndoableState;
     codec: 'mp4' | 'webm';
-    baseName?: string;
+    fileName?: string;
   }): Promise<{ taskId: string }>;
   /** 查一次渲染进度（轮询循环在调用方） */
   renderProgress(taskId: string): Promise<RenderProgress>;
@@ -59,7 +59,8 @@ export type EditorDeps = {
   /**
    * 导出文件基础名（如项目地址）。库本身不知道「项目」，由消费方注入。
    * 用取值函数而非常量：消费方切换当前项目时无需重建 editor。
-   * 最终下载名 = `${exportBaseName()} ${渲染完成时间}.${codec}`（服务端拼接）。
+   * 下载名 = `${exportBaseName()} ${点击导出时刻}.${codec}`，由 lib/render-client
+   * 在前端组装（服务端只做清洗并挂到 Content-Disposition）。不注入则只有时间戳。
    */
   exportBaseName?: () => string | undefined;
 };

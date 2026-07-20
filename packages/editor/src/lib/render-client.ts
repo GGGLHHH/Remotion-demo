@@ -1,3 +1,4 @@
+import { buildDownloadName } from '@gedatou/shared';
 import type { EditorStoreApi } from '../state/store';
 import type { EditorDeps, RenderProgress } from '../state/runtime';
 
@@ -9,20 +10,19 @@ export const startRender = async (
   codec: 'mp4' | 'webm',
 ): Promise<void> => {
   const { undoable, upsertRenderingTask } = store.getState();
+  // 文件名在前端组装：只有这里知道项目名（消费方注入的 exportBaseName）与导出时刻。
+  // 服务端只把它挂到 Content-Disposition（并做防御性清洗）。因为点下就有名字，
+  // 卡片全程可显示，无需等服务端回传。时间戳即「点击导出」的时刻。
+  const fileName = buildDownloadName(codec, deps.exportBaseName?.(), new Date());
   let taskId: string;
   try {
-    // baseName 由消费方注入（库不知道「项目」）；服务端拼渲染完成时间成最终下载名
-    ({ taskId } = await deps.transport.startRender({
-      state: undoable,
-      codec,
-      baseName: deps.exportBaseName?.(),
-    }));
+    ({ taskId } = await deps.transport.startRender({ state: undoable, codec, fileName }));
   } catch (err) {
-    upsertRenderingTask({ id: `local-${Date.now()}`, status: 'error', progress: 0, error: String(err), codec });
+    upsertRenderingTask({ id: `local-${Date.now()}`, status: 'error', progress: 0, error: String(err), codec, fileName });
     deps.notify('渲染任务创建失败', 'error');
     return;
   }
-  upsertRenderingTask({ id: taskId, status: 'queued', progress: 0, codec });
+  upsertRenderingTask({ id: taskId, status: 'queued', progress: 0, codec, fileName });
   while (true) {
     await new Promise((r) => setTimeout(r, 1000));
     let task: RenderProgress;
@@ -30,11 +30,11 @@ export const startRender = async (
       // 404 = 服务端重启丢了任务表，renderProgress 抛错终止轮询
       task = await deps.transport.renderProgress(taskId);
     } catch (err) {
-      store.getState().upsertRenderingTask({ id: taskId, status: 'error', progress: 0, error: String(err), codec });
+      store.getState().upsertRenderingTask({ id: taskId, status: 'error', progress: 0, error: String(err), codec, fileName });
       deps.notify('渲染失败', 'error');
       return;
     }
-    store.getState().upsertRenderingTask({ id: taskId, codec, ...task });
+    store.getState().upsertRenderingTask({ id: taskId, codec, fileName, ...task });
     if (task.status === 'done') {
       deps.notify('渲染完成，可在渲染面板下载', 'success');
       return;

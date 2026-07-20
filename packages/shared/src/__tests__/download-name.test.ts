@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { buildDownloadName, contentDisposition, sanitizeBaseName } from '../download-name';
+import {
+  buildDownloadName,
+  contentDisposition,
+  sanitizeBaseName,
+  sanitizeFileName,
+} from '../download-name';
 
 // 固定时刻，避开 Date.now() 让断言可重复（本地时区）
 const AT = new Date(2026, 6, 20, 19, 30, 5); // 2026-07-20 19:30:05
@@ -29,6 +34,34 @@ describe('sanitizeBaseName', () => {
 
   it('限长 120 防超头', () => {
     expect(sanitizeBaseName('x'.repeat(200))).toHaveLength(120);
+  });
+});
+
+// 文件名现在由前端提供 → 服务端把它当不可信输入清洗
+describe('sanitizeFileName', () => {
+  it('保留时间戳里的冒号(与 sanitizeBaseName 不同)', () => {
+    expect(sanitizeFileName('1 Reject St 2026-07-20 19:30:05.mp4')).toBe(
+      '1 Reject St 2026-07-20 19:30:05.mp4',
+    );
+  });
+
+  it('去掉路径分隔符,挡住路径形态的名字', () => {
+    expect(sanitizeFileName('../../etc/passwd')).toBe('.. .. etc passwd');
+    expect(sanitizeFileName('a\\b.mp4')).toBe('a b.mp4');
+  });
+
+  it('全是分隔符 → 空串,调用方据此回退默认名', () => {
+    expect(sanitizeFileName('///')).toBe('');
+  });
+
+  it('限长 150', () => {
+    expect(sanitizeFileName('x'.repeat(300))).toHaveLength(150);
+  });
+
+  it('CRLF 无法折行注入响应头', () => {
+    const header = contentDisposition(sanitizeFileName('a\r\nX-Evil: 1.mp4'));
+    expect(header).not.toContain('\r');
+    expect(header).not.toContain('\n');
   });
 });
 
