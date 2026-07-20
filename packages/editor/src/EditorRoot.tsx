@@ -208,7 +208,7 @@ const CleanupAssetsButton = () => {
   );
 };
 
-function EditorShell() {
+function EditorShell({ fill }: { fill?: boolean }) {
   useShortcuts();
   const editorApi = useEditorApi();
   const deps = useEditorDeps();
@@ -251,7 +251,7 @@ function EditorShell() {
   }, [hasActiveUploads, hasActiveRenders, hasActiveCaptioning]);
 
   return (
-    <div className="flex h-screen flex-col bg-zinc-900 text-zinc-100">
+    <div className={`flex ${fill ? 'h-full' : 'h-screen'} flex-col bg-zinc-900 text-zinc-100`}>
       <header className="flex h-12 shrink-0 items-center gap-1.5 border-b border-zinc-800 px-4 text-sm">
         <span className="mr-4 font-medium">Remotion Editor</span>
         <IconButton label="撤销 (Cmd+Z)" disabled={!canUndo} onClick={undo}>
@@ -330,6 +330,8 @@ export type EditorRootProps = {
   refs?: EditorInstanceRefs;
   /** 初始工程状态（非受控 store 时的播种） */
   initialState?: EditorInitialState;
+  /** 内嵌模式：用 h-full 填满父容器（默认 h-screen 占满视口，适合独立整页） */
+  fill?: boolean;
 };
 
 /**
@@ -337,11 +339,11 @@ export type EditorRootProps = {
  * 内部装配工具栏 + 画布 + 检查器 + 播放条 + 时间线。放进去 + 传 deps 即可运行，一页可多个。
  * 想自定义布局的用 <EditorProvider> + 单面板（Canvas/Timeline/Inspector/PlaybackBar）。
  */
-export function EditorRoot({ deps, store, refs, initialState }: EditorRootProps) {
+export function EditorRoot({ deps, store, refs, initialState, fill }: EditorRootProps) {
   return (
     <EditorProvider deps={deps} store={store} refs={refs} initialState={initialState}>
       <TooltipProvider>
-        <EditorShell />
+        <EditorShell fill={fill} />
       </TooltipProvider>
     </EditorProvider>
   );
