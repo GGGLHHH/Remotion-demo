@@ -1,5 +1,4 @@
 import { EditorProvider } from './state/context';
-import { TooltipProvider } from './components/ui/tooltip';
 import type { EditorDeps } from './state/runtime';
 import type { EditorInitialState, EditorStoreApi } from './state/store';
 import type { EditorInstanceRefs } from './state/instance-refs';
@@ -40,44 +39,42 @@ export type EditorRootProps = {
 };
 
 /**
- * 一站式编辑器根组件（batteries-included preset）:自带 <EditorProvider>（store/refs/deps 隔离）+
- * TooltipProvider，用公开零件（EditorContainer / EditorToolbar / 各按钮 / Canvas / Inspector /
- * PlaybackBar / Timeline）拼出默认布局。放进去 + 传 deps 即可运行，一页可多个。
- * 想改工具栏/布局的:照这棵树自己用同样的零件（见 `Editor` 命名空间导出）重拼即可。
+ * 一站式编辑器根组件（batteries-included preset）:自带 <EditorProvider>（store/refs/deps 隔离），
+ * 用公开零件（EditorContainer / EditorToolbar / 各按钮 / Canvas / Inspector / PlaybackBar /
+ * Timeline）拼出默认布局。TooltipProvider 由 EditorContainer 内部提供，preset 与 compound 通用。
+ * 放进去 + 传 deps 即可运行，一页可多个。想改工具栏/布局的照这棵树用同样的零件重拼即可。
  */
 export function EditorRoot({ deps, store, refs, initialState, fill }: EditorRootProps) {
   return (
     <EditorProvider deps={deps} store={store} refs={refs} initialState={initialState}>
-      <TooltipProvider>
-        <EditorContainer fill={fill}>
-          <EditorToolbar>
-            <EditorTitle />
-            <UndoButton />
-            <RedoButton />
-            <PlayButton />
-            <TextToolButton />
-            <SolidToolButton />
-            <ImportAssetButton />
-            <UploadStatusBadge />
-            <CaptioningBadge />
-            <div className="ml-auto flex items-center gap-1.5">
-              <ZoomControls />
-              <CleanupAssetsButton />
-              <SaveButton />
-              <DownloadStateButton />
-              <ImportStateButton />
-            </div>
-          </EditorToolbar>
-          <div className="flex min-h-0 flex-1">
-            <CanvasView />
-            <aside className="w-[349px] shrink-0 overflow-y-auto border-l border-border text-sm">
-              <Inspector />
-            </aside>
+      <EditorContainer fill={fill}>
+        <EditorToolbar>
+          <EditorTitle />
+          <UndoButton />
+          <RedoButton />
+          <PlayButton />
+          <TextToolButton />
+          <SolidToolButton />
+          <ImportAssetButton />
+          <UploadStatusBadge />
+          <CaptioningBadge />
+          <div className="ml-auto flex items-center gap-1.5">
+            <ZoomControls />
+            <CleanupAssetsButton />
+            <SaveButton />
+            <DownloadStateButton />
+            <ImportStateButton />
           </div>
-          <PlaybackBar />
-          <TimelinePanel />
-        </EditorContainer>
-      </TooltipProvider>
+        </EditorToolbar>
+        <div className="flex min-h-0 flex-1">
+          <CanvasView />
+          <aside className="w-[349px] shrink-0 overflow-y-auto border-l border-border text-sm">
+            <Inspector />
+          </aside>
+        </div>
+        <PlaybackBar />
+        <TimelinePanel />
+      </EditorContainer>
     </EditorProvider>
   );
 }

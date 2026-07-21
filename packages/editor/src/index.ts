@@ -14,6 +14,8 @@ export type { EditorRootProps } from './EditorRoot';
 // 单面板 + 外壳行为（命令式 / 自定义外壳用）
 export { useShortcuts } from './shortcuts/useShortcuts';
 export { EditorContainer, useEditorChrome } from './shell/container';
+// tooltip 的共享 provider（不用 Container、自绘外壳的宿主可手动包一层；用 Container 则已内含）
+export { TooltipProvider } from './components/ui/tooltip';
 
 // 扁平别名（向后兼容:0.3 起的既有导出）
 import { CanvasView } from './canvas/CanvasView';

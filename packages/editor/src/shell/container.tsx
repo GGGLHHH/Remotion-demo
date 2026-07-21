@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { cn } from '../lib/utils';
 import { useEditor } from '../state/context';
 import { useShortcuts } from '../shortcuts/useShortcuts';
+import { TooltipProvider } from '../components/ui/tooltip';
 
 /**
  * 外壳行为收口:快捷键 + Escape 退出画布工具 + 上传/渲染/转录未完成时拦刷新。
@@ -56,7 +57,9 @@ export const EditorContainer: React.FC<{
   useEditorChrome();
   return (
     <div className={cn('flex flex-col bg-card text-foreground', fill ? 'h-full' : 'h-screen', className)}>
-      {children}
+      {/* tooltip 的共享 provider 放这里:preset 与 compound（自拼工具栏）都经 Container 拿到，
+          宿主不必知道要额外包一层 */}
+      <TooltipProvider>{children}</TooltipProvider>
     </div>
   );
 };
