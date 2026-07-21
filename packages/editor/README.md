@@ -1,6 +1,6 @@
 # @gedatou/editor
 
-一个可嵌入的 Remotion 视频编辑器 React 组件库——时间线、画布、检查器、播放条一站式，或拆成单面板自定义布局。组件按 [shadcn](https://ui.shadcn.com) 官方写法编写（base-ui + `cva` + `data-slot` + CSS 变量 token），主题可换肤。
+一个可嵌入的 Remotion 视频编辑器 React 组件库——时间线、画布、检查器、播放条一站式，或用 `Editor.*` 零件（shadcn-compound）自拼工具栏与布局。组件按 [shadcn](https://ui.shadcn.com) 官方写法编写（base-ui + `cva` + `data-slot` + CSS 变量 token），主题可换肤。
 
 > 要求：**React 19** · **Tailwind CSS v4** · Remotion 4.0.491。
 
@@ -26,7 +26,7 @@ npm install react react-dom @base-ui/react lucide-react zustand mediabunny \
 @import "@gedatou/editor/styles.css";
 ```
 
-换肤：在你的 `:root` / `.dark` 里覆盖 `--primary`、`--background` 等 token 即可。
+换肤：在你的 `:root` / `.dark` 里覆盖 `--primary`、`--background`、`--card`、`--border` 等 token 即可——外壳、工具栏、时间线、画布全部走 token，不再有硬编码颜色。
 
 ## 快速开始
 
@@ -69,40 +69,86 @@ type NotifyFn = (message: string, level?: "info" | "success" | "error") => void;
 
 后端契约见默认适配器实现（`@gedatou/editor/adapters` 源码）：`/api/upload`（签名+PUT）、`/api/render`、`/api/progress`、`/api/captions`、`/api/delete-asset`。
 
-## 自定义布局（单面板）
+## 自定义工具栏 / 布局（compound）
 
-不想用一站式外壳时，用 `EditorProvider` 包住自选面板：
+`EditorRoot` 就是用一组 `Editor.*` 零件拼出来的 preset。想换标题、增删工具栏按钮、改布局时，用**同样的零件**自己拼即可。零件都是 context-connected——放进 `<EditorProvider>` 里摆放即用，**无需给它们传任何函数**（各自从 context 取 store/deps/refs）：
 
 ```tsx
-import {
-  EditorProvider, Canvas, Timeline, Inspector, PlaybackBar, useShortcuts,
-} from "@gedatou/editor";
+import { EditorProvider, Editor, useEditor } from "@gedatou/editor";
 
-function Editor({ deps }) {
+function MyEditor({ deps }) {
   return (
     <EditorProvider deps={deps}>
-      <MyToolbar />
-      <div className="flex">
-        <Canvas tool={null} onExitTool={() => {}} />
-        <Inspector />
-      </div>
-      <PlaybackBar />
-      <Timeline />
+      <Editor.Container>
+        <Editor.Toolbar>
+          <Editor.Title>我的剪辑器</Editor.Title>
+          <Editor.UndoButton />
+          <Editor.RedoButton />
+          <Editor.ImportAssetButton />
+          <div className="ml-auto flex gap-2">
+            <MyPublishButton />        {/* 你自己的按钮：内部用 useEditor 取态 */}
+            <Editor.SaveButton />
+            {/* 不渲染 DownloadStateButton/ImportStateButton = 天然删掉 */}
+          </div>
+        </Editor.Toolbar>
+        <div className="flex min-h-0 flex-1">
+          <Editor.Canvas />
+          <Editor.Inspector className="w-80" />
+        </div>
+        <Editor.PlaybackBar />
+        <Editor.Timeline />
+      </Editor.Container>
     </EditorProvider>
   );
 }
 ```
 
-`useEditor(selector)` / `useEditorApi()` / `useEditorRefs()` / `useEditorDeps()` 在 Provider 内可取到每实例的 store、裸 store 句柄、player/pan 等 refs、注入依赖。
+- `Editor.Container` 内部会接上快捷键 + Esc 退画布工具 + 上传/渲染/转录未完成时拦刷新。自绘外壳（不用 `Container`）时，在 Provider 内手动调 `useEditorChrome()` 接回这些行为。
+- 面板 `Editor.Canvas` / `Inspector` / `Timeline` / `PlaybackBar` 都接受 `className`（宿主控宽/改样式）。
+- 全部 `Editor.*` 零件见下方[导出一览](#导出一览)。
+
+### 更底层：裸面板 + 自绘外壳
+
+只要面板、完全自绘外壳时，用扁平导出的面板 + hooks（`Editor.*` 也是它们的别名）：
+
+```tsx
+import {
+  EditorProvider, Canvas, Inspector, PlaybackBar, Timeline, useEditorChrome,
+} from "@gedatou/editor";
+
+function Shell() {
+  useEditorChrome();                 // 必须在 Provider 内：快捷键 / Esc 退工具 / 拦刷新
+  return (
+    <>
+      <MyToolbar />
+      <div className="flex"><Canvas /><Inspector /></div>
+      <PlaybackBar />
+      <Timeline />
+    </>
+  );
+}
+
+function Editor({ deps }) {
+  return <EditorProvider deps={deps}><Shell /></EditorProvider>;
+}
+```
+
+`useEditor(selector)` / `useEditorApi()` / `useEditorRefs()` / `useEditorDeps()` 在 Provider 内可取到每实例的 store、裸 store 句柄、player/pan 等 refs、注入依赖。自定义按钮就靠它们取态、调 store action 或[命令式操作](#导出一览)。
 
 ## 导出一览
 
-- 组件：`EditorRoot`、`Canvas`、`Timeline`、`Inspector`、`PlaybackBar`
-- Provider / hooks：`EditorProvider`、`useEditor`、`useEditorApi`、`useEditorRefs`、`useEditorDeps`、`useShortcuts`
+- 一站式：`EditorRoot`（preset）
+- 面板（均接受 `className`）：`Canvas`、`Timeline`、`Inspector`、`PlaybackBar`
+- Compound 零件（`Editor.*` 命名空间）：
+  - 布局：`Container`、`Toolbar`、`Title`
+  - 按钮：`UndoButton`、`RedoButton`、`PlayButton`、`TextToolButton`、`SolidToolButton`、`ImportAssetButton`、`ZoomControls`、`SaveButton`、`CleanupAssetsButton`、`DownloadStateButton`、`ImportStateButton`
+  - 徽章：`UploadStatusBadge`、`CaptioningBadge`
+  - （`Container` 与四个面板同时也是扁平导出：`EditorContainer`、`Canvas`…）
+- Provider / hooks：`EditorProvider`、`useEditor`、`useEditorApi`、`useEditorRefs`、`useEditorDeps`、`useShortcuts`、`useEditorChrome`
 - 工厂：`createEditorStore`、`createInstanceRefs`
 - 命令式操作：`importFiles`、`startRender`、`generateCaptions`、`cleanupDeletedAssets`、`saveState`、`loadStateFromFile`、`downloadStateFile`、`restoreLocalUrls`
 - 适配器（`@gedatou/editor/adapters`）：`createHttpTransport`、`createBrowserStorage`
-- 类型：`EditorTransport`、`EditorStorage`、`NotifyFn`、`EditorDeps`、`EditorStore`、`EditorStoreApi`、`EditorInitialState`、`EditorInstanceRefs`、`RenderProgress`、`EditorRootProps`
+- 类型：`EditorTransport`、`EditorStorage`、`NotifyFn`、`EditorDeps`、`EditorStore`、`EditorStoreApi`、`EditorInitialState`、`EditorInstanceRefs`、`RenderProgress`、`EditorRootProps`、`CanvasTool`
 
 ## 已知限制
 
