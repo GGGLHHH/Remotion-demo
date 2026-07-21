@@ -5,8 +5,10 @@ import { useEditor } from '../state/context';
 import { NumberField } from './NumberField';
 import { ColorField, Row, Section } from './fields';
 import { FontPicker } from './FontPicker';
+import { useT } from '../lib/i18n';
 
 export const CaptionsPanel: React.FC<{ item: CaptionsItem }> = ({ item }) => {
+  const t = useT();
   const updateUndoable = useEditor((s) => s.updateUndoable);
   const asset = useEditor((s) => s.undoable.assets[item.assetId]);
   const captions = asset?.type === 'caption' ? asset.captions : [];
@@ -32,15 +34,15 @@ export const CaptionsPanel: React.FC<{ item: CaptionsItem }> = ({ item }) => {
 
   return (
     <>
-      <Section title="字幕样式">
-        <Row label="字体">
+      <Section title={t('captionsPanel.style')}>
+        <Row label={t('captionsPanel.font')}>
           <FontPicker itemId={item.id} value={item.fontFamily} onCommit={(f) => patch({ fontFamily: f })} />
         </Row>
-        <NumberField label="字号" value={item.fontSize} min={4} max={800} onChange={(v, c) => patch({ fontSize: v }, c)} />
-        <ColorField label="颜色" value={item.color} onChange={(v) => patch({ color: v })} />
-        <ColorField label="高亮色" value={item.highlightColor} onChange={(v) => patch({ highlightColor: v })} />
+        <NumberField label={t('captionsPanel.fontSize')} value={item.fontSize} min={4} max={800} onChange={(v, c) => patch({ fontSize: v }, c)} />
+        <ColorField label={t('captionsPanel.color')} value={item.color} onChange={(v) => patch({ color: v })} />
+        <ColorField label={t('captionsPanel.highlightColor')} value={item.highlightColor} onChange={(v) => patch({ highlightColor: v })} />
         <NumberField
-          label="页时长ms"
+          label={t('captionsPanel.pageDurationMs')}
           value={item.pageDurationInMs}
           min={100}
           max={10000}
@@ -48,14 +50,14 @@ export const CaptionsPanel: React.FC<{ item: CaptionsItem }> = ({ item }) => {
           onChange={(v, c) => patch({ pageDurationInMs: v }, c)}
         />
         <NumberField
-          label="最大行数"
+          label={t('captionsPanel.maxLines')}
           value={item.maxLines}
           min={1}
           max={10}
           onChange={(v, c) => patch({ maxLines: Math.round(v) }, c)}
         />
       </Section>
-      <Section title="逐词修正">
+      <Section title={t('captionsPanel.wordCorrection')}>
         <div className="flex max-h-72 flex-col gap-1 overflow-y-auto pr-0.5">
           {captions.map((c, i) => (
             <div key={i} className="flex items-center gap-1">
@@ -75,7 +77,7 @@ export const CaptionsPanel: React.FC<{ item: CaptionsItem }> = ({ item }) => {
               <Input
                 key={`s${i}:${c.startMs}`}
                 type="number"
-                title="起始 ms"
+                title={t('captionsPanel.startMs')}
                 className="h-7 w-20 shrink-0 px-1.5 text-right text-xs tabular-nums md:text-xs"
                 defaultValue={c.startMs}
                 onBlur={(e) => {

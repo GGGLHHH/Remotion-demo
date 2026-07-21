@@ -51,11 +51,21 @@ export interface EditorStorage {
 /** 用户提示边界：替代库内写死的 sonner。默认实现见 lib/adapters/notify */
 export type NotifyFn = (message: string, level?: 'info' | 'success' | 'error') => void;
 
+/**
+ * 文本解析器（可选注入）：库本身不做 i18n（不切语言、不内置多语言、不引 i18n 依赖），
+ * 只把「文本」当作又一个 app 关注点外包给消费方——和 transport/storage/notify 同一个注入哲学。
+ * (key, params) => 译文。不注入、或对某 key 返回 key 本身时，回落库内置 zh 默认字典（见 locales/zh）。
+ * 消费方（如接了 react-i18next 的宿主）注入自己的 t 即可让编辑器跟随宿主语言，库一行不用改。
+ */
+export type EditorT = (key: string, params?: Record<string, string | number>) => string;
+
 /** 非 React I/O 模块统一收此依赖包（连同 store 一起从 Provider 线程进来） */
 export type EditorDeps = {
   transport: EditorTransport;
   storage: EditorStorage;
   notify: NotifyFn;
+  /** 文本解析器（可选）：不传则用库内置 zh 默认文案。见 EditorT。 */
+  t?: EditorT;
   /**
    * 导出文件基础名（如项目地址）。库本身不知道「项目」，由消费方注入。
    * 用取值函数而非常量：消费方切换当前项目时无需重建 editor。

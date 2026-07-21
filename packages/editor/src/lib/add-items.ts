@@ -18,13 +18,14 @@ export const addTextItem = (
   store: EditorStoreApi,
   at: { x: number; y: number },
   atFrame: number,
+  text = '文本',
 ): void => {
   const state = store.getState();
   const from = atFrame;
   let id = '';
   state.updateUndoable((s) => {
     const { state: st, trackId } = addTrack(s, 0);
-    const item = createTextItem({ trackId, from, text: '文本' });
+    const item = createTextItem({ trackId, from, text });
     // 盒子自适应文字内容
     item.width = Math.max(
       20,

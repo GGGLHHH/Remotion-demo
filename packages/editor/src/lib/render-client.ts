@@ -1,4 +1,5 @@
 import { buildDownloadName } from '@gedatou/shared';
+import { tFor } from './i18n';
 import type { EditorStoreApi } from '../state/store';
 import type { EditorDeps, RenderProgress } from '../state/runtime';
 
@@ -9,6 +10,7 @@ export const startRender = async (
   deps: EditorDeps,
   codec: 'mp4' | 'webm',
 ): Promise<void> => {
+  const t = tFor(deps);
   const { undoable, upsertRenderingTask } = store.getState();
   // 文件名在前端组装：只有这里知道项目名（消费方注入的 exportBaseName）与导出时刻。
   // 服务端只把它挂到 Content-Disposition（并做防御性清洗）。因为点下就有名字，
@@ -19,7 +21,7 @@ export const startRender = async (
     ({ taskId } = await deps.transport.startRender({ state: undoable, codec, fileName }));
   } catch (err) {
     upsertRenderingTask({ id: `local-${Date.now()}`, status: 'error', progress: 0, error: String(err), codec, fileName });
-    deps.notify('渲染任务创建失败', 'error');
+    deps.notify(t('render.createFailed'), 'error');
     return;
   }
   upsertRenderingTask({ id: taskId, status: 'queued', progress: 0, codec, fileName });
@@ -31,16 +33,16 @@ export const startRender = async (
       task = await deps.transport.renderProgress(taskId);
     } catch (err) {
       store.getState().upsertRenderingTask({ id: taskId, status: 'error', progress: 0, error: String(err), codec, fileName });
-      deps.notify('渲染失败', 'error');
+      deps.notify(t('render.failed'), 'error');
       return;
     }
     store.getState().upsertRenderingTask({ id: taskId, codec, fileName, ...task });
     if (task.status === 'done') {
-      deps.notify('渲染完成，可在渲染面板下载', 'success');
+      deps.notify(t('render.done'), 'success');
       return;
     }
     if (task.status === 'error') {
-      deps.notify('渲染失败', 'error');
+      deps.notify(t('render.failed'), 'error');
       return;
     }
   }

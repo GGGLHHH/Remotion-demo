@@ -1,6 +1,7 @@
 import type { EditorStarterItem, UndoableState } from '@gedatou/shared';
 import type { EditorStoreApi } from '../state/store';
 import type { EditorDeps } from '../state/runtime';
+import { tFor } from '../lib/i18n';
 
 /** 旧数据迁移：视频缺 audioFade* 时继承视觉淡变（旧模型单对同时驱动画面与音量），原地修改 */
 export const normalizeLegacyFades = (items: Iterable<EditorStarterItem>): void => {
@@ -29,7 +30,7 @@ export const saveState = (store: EditorStoreApi, deps: EditorDeps): void => {
   const { undoable } = store.getState();
   deps.storage.saveProject(undoable);
   store.setState({ lastSavedState: undoable });
-  deps.notify('已保存', 'success');
+  deps.notify(tFor(deps)('persistence.saved'), 'success');
 };
 
 export const downloadStateFile = (store: EditorStoreApi): void => {
@@ -50,7 +51,7 @@ export const loadStateFromFile = async (
 ): Promise<boolean> => {
   const state = deserializeState(await file.text());
   if (!state) {
-    deps.notify('工程文件无效，无法恢复', 'error');
+    deps.notify(tFor(deps)('persistence.invalidProjectFile'), 'error');
     return false;
   }
   store.setState({ undoable: state, past: [], future: [], selectedItemIds: [] });

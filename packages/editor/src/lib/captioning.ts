@@ -3,6 +3,7 @@ import type { EditorStoreApi } from '../state/store';
 import type { EditorDeps } from '../state/runtime';
 import { addTrack } from '../timeline/ops';
 import { extractWav } from './extract-audio';
+import { tFor } from './i18n';
 
 /** 源 item 在素材内的可听片段（素材原速秒）：偏移 trimBefore，长度 = item 时长 × 变速率 */
 export const audibleSegment = (
@@ -29,6 +30,7 @@ export const generateCaptions = async (
   deps: EditorDeps,
   itemId: string,
 ): Promise<void> => {
+  const t = tFor(deps);
   const state = store.getState();
   const item = state.undoable.items[itemId];
   if (!item || (item.type !== 'video' && item.type !== 'audio')) return;
@@ -98,10 +100,10 @@ export const generateCaptions = async (
       };
     });
     upsert('done');
-    deps.notify('字幕已生成', 'success');
+    deps.notify(t('captioning.generated'), 'success');
   } catch (err) {
     console.error('生成字幕失败', err);
     upsert('error', String(err));
-    deps.notify('字幕生成失败', 'error');
+    deps.notify(t('captioning.generateFailed'), 'error');
   }
 };

@@ -42,6 +42,7 @@ import {
 } from './ops';
 import { importFiles } from '../lib/import-assets';
 import { copySelection, duplicateSelection } from '../lib/clipboard';
+import { useT } from '../lib/i18n';
 
 /** 修剪吸附阈值（官方约 10px） */
 const TRIM_SNAP_PX = 10;
@@ -154,6 +155,7 @@ const TrackHeader = memo<{ track: Track; number: number; height: number }>(funct
   number,
   height,
 }) {
+  const t = useT();
   const updateUndoable = useEditor((s) => s.updateUndoable);
   const toggle = (key: 'hidden' | 'muted') =>
     updateUndoable((s) => ({
@@ -166,10 +168,10 @@ const TrackHeader = memo<{ track: Track; number: number; height: number }>(funct
       style={{ height }}
     >
       <span className="flex-1 truncate tabular-nums">{number}</span>
-      <TrackBtn title="隐藏/显示" active={track.hidden} onClick={() => toggle('hidden')}>
+      <TrackBtn title={t('timeline.trackHideShow')} active={track.hidden} onClick={() => toggle('hidden')}>
         {track.hidden ? <EyeOff /> : <Eye />}
       </TrackBtn>
-      <TrackBtn title="静音" active={track.muted} onClick={() => toggle('muted')}>
+      <TrackBtn title={t('timeline.trackMute')} active={track.muted} onClick={() => toggle('muted')}>
         {track.muted ? <VolumeX /> : <Volume2 />}
       </TrackBtn>
     </div>
@@ -187,6 +189,7 @@ const TimecodeReadout: React.FC<{ fps: number; duration: number }> = ({ fps, dur
 };
 
 export const TimelinePanel: React.FC<{ className?: string }> = ({ className }) => {
+  const t = useT();
   const editorApi = useEditorApi();
   const deps = useEditorDeps();
   const refs = useEditorRefs();
@@ -748,7 +751,7 @@ export const TimelinePanel: React.FC<{ className?: string }> = ({ className }) =
                 variant="ghost"
                 size="icon-sm"
                 className={snapping ? 'text-blue-400 hover:text-blue-400' : 'text-muted-foreground hover:text-foreground'}
-                title="吸附 (Shift+M)"
+                title={t('timeline.snapTitle')}
                 aria-pressed={snapping}
                 onClick={() => editorApi.getState().toggleSnapping()}
               />
@@ -756,7 +759,7 @@ export const TimelinePanel: React.FC<{ className?: string }> = ({ className }) =
           >
             <Magnet className="size-4" />
           </TooltipTrigger>
-          <TooltipContent>吸附开关 (Shift+M)</TooltipContent>
+          <TooltipContent>{t('timeline.snapTooltip')}</TooltipContent>
         </Tooltip>
         <Tooltip>
           <TooltipTrigger
@@ -765,7 +768,7 @@ export const TimelinePanel: React.FC<{ className?: string }> = ({ className }) =
                 variant="ghost"
                 size="icon-sm"
                 className="text-muted-foreground hover:text-foreground"
-                title="在播放头处分割 (S)"
+                title={t('timeline.split')}
                 disabled={!splittable}
                 onClick={() => {
                   const store = editorApi.getState();
@@ -779,18 +782,18 @@ export const TimelinePanel: React.FC<{ className?: string }> = ({ className }) =
           >
             <Scissors className="size-4" />
           </TooltipTrigger>
-          <TooltipContent>在播放头处分割 (S)</TooltipContent>
+          <TooltipContent>{t('timeline.split')}</TooltipContent>
         </Tooltip>
         <div className="flex-1" />
         {/* 官方缩放模型：滑杆 0..1，0 = 适应（自动跟随内容/面板宽度），>0 在 [fit, 8] 间指数插值 */}
-        <span className="cursor-pointer" title="点击回到适应" onClick={() => setZoom('fit')}>
-          缩放
+        <span className="cursor-pointer" title={t('timeline.zoomResetTitle')} onClick={() => setZoom('fit')}>
+          {t('timeline.zoom')}
         </span>
         <Button
           variant="ghost"
           size="icon-xs"
           className="text-muted-foreground hover:text-foreground"
-          title="缩小"
+          title={t('timeline.zoomOut')}
           onClick={() => setZoom(zoom / 2)}
         >
           <Minus className="size-3" />
@@ -818,7 +821,7 @@ export const TimelinePanel: React.FC<{ className?: string }> = ({ className }) =
           variant="ghost"
           size="icon-xs"
           className="text-muted-foreground hover:text-foreground"
-          title="放大"
+          title={t('timeline.zoomIn')}
           onClick={() => setZoom(zoom * 2)}
         >
           <Plus className="size-3" />
@@ -831,13 +834,13 @@ export const TimelinePanel: React.FC<{ className?: string }> = ({ className }) =
               ? 'text-blue-400 hover:text-blue-400'
               : 'text-muted-foreground hover:text-foreground'
           }
-          title="适应：缩放到完整时长可见"
+          title={t('timeline.fitTitle')}
           onClick={() => {
             setZoom('fit');
             if (scrollRef.current) scrollRef.current.scrollLeft = 0;
           }}
         >
-          适应
+          {t('timeline.fit')}
         </Button>
       </div>
       <div className="flex overflow-y-auto" style={{ height: `calc(100% - 2rem)` }}>
@@ -987,12 +990,12 @@ export const TimelinePanel: React.FC<{ className?: string }> = ({ className }) =
             ) : null}
             </ContextMenuTrigger>
             <ContextMenuContent>
-              <ContextMenuItem onClick={menuCut}>剪切</ContextMenuItem>
-              <ContextMenuItem onClick={() => copySelection(editorApi)}>复制</ContextMenuItem>
-              <ContextMenuItem onClick={() => duplicateSelection(editorApi)}>创建副本</ContextMenuItem>
+              <ContextMenuItem onClick={menuCut}>{t('timeline.cut')}</ContextMenuItem>
+              <ContextMenuItem onClick={() => copySelection(editorApi)}>{t('timeline.copy')}</ContextMenuItem>
+              <ContextMenuItem onClick={() => duplicateSelection(editorApi)}>{t('timeline.duplicate')}</ContextMenuItem>
               <ContextMenuSeparator />
-              <ContextMenuItem onClick={() => menuReorder('front')}>置于顶层</ContextMenuItem>
-              <ContextMenuItem onClick={() => menuReorder('back')}>置于底层</ContextMenuItem>
+              <ContextMenuItem onClick={() => menuReorder('front')}>{t('timeline.bringToFront')}</ContextMenuItem>
+              <ContextMenuItem onClick={() => menuReorder('back')}>{t('timeline.sendToBack')}</ContextMenuItem>
             </ContextMenuContent>
           </ContextMenu>
         </div>

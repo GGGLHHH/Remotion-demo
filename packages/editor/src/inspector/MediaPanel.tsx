@@ -4,6 +4,7 @@ import { Switch } from '../components/ui/switch';
 import { useEditor } from '../state/context';
 import { maxItemDurationInFrames } from '../timeline/ops';
 import { FadeSliders, Row, Section, SliderField } from './fields';
+import { useT } from '../lib/i18n';
 
 type MediaItem = VideoItem | AudioItem | GifItem;
 
@@ -14,6 +15,7 @@ const linearToDb = (v: number) =>
 const dbToLinear = (db: number) => (db <= -60 ? 0 : 10 ** (db / 20));
 
 export const MediaPanel: React.FC<{ item: MediaItem }> = ({ item }) => {
+  const t = useT();
   const updateUndoable = useEditor((s) => s.updateUndoable);
   const fps = useEditor((s) => s.undoable.fps);
 
@@ -42,7 +44,7 @@ export const MediaPanel: React.FC<{ item: MediaItem }> = ({ item }) => {
 
   const rateSlider = (
     <SliderField
-      label="速度"
+      label={t('mediaPanel.speed')}
       value={item.playbackRate}
       min={0.25}
       max={5}
@@ -69,7 +71,7 @@ export const MediaPanel: React.FC<{ item: MediaItem }> = ({ item }) => {
     return (
       <>
         <SliderField
-          label="音量"
+          label={t('mediaPanel.volume')}
           value={db}
           min={-60}
           max={20}
@@ -77,7 +79,7 @@ export const MediaPanel: React.FC<{ item: MediaItem }> = ({ item }) => {
           display={db <= -60 ? '-∞ dB' : `${db.toFixed(1)} dB`}
           onChange={(v) => patch({ volume: dbToLinear(v) } as Partial<MediaItem>, false)}
         />
-        <Row label="静音">
+        <Row label={t('mediaPanel.mute')}>
           <Switch
             size="sm"
             checked={it.muted}
@@ -91,7 +93,7 @@ export const MediaPanel: React.FC<{ item: MediaItem }> = ({ item }) => {
   // 音频条目：官方结构里音量/淡入淡出/速度全部收在「音频」区
   if (item.type === 'audio') {
     return (
-      <Section title="音频" collapsible defaultOpen={false}>
+      <Section title={t('mediaPanel.audio')} collapsible defaultOpen={false}>
         {audioRows(item)}
         {fadeSliders}
         {rateSlider}
@@ -103,12 +105,12 @@ export const MediaPanel: React.FC<{ item: MediaItem }> = ({ item }) => {
   // 有音轨的视频再加「音频」区（独立的音频淡变对，官方行为）
   return (
     <>
-      <Section title="视频" collapsible defaultOpen={false}>
+      <Section title={t('mediaPanel.video')} collapsible defaultOpen={false}>
         {rateSlider}
         {fadeSliders}
       </Section>
       {item.type === 'video' ? (
-        <Section title="音频" collapsible defaultOpen={false}>
+        <Section title={t('mediaPanel.audio')} collapsible defaultOpen={false}>
           {audioRows(item)}
           <FadeSliders
             fadeInFrames={item.audioFadeInDurationInFrames ?? 0}

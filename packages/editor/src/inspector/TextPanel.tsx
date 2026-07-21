@@ -20,6 +20,7 @@ import { Command, CommandItem, CommandList } from '../components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popover';
 import { Textarea } from '../components/ui/textarea';
 import { useEditor } from '../state/context';
+import { useT } from '../lib/i18n';
 import { NumberField } from './NumberField';
 import { ColorField, Row, Section } from './fields';
 import { FontPicker } from './FontPicker';
@@ -86,13 +87,14 @@ export const TypographySection: React.FC<{ item: TextItem }> = ({ item }) => {
   const commitPending = useEditor((s) => s.commitPending);
   const [weightOpen, setWeightOpen] = useState(false);
   const patch = usePatch(item.id);
+  const t = useT();
 
   return (
-    <Section title="排版" collapsible defaultOpen>
-      <Row label="字体">
+    <Section title={t('textPanel.typography')} collapsible defaultOpen>
+      <Row label={t('textPanel.fontFamily')}>
         <FontPicker itemId={item.id} value={item.fontFamily} onCommit={(f) => patch({ fontFamily: f })} />
       </Row>
-      <Row label="字重">
+      <Row label={t('textPanel.fontWeight')}>
         {/* Popover + Command 下拉：悬停即在画布实时预览字重/斜体（commit:false），点击才提交；
             shadcn Select 无法逐项 hover 回调，故用 CommandItem 挂 onMouseEnter */}
         <Popover
@@ -137,7 +139,7 @@ export const TypographySection: React.FC<{ item: TextItem }> = ({ item }) => {
         </Popover>
       </Row>
       <NumberField
-        label="字号"
+        label={t('textPanel.fontSize')}
         icon={TypeIcon}
         value={item.fontSize}
         min={1}
@@ -146,7 +148,7 @@ export const TypographySection: React.FC<{ item: TextItem }> = ({ item }) => {
       />
       <div className="grid grid-cols-2 gap-2">
         <NumberField
-          label="行高"
+          label={t('textPanel.lineHeight')}
           icon={MoveVerticalIcon}
           value={item.lineHeight}
           min={0.5}
@@ -155,7 +157,7 @@ export const TypographySection: React.FC<{ item: TextItem }> = ({ item }) => {
           onChange={(v, c) => patch({ lineHeight: v }, c)}
         />
         <NumberField
-          label="字距"
+          label={t('textPanel.letterSpacing')}
           icon={MoveHorizontalIcon}
           value={item.letterSpacing}
           min={-10}
@@ -164,7 +166,7 @@ export const TypographySection: React.FC<{ item: TextItem }> = ({ item }) => {
         />
       </div>
       <div className="flex flex-col gap-1">
-        <span className="text-xs text-muted-foreground">文本</span>
+        <span className="text-xs text-muted-foreground">{t('textPanel.text')}</span>
         <Textarea
           key={item.id}
           className="min-h-16 resize-y text-xs md:text-xs"
@@ -178,7 +180,7 @@ export const TypographySection: React.FC<{ item: TextItem }> = ({ item }) => {
       <div className="grid grid-cols-2 gap-2">
         {/* e2e 依赖 label:has-text("对齐") 下 button 顺序：left 在首位 */}
         <label className="flex flex-col gap-1">
-          <span className="text-xs text-muted-foreground">对齐</span>
+          <span className="text-xs text-muted-foreground">{t('textPanel.align')}</span>
           <div className="flex">
             {(['left', 'center', 'right'] as const).map((a, i) => {
               const Icon = ALIGN_ICONS[a];
@@ -197,7 +199,7 @@ export const TypographySection: React.FC<{ item: TextItem }> = ({ item }) => {
           </div>
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-xs text-muted-foreground">方向</span>
+          <span className="text-xs text-muted-foreground">{t('textPanel.direction')}</span>
           <div className="flex">
             {(['ltr', 'rtl'] as const).map((d, i) => {
               const Icon = DIR_ICONS[d];
@@ -224,17 +226,18 @@ export const TypographySection: React.FC<{ item: TextItem }> = ({ item }) => {
 /** 描边（官方 Stroke，默认折叠）：宽度 + 颜色始终可见 */
 export const StrokeSection: React.FC<{ item: TextItem }> = ({ item }) => {
   const patch = usePatch(item.id);
+  const t = useT();
   return (
-    <Section title="描边" collapsible defaultOpen={false}>
+    <Section title={t('textPanel.stroke')} collapsible defaultOpen={false}>
       <NumberField
-        label="宽度"
+        label={t('textPanel.width')}
         icon={PenLineIcon}
         value={item.strokeWidth}
         min={0}
         max={100}
         onChange={(v, c) => patch({ strokeWidth: v }, c)}
       />
-      <ColorField label="颜色" value={item.strokeColor} onChange={(v) => patch({ strokeColor: v })} />
+      <ColorField label={t('textPanel.color')} value={item.strokeColor} onChange={(v) => patch({ strokeColor: v })} />
     </Section>
   );
 };
@@ -243,9 +246,10 @@ export const StrokeSection: React.FC<{ item: TextItem }> = ({ item }) => {
  * 启用时写入官方默认值：#808080 / 圆角 20 / 内边距 40 */
 export const BackgroundSection: React.FC<{ item: TextItem }> = ({ item }) => {
   const patch = usePatch(item.id);
+  const t = useT();
   return (
-    <Section title="背景" collapsible defaultOpen>
-      <Row label="启用">
+    <Section title={t('textPanel.background')} collapsible defaultOpen>
+      <Row label={t('textPanel.enable')}>
         <Checkbox
           checked={item.backgroundColor !== null}
           onCheckedChange={(checked) =>
@@ -260,20 +264,20 @@ export const BackgroundSection: React.FC<{ item: TextItem }> = ({ item }) => {
       {item.backgroundColor !== null ? (
         <>
           <ColorField
-            label="颜色"
+            label={t('textPanel.color')}
             value={item.backgroundColor}
             onChange={(v) => patch({ backgroundColor: v })}
           />
           <div className="grid grid-cols-2 gap-2">
             <NumberField
-              label="圆角"
+              label={t('textPanel.borderRadius')}
               icon={SquareRoundCornerIcon}
               value={item.backgroundBorderRadius}
               min={0}
               onChange={(v, c) => patch({ backgroundBorderRadius: v }, c)}
             />
             <NumberField
-              label="内边距"
+              label={t('textPanel.padding')}
               icon={MoveHorizontalIcon}
               value={item.backgroundPadding}
               min={0}

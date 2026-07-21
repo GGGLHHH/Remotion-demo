@@ -8,6 +8,7 @@ import { useEditor, useEditorRefs } from '../state/context';
 import { usePlayerFrame } from '../canvas/player-ref';
 import { calcDuration } from '@gedatou/shared/composition';
 import { formatTime } from '../timeline/Ruler';
+import { useT } from '../lib/i18n';
 
 /** M:SS.FF，FF = 帧号 % fps 两位补零 */
 const formatTimecode = (frame: number, fps: number): string =>
@@ -50,6 +51,7 @@ export const PlaybackBar: React.FC<{ className?: string }> = ({ className }) => 
   const toggleLoop = useEditor((s) => s.toggleLoop);
   const playerMuted = useEditor((s) => s.playerMuted);
   const togglePlayerMuted = useEditor((s) => s.togglePlayerMuted);
+  const t = useT();
   const [playing, setPlaying] = useState(false);
   const durationInFrames = useMemo(() => calcDuration(items), [items]);
 
@@ -81,23 +83,23 @@ export const PlaybackBar: React.FC<{ className?: string }> = ({ className }) => 
         className,
       )}
     >
-      <Btn title="跳到开头" onClick={() => refs.player.current?.seekTo(0)}>
+      <Btn title={t('playback.skipToStart')} onClick={() => refs.player.current?.seekTo(0)}>
         <SkipBack />
       </Btn>
-      <Btn title="播放/暂停 (空格)" onClick={() => refs.player.current?.toggle()}>
+      <Btn title={t('playback.playPause')} onClick={() => refs.player.current?.toggle()}>
         {playing ? <Pause /> : <Play />}
       </Btn>
-      <Btn title="跳到结尾" onClick={() => refs.player.current?.seekTo(durationInFrames - 1)}>
+      <Btn title={t('playback.skipToEnd')} onClick={() => refs.player.current?.seekTo(durationInFrames - 1)}>
         <SkipForward />
       </Btn>
       <Timecode fps={fps} durationInFrames={durationInFrames} />
-      <Btn title="静音" active={playerMuted} onClick={togglePlayerMuted}>
+      <Btn title={t('playback.mute')} active={playerMuted} onClick={togglePlayerMuted}>
         {playerMuted ? <VolumeX /> : <Volume2 />}
       </Btn>
-      <Btn title="循环" active={loop} onClick={toggleLoop}>
+      <Btn title={t('playback.loop')} active={loop} onClick={toggleLoop}>
         <Repeat />
       </Btn>
-      <Btn title="全屏" onClick={() => refs.player.current?.requestFullscreen()}>
+      <Btn title={t('playback.fullscreen')} onClick={() => refs.player.current?.requestFullscreen()}>
         <Maximize />
       </Btn>
     </div>

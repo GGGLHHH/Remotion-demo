@@ -86,7 +86,11 @@ export {
   deserializeState,
 } from './persistence/persistence';
 
+// i18n：库不做 i18n，只暴露注入缝（EditorDeps.t / EditorT）+ 内置 zh 默认（也是完整 key 目录）。
+// 消费方拿 zhMessages 当翻译基线/key 清单，注入自己的 t 即可让编辑器跟随宿主语言。
+export { zhMessages } from './locales/zh';
+
 // 类型
 export type { EditorStore, EditorStoreApi, EditorInitialState } from './state/store';
 export type { EditorInstanceRefs } from './state/instance-refs';
-export type { EditorTransport, EditorStorage, NotifyFn, EditorDeps, RenderProgress } from './state/runtime';
+export type { EditorTransport, EditorStorage, NotifyFn, EditorDeps, EditorT, RenderProgress } from './state/runtime';

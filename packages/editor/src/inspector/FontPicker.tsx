@@ -11,6 +11,7 @@ import {
 } from '../components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popover';
 import { useEditor } from '../state/context';
+import { useT } from '../lib/i18n';
 
 /** 字体选择器：shadcn Popover + Command，搜索 + 悬停画布实时预览。
  * 下拉项用各自字体渲染（官方 FEATURE_FONT_FAMILY_DROPDOWN_RENDER_IN_FONT）：
@@ -22,6 +23,7 @@ export const FontPicker: React.FC<{
   value: string;
   onCommit: (family: string) => void;
 }> = ({ itemId, value, onCommit }) => {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const setFontHoverPreview = useEditor((s) => s.setFontHoverPreview);
@@ -73,7 +75,7 @@ export const FontPicker: React.FC<{
         <Command shouldFilter={false} className="rounded-lg!">
           <CommandInput
             autoFocus
-            placeholder="搜索字体…"
+            placeholder={t('fontPicker.searchPlaceholder')}
             className="text-xs"
             value={query}
             onValueChange={setQuery}
@@ -83,7 +85,7 @@ export const FontPicker: React.FC<{
             className="max-h-64"
             onMouseLeave={() => setFontHoverPreview(null)}
           >
-            <CommandEmpty>无匹配字体</CommandEmpty>
+            <CommandEmpty>{t('fontPicker.noMatch')}</CommandEmpty>
             {families.map((f) => (
               <CommandItem
                 key={f}

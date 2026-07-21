@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { ChevronDownIcon, ChevronRightIcon } from 'lucide-react';
 import { Slider } from '../components/ui/slider';
 import { useEditorApi } from '../state/context';
+import { useT } from '../lib/i18n';
 
 /**
  * 面板分区。collapsible 时标题为整行折叠按钮（官方样式，右侧 ▼/▶ 箭头）；
@@ -140,11 +141,12 @@ export const FadeSliders: React.FC<{
   fadeOutField = 'fadeOutDurationInFrames',
   onPatch,
 }) => {
+  const t = useT();
   const maxS = Math.max(0.1, durationInFrames / fps);
   return (
     <>
       <SliderField
-        label="淡入s"
+        label={t('fields.fadeIn')}
         value={fadeInFrames / fps}
         min={0}
         max={maxS}
@@ -153,7 +155,7 @@ export const FadeSliders: React.FC<{
         onChange={(v) => onPatch({ [fadeInField]: Math.round(v * fps) })}
       />
       <SliderField
-        label="淡出s"
+        label={t('fields.fadeOut')}
         value={fadeOutFrames / fps}
         min={0}
         max={maxS}

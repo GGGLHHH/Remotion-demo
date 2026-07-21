@@ -2,6 +2,7 @@ import type React from 'react';
 import { memo, useRef, useState } from 'react';
 import type { EditorStarterItem } from '@gedatou/shared';
 import { useEditor, useEditorApi } from '../state/context';
+import { useT } from '../lib/i18n';
 import { Filmstrip } from './Filmstrip';
 import { Waveform } from './Waveform';
 
@@ -97,6 +98,7 @@ export const ItemBlock = memo<{
   onPointerDown?: (e: React.PointerEvent, item: EditorStarterItem, mode: 'move' | 'trim-start' | 'trim-end') => void;
 }>(function ItemBlock({ item, zoom, hidden, onPointerDown }) {
   const editorApi = useEditorApi();
+  const t = useT();
   const selected = useEditor((s) => s.selectedItemIds.includes(item.id));
   const mediaUrl = useEditor((s) => {
     if (item.type !== 'video' && item.type !== 'audio') return null;
@@ -196,7 +198,7 @@ export const ItemBlock = memo<{
         const other = side === 'in' ? pair.fadeOut : pair.fadeIn;
         const v = Math.min(Math.max(0, raw), Math.max(0, it.durationInFrames - other));
         setDragTip({
-          label: `${side === 'in' ? '淡入' : '淡出'} ${(v / fps).toFixed(1)}s`,
+          label: `${side === 'in' ? t('itemBlock.fadeIn') : t('itemBlock.fadeOut')} ${(v / fps).toFixed(1)}s`,
           x: ev.clientX,
           y: ev.clientY,
         });
@@ -237,7 +239,7 @@ export const ItemBlock = memo<{
         ...(side === 'in' ? { left: frames * zoom } : { right: frames * zoom }),
         ...(styleExtra ?? { top: 0 }),
       }}
-      title={side === 'in' ? '淡入' : '淡出'}
+      title={side === 'in' ? t('itemBlock.fadeIn') : t('itemBlock.fadeOut')}
       onPointerEnter={() => {
         // 悬停在药丸自身时保持所属悬停域（药丸在块级、不在域容器内）
         if (item.type === 'video') setHoverZone(kind === 'visual' ? 'film' : 'strip');
@@ -365,7 +367,7 @@ export const ItemBlock = memo<{
                   data-volume-line
                   className="absolute inset-x-0 z-20 cursor-ns-resize"
                   style={{ top: bandTop, height: 6 }}
-                  title="音量"
+                  title={t('itemBlock.volume')}
                   onPointerDown={onVolumePointerDown}
                 >
                   <div

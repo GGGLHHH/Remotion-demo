@@ -39,6 +39,7 @@ import { useEditor, useEditorApi, useEditorDeps } from '../state/context';
 import { usePlayerFrameDerived } from '../canvas/player-ref';
 import { startRender } from '../lib/render-client';
 import { generateCaptions } from '../lib/captioning';
+import { useT } from '../lib/i18n';
 import { NumberField } from './NumberField';
 import { ColorField, FadeSliders, Section, SliderField } from './fields';
 import { BackgroundSection, StrokeSection, TypographySection } from './TextPanel';
@@ -49,12 +50,13 @@ type PatchFn = (partial: Partial<EditorStarterItem>, commit?: boolean) => void;
 
 /** 生成字幕入口：audio 或含音轨的 video（官方 Captions 区，默认折叠） */
 const CaptionsSection: React.FC<{ itemId: string }> = ({ itemId }) => {
+  const t = useT();
   const editorApi = useEditorApi();
   const deps = useEditorDeps();
   const task = useEditor((s) => s.captioningTasks.findLast((t) => t.itemId === itemId));
   const busy = task?.status === 'extracting' || task?.status === 'transcribing';
   return (
-    <Section title="字幕" collapsible defaultOpen={false}>
+    <Section title={t('inspector.captions')} collapsible defaultOpen={false}>
       <Button
         variant="outline"
         size="sm"
@@ -62,7 +64,11 @@ const CaptionsSection: React.FC<{ itemId: string }> = ({ itemId }) => {
         onClick={() => void generateCaptions(editorApi, deps, itemId)}
       >
         {busy ? <Spinner /> : <CaptionsIcon />}
-        {busy ? (task.status === 'extracting' ? '抽取音频中…' : '转录中…') : '生成字幕'}
+        {busy
+          ? task.status === 'extracting'
+            ? t('inspector.extractingAudio')
+            : t('inspector.transcribing')
+          : t('inspector.generateCaptions')}
       </Button>
       {task?.status === 'error' ? (
         <div className="break-all text-xs text-destructive">{task.error?.slice(0, 200)}</div>
@@ -79,6 +85,7 @@ const CODEC_LABELS: Record<'mp4' | 'webm', string> = {
 };
 
 const ExportSection: React.FC = () => {
+  const t = useT();
   const editorApi = useEditorApi();
   const deps = useEditorDeps();
   const renderingTasks = useEditor((s) => s.renderingTasks);
@@ -86,7 +93,7 @@ const ExportSection: React.FC = () => {
   const [codec, setCodec] = useState<'mp4' | 'webm'>('mp4');
 
   return (
-    <Section title="导出">
+    <Section title={t('inspector.export')}>
       <Select items={CODEC_LABELS} value={codec} onValueChange={(v) => setCodec(v as 'mp4' | 'webm')}>
         <SelectTrigger size="sm" className="w-full text-xs">
           <SelectValue />
@@ -99,39 +106,39 @@ const ExportSection: React.FC = () => {
       {/* 官方行为：时间线为空时禁用渲染按钮 */}
       <Button size="sm" variant="secondary" disabled={!hasItems} onClick={() => void startRender(editorApi, deps, codec)}>
         <ClapperboardIcon />
-        渲染
+        {t('inspector.render')}
       </Button>
-      {renderingTasks.map((t) => (
-        <div key={t.id} className="rounded-lg border border-border p-2 text-xs">
+      {renderingTasks.map((task) => (
+        <div key={task.id} className="rounded-lg border border-border p-2 text-xs">
           <div className="flex items-center justify-between gap-2">
             {/* 文件名由前端在发起渲染时就组装好（见 lib/render-client），故全程可显示，
                 且就是实际下载到的名字。codec 已体现在扩展名里，不再另挂徽章。 */}
-            <span className="min-w-0 flex-1 truncate font-medium" title={t.fileName ?? t.codec}>
-              {t.fileName ?? t.codec}
+            <span className="min-w-0 flex-1 truncate font-medium" title={task.fileName ?? task.codec}>
+              {task.fileName ?? task.codec}
             </span>
-            {t.status === 'done' && t.url ? (
+            {task.status === 'done' && task.url ? (
               /* 产物带 Content-Disposition: attachment（文件名由服务端定；跨源 URL 下
                  a[download] 的文件名会被浏览器忽略），故不加 target=_blank 免闪空白页 */
               <a
-                href={t.url}
+                href={task.url}
                 rel="noreferrer"
                 className="text-primary underline-offset-4 hover:underline"
               >
-                下载
+                {t('inspector.download')}
               </a>
             ) : (
               <span className="tabular-nums text-muted-foreground">
-                {t.status === 'error' ? '失败' : `${Math.round(t.progress * 100)}%`}
+                {task.status === 'error' ? t('inspector.failed') : `${Math.round(task.progress * 100)}%`}
               </span>
             )}
           </div>
-          {t.status === 'error' ? (
-            <div className="mt-1 break-all text-destructive">{t.error?.slice(0, 200)}</div>
+          {task.status === 'error' ? (
+            <div className="mt-1 break-all text-destructive">{task.error?.slice(0, 200)}</div>
           ) : (
             <div className="mt-2 h-1 rounded-full bg-muted">
               <div
                 className="h-1 rounded-full bg-primary transition-[width]"
-                style={{ width: `${Math.round(t.progress * 100)}%` }}
+                style={{ width: `${Math.round(task.progress * 100)}%` }}
               />
             </div>
           )}
@@ -151,6 +158,7 @@ const formatTimecode = (frames: number, fps: number): string => {
 };
 
 const CompositionPanel: React.FC = () => {
+  const t = useT();
   const width = useEditor((s) => s.undoable.compositionWidth);
   const height = useEditor((s) => s.undoable.compositionHeight);
   const fps = useEditor((s) => s.undoable.fps);
@@ -161,7 +169,7 @@ const CompositionPanel: React.FC = () => {
 
   return (
     <>
-      <Section title="画布">
+      <Section title={t('inspector.canvas')}>
         <div className="flex items-center gap-2">
           <NumberField
             inline
@@ -189,7 +197,7 @@ const CompositionPanel: React.FC = () => {
                 <Button
                   variant="outline"
                   size="icon-sm"
-                  aria-label="交换尺寸"
+                  aria-label={t('inspector.swapDimensions')}
                   onClick={() =>
                     updateUndoable((s) => ({
                       ...s,
@@ -202,11 +210,11 @@ const CompositionPanel: React.FC = () => {
                 </Button>
               }
             />
-            <TooltipContent>交换尺寸</TooltipContent>
+            <TooltipContent>{t('inspector.swapDimensions')}</TooltipContent>
           </Tooltip>
         </div>
       </Section>
-      <Section title="时长">
+      <Section title={t('inspector.duration')}>
         <div className="text-xs tabular-nums text-muted-foreground">
           {formatTimecode(totalFrames, fps)}
         </div>
@@ -231,14 +239,15 @@ const formatSeconds = (s: number): string => {
   return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`;
 };
 
-const UPLOAD_STATUS_LABEL: Record<AssetStatus, string> = {
-  'pending-upload': '等待上传',
-  'in-progress': '上传中…',
-  uploaded: '已上传',
-  error: '上传失败',
+const UPLOAD_STATUS_KEY: Record<AssetStatus, string> = {
+  'pending-upload': 'inspector.statusPendingUpload',
+  'in-progress': 'inspector.statusInProgress',
+  uploaded: 'inspector.statusUploaded',
+  error: 'inspector.statusError',
 };
 
 const SourceSection: React.FC<{ asset: EditorStarterAsset }> = ({ asset }) => {
+  const t = useT();
   const status = useEditor((s) => s.assetStatus[asset.id]);
   const progress = useEditor((s) => s.uploadProgress[asset.id]);
   const duration =
@@ -246,7 +255,7 @@ const SourceSection: React.FC<{ asset: EditorStarterAsset }> = ({ asset }) => {
       ? asset.durationInSeconds
       : null;
   return (
-    <Section title="源信息" collapsible defaultOpen>
+    <Section title={t('inspector.source')} collapsible defaultOpen>
       <div className="break-all text-xs">{asset.filename}</div>
       <div className="flex items-center gap-3 text-xs text-muted-foreground">
         {duration !== null ? <span className="tabular-nums">{formatSeconds(duration)}</span> : null}
@@ -258,8 +267,8 @@ const SourceSection: React.FC<{ asset: EditorStarterAsset }> = ({ asset }) => {
         {status && status !== 'uploaded' ? (
           <Badge variant={status === 'error' ? 'destructive' : 'secondary'}>
             {status === 'in-progress' && progress !== undefined
-              ? `上传中 ${progress}%`
-              : UPLOAD_STATUS_LABEL[status]}
+              ? t('inspector.uploading', { progress })
+              : t(UPLOAD_STATUS_KEY[status])}
           </Badge>
         ) : null}
       </div>
@@ -275,12 +284,12 @@ const ALIGNS: {
   icon: LucideIcon;
   apply: (compW: number, compH: number, it: EditorStarterItem) => Partial<EditorStarterItem>;
 }[] = [
-  { key: 'l', label: '左对齐', icon: AlignStartVerticalIcon, apply: () => ({ left: 0 }) },
-  { key: 'ch', label: '水平居中', icon: AlignCenterVerticalIcon, apply: (w, _h, it) => ({ left: Math.round((w - it.width) / 2) }) },
-  { key: 'r', label: '右对齐', icon: AlignEndVerticalIcon, apply: (w, _h, it) => ({ left: w - it.width }) },
-  { key: 't', label: '顶对齐', icon: AlignStartHorizontalIcon, apply: () => ({ top: 0 }) },
-  { key: 'cv', label: '垂直居中', icon: AlignCenterHorizontalIcon, apply: (_w, h, it) => ({ top: Math.round((h - it.height) / 2) }) },
-  { key: 'b', label: '底对齐', icon: AlignEndHorizontalIcon, apply: (_w, h, it) => ({ top: h - it.height }) },
+  { key: 'l', label: 'inspector.alignLeft', icon: AlignStartVerticalIcon, apply: () => ({ left: 0 }) },
+  { key: 'ch', label: 'inspector.alignCenterH', icon: AlignCenterVerticalIcon, apply: (w, _h, it) => ({ left: Math.round((w - it.width) / 2) }) },
+  { key: 'r', label: 'inspector.alignRight', icon: AlignEndVerticalIcon, apply: (w, _h, it) => ({ left: w - it.width }) },
+  { key: 't', label: 'inspector.alignTop', icon: AlignStartHorizontalIcon, apply: () => ({ top: 0 }) },
+  { key: 'cv', label: 'inspector.alignCenterV', icon: AlignCenterHorizontalIcon, apply: (_w, h, it) => ({ top: Math.round((h - it.height) / 2) }) },
+  { key: 'b', label: 'inspector.alignBottom', icon: AlignEndHorizontalIcon, apply: (_w, h, it) => ({ top: h - it.height }) },
 ];
 
 /** 拼接式按钮组（官方 joined segmented group） */
@@ -293,6 +302,7 @@ const LayoutSection: React.FC<{
   showLock: boolean;
   lockDefault: boolean;
 }> = ({ item, patch, showLock, lockDefault }) => {
+  const t = useT();
   const updateUndoable = useEditor((s) => s.updateUndoable);
   // ItemPanel 以 item.id 为 key 重挂，锁比例默认值随类型生效（图片/视频默认开）
   const [locked, setLocked] = useState(lockDefault);
@@ -328,7 +338,7 @@ const LayoutSection: React.FC<{
               </Button>
             }
           />
-          <TooltipContent>{a.label}</TooltipContent>
+          <TooltipContent>{t(a.label)}</TooltipContent>
         </Tooltip>
       ))}
     </div>
@@ -351,23 +361,23 @@ const LayoutSection: React.FC<{
     );
 
   return (
-    <Section title="布局" collapsible defaultOpen>
+    <Section title={t('inspector.layout')} collapsible defaultOpen>
       <label className="flex flex-col gap-1">
-        <span className="text-xs text-muted-foreground">对齐</span>
+        <span className="text-xs text-muted-foreground">{t('inspector.align')}</span>
         <div className="flex gap-2">
           {alignGroup(ALIGNS.slice(0, 3))}
           {alignGroup(ALIGNS.slice(3))}
         </div>
       </label>
       <div className="flex flex-col gap-1">
-        <span className="text-xs text-muted-foreground">位置</span>
+        <span className="text-xs text-muted-foreground">{t('inspector.position')}</span>
         <div className="grid grid-cols-2 gap-2">
           <NumberField inline label="X" value={item.left} onChange={(v, c) => patch({ left: v }, c)} />
           <NumberField inline label="Y" value={item.top} onChange={(v, c) => patch({ top: v }, c)} />
         </div>
       </div>
       <div className="flex flex-col gap-1">
-        <span className="text-xs text-muted-foreground">尺寸</span>
+        <span className="text-xs text-muted-foreground">{t('inspector.size')}</span>
         <div className="flex items-center gap-2">
           <NumberField inline label="W" className="flex-1" value={item.width} min={1} onChange={setW} />
           <NumberField inline label="H" className="flex-1" value={item.height} min={1} onChange={setH} />
@@ -386,14 +396,14 @@ const LayoutSection: React.FC<{
                   </Button>
                 }
               />
-              <TooltipContent>锁定宽高比</TooltipContent>
+              <TooltipContent>{t('inspector.lockAspect')}</TooltipContent>
             </Tooltip>
           ) : null}
         </div>
       </div>
       <div className="flex items-end gap-2">
         <NumberField
-          label="旋转"
+          label={t('inspector.rotation')}
           icon={RotateCwIcon}
           className="flex-1"
           value={item.rotation}
@@ -412,7 +422,7 @@ const LayoutSection: React.FC<{
                 </Button>
               }
             />
-            <TooltipContent>旋转 90°</TooltipContent>
+            <TooltipContent>{t('inspector.rotate90')}</TooltipContent>
           </Tooltip>
         </div>
       </div>
@@ -430,11 +440,12 @@ const FillSection: React.FC<{
   onColor?: (v: string) => void;
   showRadius?: boolean;
 }> = ({ item, patch, color, onColor, showRadius }) => {
+  const t = useT();
   const pct = Math.round(item.opacity * 100);
   return (
-    <Section title="填充" collapsible defaultOpen>
+    <Section title={t('inspector.fill')} collapsible defaultOpen>
       <SliderField
-        label="透明度"
+        label={t('inspector.opacity')}
         value={pct}
         min={0}
         max={100}
@@ -443,11 +454,11 @@ const FillSection: React.FC<{
         onChange={(v) => patch({ opacity: v / 100 }, false)}
       />
       {color !== undefined && onColor ? (
-        <ColorField label="颜色" value={color} onChange={onColor} />
+        <ColorField label={t('inspector.color')} value={color} onChange={onColor} />
       ) : null}
       {showRadius ? (
         <NumberField
-          label="圆角"
+          label={t('inspector.borderRadius')}
           icon={SquareRoundCornerIcon}
           value={item.borderRadius}
           min={0}
@@ -466,6 +477,7 @@ const CropSection: React.FC<{
   mediaH: number;
   patch: PatchFn;
 }> = ({ item, mediaW, mediaH, patch }) => {
+  const t = useT();
   const setItemSelectedForCrop = useEditor((s) => s.setItemSelectedForCrop);
   /** 播放头不在此元素时间范围内时画布上看不到它，裁剪按钮禁用（官方行为）。
       派生订阅：仅布尔值翻转时重渲（播放中不再每帧重渲整个分区） */
@@ -553,16 +565,16 @@ const CropSection: React.FC<{
   };
 
   return (
-    <Section title="裁剪" collapsible defaultOpen={false}>
-      {edgeSlider('左', 'left')}
-      {edgeSlider('上', 'top')}
-      {edgeSlider('右', 'right')}
-      {edgeSlider('下', 'bottom')}
+    <Section title={t('inspector.crop')} collapsible defaultOpen={false}>
+      {edgeSlider(t('inspector.cropLeft'), 'left')}
+      {edgeSlider(t('inspector.cropTop'), 'top')}
+      {edgeSlider(t('inspector.cropRight'), 'right')}
+      {edgeSlider(t('inspector.cropBottom'), 'bottom')}
       <div className="grid grid-cols-2 gap-2">
-        <NumberField label="裁剪X" value={Math.round(cur.left)} min={0} max={mediaW - 1} onChange={(v, c) => setPart({ left: v }, c)} />
-        <NumberField label="裁剪Y" value={Math.round(cur.top)} min={0} max={mediaH - 1} onChange={(v, c) => setPart({ top: v }, c)} />
-        <NumberField label="裁剪宽" value={Math.round(cur.width)} min={1} max={mediaW} onChange={(v, c) => setPart({ width: v }, c)} />
-        <NumberField label="裁剪高" value={Math.round(cur.height)} min={1} max={mediaH} onChange={(v, c) => setPart({ height: v }, c)} />
+        <NumberField label={t('inspector.cropX')} value={Math.round(cur.left)} min={0} max={mediaW - 1} onChange={(v, c) => setPart({ left: v }, c)} />
+        <NumberField label={t('inspector.cropY')} value={Math.round(cur.top)} min={0} max={mediaH - 1} onChange={(v, c) => setPart({ top: v }, c)} />
+        <NumberField label={t('inspector.cropW')} value={Math.round(cur.width)} min={1} max={mediaW} onChange={(v, c) => setPart({ width: v }, c)} />
+        <NumberField label={t('inspector.cropH')} value={Math.round(cur.height)} min={1} max={mediaH} onChange={(v, c) => setPart({ height: v }, c)} />
       </div>
       <div className="flex gap-2">
         <Button
@@ -570,11 +582,11 @@ const CropSection: React.FC<{
           size="sm"
           className="flex-1"
           disabled={!visibleAtPlayhead}
-          title={visibleAtPlayhead ? undefined : '播放头不在此元素的时间范围内'}
+          title={visibleAtPlayhead ? undefined : t('inspector.cropOutOfRange')}
           onClick={() => setItemSelectedForCrop(item.id)}
         >
           <CropIcon />
-          进入裁剪
+          {t('inspector.enterCrop')}
         </Button>
         {item.crop ? (
           <Button
@@ -583,7 +595,7 @@ const CropSection: React.FC<{
             className="flex-1"
             onClick={() => applyCrop(null, true)}
           >
-            重置
+            {t('inspector.reset')}
           </Button>
         ) : null}
       </div>
@@ -598,9 +610,10 @@ const FadeSection: React.FC<{ item: EditorStarterItem; patch: PatchFn; defaultOp
   patch,
   defaultOpen = false,
 }) => {
+  const t = useT();
   const fps = useEditor((s) => s.undoable.fps);
   return (
-    <Section title="淡入淡出" collapsible defaultOpen={defaultOpen}>
+    <Section title={t('inspector.fade')} collapsible defaultOpen={defaultOpen}>
       <FadeSliders
         fadeInFrames={item.fadeInDurationInFrames}
         fadeOutFrames={item.fadeOutDurationInFrames}

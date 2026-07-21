@@ -8,6 +8,7 @@ import type { EditorStoreApi } from '../state/store';
 import type { EditorDeps } from '../state/runtime';
 import { addTrack, hasOverlap } from '../timeline/ops';
 import { probeFile, type ProbeResult } from './probe';
+import { tFor } from './i18n';
 
 const itemBaseDefaults = {
   rotation: 0,
@@ -110,6 +111,7 @@ const uploadAsset = async (
   assetId: string,
   file: File,
 ): Promise<void> => {
+  const t = tFor(deps);
   store.getState().setAssetStatus(assetId, 'in-progress');
   try {
     const { url } = await deps.transport.uploadAsset(file, {
@@ -125,7 +127,7 @@ const uploadAsset = async (
     store.getState().setUploadProgress(assetId, null);
   } catch (err) {
     console.error('asset upload failed', err);
-    deps.notify(`上传失败：${file.name}`, 'error');
+    deps.notify(t('assets.uploadFailed', { name: file.name }), 'error');
     store.getState().setAssetStatus(assetId, 'error');
     store.getState().setUploadProgress(assetId, null);
   }
@@ -141,11 +143,15 @@ export const importFiles = async (
   /** 默认落点帧（无显式 placement 时用，通常传当前播放头帧） */
   currentFrame = 0,
 ): Promise<void> => {
+  const t = tFor(deps);
   let nextFrame = placement ? Math.max(0, Math.round(placement.frame)) : null;
   for (const file of files) {
     if (file.size > MAX_FILE_UPLOAD_SIZE_IN_MB * 1024 * 1024) {
       console.error(`文件过大: ${file.name}`);
-      deps.notify(`文件过大：${file.name}（上限 ${MAX_FILE_UPLOAD_SIZE_IN_MB}MB）`, 'error');
+      deps.notify(
+        t('assets.fileTooLarge', { name: file.name, max: MAX_FILE_UPLOAD_SIZE_IN_MB }),
+        'error',
+      );
       continue;
     }
     try {
@@ -198,7 +204,7 @@ export const importFiles = async (
       void uploadAsset(store, deps, asset.id, file);
     } catch (err) {
       console.error(`导入失败: ${file.name}`, err);
-      deps.notify(`导入失败：${file.name}`, 'error');
+      deps.notify(t('assets.importFailed', { name: file.name }), 'error');
     }
   }
 };

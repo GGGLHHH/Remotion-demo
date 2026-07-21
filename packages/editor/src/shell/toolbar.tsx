@@ -30,6 +30,7 @@ import {
   AlertDialogTrigger,
 } from '../components/ui/alert-dialog';
 import { cn } from '../lib/utils';
+import { useT } from '../lib/i18n';
 import { useEditor, useEditorApi, useEditorDeps, useEditorRefs } from '../state/context';
 import { importFiles } from '../lib/import-assets';
 import { cleanupDeletedAssets } from '../lib/cleanup-assets';
@@ -109,35 +110,39 @@ export const EditorTitle: React.FC<{ className?: string; children?: React.ReactN
 }) => <span className={cn('mr-4 font-medium', className)}>{children ?? 'Remotion Editor'}</span>;
 
 export const UndoButton: React.FC = () => {
+  const t = useT();
   const canUndo = useEditor((s) => s.past.length > 0);
   const undo = useEditor((s) => s.undo);
   return (
-    <IconButton label="撤销 (Cmd+Z)" disabled={!canUndo} onClick={undo}>
+    <IconButton label={t('toolbar.undo')} disabled={!canUndo} onClick={undo}>
       <Undo2 />
     </IconButton>
   );
 };
 
 export const RedoButton: React.FC = () => {
+  const t = useT();
   const canRedo = useEditor((s) => s.future.length > 0);
   const redo = useEditor((s) => s.redo);
   return (
-    <IconButton label="重做 (Cmd+Y)" disabled={!canRedo} onClick={redo}>
+    <IconButton label={t('toolbar.redo')} disabled={!canRedo} onClick={redo}>
       <Redo2 />
     </IconButton>
   );
 };
 
 export const PlayButton: React.FC = () => {
+  const t = useT();
   const refs = useEditorRefs();
   return (
-    <IconButton label="播放/暂停 (空格)" onClick={() => refs.player.current?.toggle()}>
+    <IconButton label={t('toolbar.playPause')} onClick={() => refs.player.current?.toggle()}>
       <Play />
     </IconButton>
   );
 };
 
 export const TextToolButton: React.FC = () => {
+  const t = useT();
   const tool = useEditor((s) => s.canvasTool);
   const setTool = useEditor((s) => s.setCanvasTool);
   return (
@@ -145,16 +150,17 @@ export const TextToolButton: React.FC = () => {
       variant={tool === 'text' ? 'secondary' : 'outline'}
       size="sm"
       onClick={() => setTool(tool === 'text' ? null : 'text')}
-      title="添加文本:点击画布放置（Esc 取消）"
+      title={t('toolbar.textTool')}
       aria-pressed={tool === 'text'}
     >
       <Type />
-      文本
+      {t('toolbar.text')}
     </Button>
   );
 };
 
 export const SolidToolButton: React.FC = () => {
+  const t = useT();
   const tool = useEditor((s) => s.canvasTool);
   const setTool = useEditor((s) => s.setCanvasTool);
   return (
@@ -162,22 +168,23 @@ export const SolidToolButton: React.FC = () => {
       variant={tool === 'solid' ? 'secondary' : 'outline'}
       size="sm"
       onClick={() => setTool(tool === 'solid' ? null : 'solid')}
-      title="绘制色块:在画布上拖拽画框（Esc 取消）"
+      title={t('toolbar.solidTool')}
       aria-pressed={tool === 'solid'}
     >
       <Square />
-      色块
+      {t('toolbar.solid')}
     </Button>
   );
 };
 
 export const ImportAssetButton: React.FC = () => {
+  const t = useT();
   const editorApi = useEditorApi();
   const deps = useEditorDeps();
   const refs = useEditorRefs();
   return (
     <FileButton
-      label="导入素材"
+      label={t('toolbar.importAsset')}
       icon={<Upload />}
       accept="video/*,audio/*,image/*"
       multiple
@@ -187,6 +194,7 @@ export const ImportAssetButton: React.FC = () => {
 };
 
 export const UploadStatusBadge: React.FC = () => {
+  const t = useT();
   const assetStatus = useEditor((s) => s.assetStatus);
   const uploading = Object.values(assetStatus).filter(
     (st) => st === 'in-progress' || st === 'pending-upload',
@@ -195,27 +203,29 @@ export const UploadStatusBadge: React.FC = () => {
   if (uploading === 0 && failed === 0) return null;
   return (
     <span className="flex items-center gap-1">
-      {uploading > 0 ? <Badge variant="secondary">上传中 {uploading}…</Badge> : null}
-      {failed > 0 ? <Badge variant="destructive">失败 {failed}</Badge> : null}
+      {uploading > 0 ? <Badge variant="secondary">{t('toolbar.uploading', { count: uploading })}</Badge> : null}
+      {failed > 0 ? <Badge variant="destructive">{t('toolbar.uploadFailed', { count: failed })}</Badge> : null}
     </span>
   );
 };
 
 export const CaptioningBadge: React.FC = () => {
+  const t = useT();
   const tasks = useEditor((s) => s.captioningTasks);
-  const active = tasks.filter((t) => t.status === 'extracting' || t.status === 'transcribing').length;
-  const failed = tasks.filter((t) => t.status === 'error').length;
+  const active = tasks.filter((task) => task.status === 'extracting' || task.status === 'transcribing').length;
+  const failed = tasks.filter((task) => task.status === 'error').length;
   if (active === 0 && failed === 0) return null;
   return (
     <span className="flex items-center gap-1">
-      {active > 0 ? <Badge variant="secondary">转录中 {active}…</Badge> : null}
-      {failed > 0 ? <Badge variant="destructive">转录失败 {failed}</Badge> : null}
+      {active > 0 ? <Badge variant="secondary">{t('toolbar.captioning', { count: active })}</Badge> : null}
+      {failed > 0 ? <Badge variant="destructive">{t('toolbar.captionFailed', { count: failed })}</Badge> : null}
     </span>
   );
 };
 
 /** 画布缩放控件:[适应图标(非 fit 时)] [−] [标签] [+]；相对步进（加倍/减半） */
 export const ZoomControls: React.FC = () => {
+  const t = useT();
   const refs = useEditorRefs();
   const canvasZoom = useEditor((s) => s.canvasZoom);
   const setCanvasZoom = useEditor((s) => s.setCanvasZoom);
@@ -223,17 +233,17 @@ export const ZoomControls: React.FC = () => {
   return (
     <span className="flex items-center gap-0.5">
       {canvasZoom !== 'fit' ? (
-        <IconButton label="适应画布 (0)" onClick={() => setCanvasZoom('fit')}>
+        <IconButton label={t('toolbar.fitCanvas')} onClick={() => setCanvasZoom('fit')}>
           <Maximize />
         </IconButton>
       ) : null}
-      <IconButton label="缩小 (-)" onClick={() => setCanvasZoom(effective() / 2)}>
+      <IconButton label={t('toolbar.zoomOut')} onClick={() => setCanvasZoom(effective() / 2)}>
         <Minus />
       </IconButton>
       <span className="min-w-11 text-center text-xs tabular-nums text-muted-foreground">
-        {canvasZoom === 'fit' ? '适应' : `${Math.round(canvasZoom * 100)}%`}
+        {canvasZoom === 'fit' ? t('toolbar.fit') : `${Math.round(canvasZoom * 100)}%`}
       </span>
-      <IconButton label="放大 (+)" onClick={() => setCanvasZoom(effective() * 2)}>
+      <IconButton label={t('toolbar.zoomIn')} onClick={() => setCanvasZoom(effective() * 2)}>
         <Plus />
       </IconButton>
     </span>
@@ -241,6 +251,7 @@ export const ZoomControls: React.FC = () => {
 };
 
 export const SaveButton: React.FC = () => {
+  const t = useT();
   const editorApi = useEditorApi();
   const deps = useEditorDeps();
   const dirty = useEditor((s) => s.undoable !== s.lastSavedState);
@@ -250,15 +261,16 @@ export const SaveButton: React.FC = () => {
       size="sm"
       className={dirty ? 'border-amber-500/60 text-amber-400 hover:text-amber-300' : ''}
       onClick={() => saveState(editorApi, deps)}
-      title="保存 (Cmd+S)"
+      title={t('toolbar.save')}
     >
       <Save />
-      保存{dirty ? ' •' : ''}
+      {t('toolbar.saveLabel')}{dirty ? ' •' : ''}
     </Button>
   );
 };
 
 export const CleanupAssetsButton: React.FC = () => {
+  const t = useT();
   const editorApi = useEditorApi();
   const deps = useEditorDeps();
   const count = useEditor((s) => s.undoable.deletedAssets.length);
@@ -268,17 +280,17 @@ export const CleanupAssetsButton: React.FC = () => {
     <AlertDialog open={open} onOpenChange={setOpen}>
       <AlertDialogTrigger render={<Button variant="destructive" size="sm" />}>
         <Trash2 />
-        清理素材({count})
+        {t('toolbar.cleanupAssets', { count })}
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>永久删除已移除的素材?</AlertDialogTitle>
+          <AlertDialogTitle>{t('toolbar.cleanupTitle')}</AlertDialogTitle>
           <AlertDialogDescription>
-            将永久删除 {count} 个已移除素材的远端对象与本地缓存，并清空撤销历史。此操作不可恢复。
+            {t('toolbar.cleanupDesc', { count })}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>取消</AlertDialogCancel>
+          <AlertDialogCancel>{t('toolbar.cancel')}</AlertDialogCancel>
           <AlertDialogAction
             variant="destructive"
             onClick={() => {
@@ -286,7 +298,7 @@ export const CleanupAssetsButton: React.FC = () => {
               void cleanupDeletedAssets(editorApi, deps);
             }}
           >
-            确认删除
+            {t('toolbar.confirmDelete')}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
@@ -296,25 +308,27 @@ export const CleanupAssetsButton: React.FC = () => {
 
 /** 下载工程 .json（demo/本地流程；平台化宿主可不渲染） */
 export const DownloadStateButton: React.FC = () => {
+  const t = useT();
   const editorApi = useEditorApi();
   return (
-    <Button variant="outline" size="sm" onClick={() => downloadStateFile(editorApi)} title="下载工程文件 (.json)">
+    <Button variant="outline" size="sm" onClick={() => downloadStateFile(editorApi)} title={t('toolbar.downloadState')}>
       <Download />
-      下载状态
+      {t('toolbar.downloadStateLabel')}
     </Button>
   );
 };
 
 /** 从 .json 恢复工程（demo/本地流程；平台化宿主可不渲染） */
 export const ImportStateButton: React.FC = () => {
+  const t = useT();
   const editorApi = useEditorApi();
   const deps = useEditorDeps();
   return (
     <FileButton
-      label="导入状态"
+      label={t('toolbar.importState')}
       icon={<FolderOpen />}
       accept=".json"
-      title="从 .json 文件恢复工程"
+      title={t('toolbar.importStateTitle')}
       onFiles={(files) => void loadStateFromFile(editorApi, deps, files[0])}
     />
   );

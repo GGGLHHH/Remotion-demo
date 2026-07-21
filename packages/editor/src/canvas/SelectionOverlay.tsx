@@ -9,6 +9,7 @@ import {
   ContextMenuTrigger,
 } from '../components/ui/context-menu';
 import { useEditor, useEditorApi, useEditorRefs } from '../state/context';
+import { useT } from '../lib/i18n';
 import { copySelection, duplicateSelection } from '../lib/clipboard';
 import { addTrack, moveItems, removeEmptyTracks } from '../timeline/ops';
 import { usePlayerFrameDerived } from './player-ref';
@@ -74,6 +75,7 @@ const visibleAt = (it: EditorStarterItem | undefined, f: number): boolean =>
   Boolean(it && it.type !== 'audio' && f >= it.from && it.from + it.durationInFrames > f);
 
 export const SelectionOverlay: React.FC<{ scale: number }> = ({ scale }) => {
+  const t = useT();
   const editorApi = useEditorApi();
   const refs = useEditorRefs();
   const undoable = useEditor((s) => s.undoable);
@@ -421,12 +423,12 @@ export const SelectionOverlay: React.FC<{ scale: number }> = ({ scale }) => {
       ) : null}
       </ContextMenuTrigger>
       <ContextMenuContent>
-        <ContextMenuItem onClick={cutSelection}>剪切</ContextMenuItem>
-        <ContextMenuItem onClick={() => copySelection(editorApi)}>复制</ContextMenuItem>
-        <ContextMenuItem onClick={() => duplicateSelection(editorApi)}>创建副本</ContextMenuItem>
+        <ContextMenuItem onClick={cutSelection}>{t('selectionOverlay.cut')}</ContextMenuItem>
+        <ContextMenuItem onClick={() => copySelection(editorApi)}>{t('selectionOverlay.copy')}</ContextMenuItem>
+        <ContextMenuItem onClick={() => duplicateSelection(editorApi)}>{t('selectionOverlay.duplicate')}</ContextMenuItem>
         <ContextMenuSeparator />
-        <ContextMenuItem onClick={() => reorder('front')}>置于顶层</ContextMenuItem>
-        <ContextMenuItem onClick={() => reorder('back')}>置于底层</ContextMenuItem>
+        <ContextMenuItem onClick={() => reorder('front')}>{t('selectionOverlay.bringToFront')}</ContextMenuItem>
+        <ContextMenuItem onClick={() => reorder('back')}>{t('selectionOverlay.sendToBack')}</ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>
   );
