@@ -191,7 +191,7 @@ export const CanvasView: React.FC<{ className?: string }> = ({ className }) => {
   };
 
   return (
-    <div className={cn('relative flex min-h-0 min-w-0 flex-1 flex-col bg-zinc-950', className)}>
+    <div className={cn('relative flex min-h-0 min-w-0 flex-1 flex-col bg-background', className)}>
       <div
         ref={containerRef}
         className="relative min-h-0 min-w-0 flex-1 overflow-hidden"

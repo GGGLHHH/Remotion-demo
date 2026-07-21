@@ -135,7 +135,7 @@ const TrackBtn: React.FC<{
         <Button
           variant="ghost"
           size="icon-xs"
-          className={active ? 'text-red-400 hover:text-red-400' : 'text-zinc-400'}
+          className={active ? 'text-red-400 hover:text-red-400' : 'text-muted-foreground'}
           title={title}
           onClick={onClick}
         />
@@ -162,7 +162,7 @@ const TrackHeader = memo<{ track: Track; number: number; height: number }>(funct
     }));
   return (
     <div
-      className="flex items-center gap-1 border-b border-zinc-800/50 px-2 text-xs text-zinc-400"
+      className="flex items-center gap-1 border-b border-border/50 px-2 text-xs text-muted-foreground"
       style={{ height }}
     >
       <span className="flex-1 truncate tabular-nums">{number}</span>
@@ -679,7 +679,7 @@ export const TimelinePanel: React.FC<{ className?: string }> = ({ className }) =
     return (
       <div
         key={track.id}
-        className="relative border-b border-zinc-800/50"
+        className="relative border-b border-border/50"
         style={{ height: rowHeights[ti] }}
       >
         {rowItems.map((item) => (
@@ -712,14 +712,14 @@ export const TimelinePanel: React.FC<{ className?: string }> = ({ className }) =
     headerRows.splice(
       virtualRowIndex,
       0,
-      <div key="__virtual" className="border-b border-zinc-800/50" style={{ height: TRACK_HEIGHT }} />,
+      <div key="__virtual" className="border-b border-border/50" style={{ height: TRACK_HEIGHT }} />,
     );
     laneRows.splice(
       virtualRowIndex,
       0,
       <div
         key="__virtual"
-        className="relative border-b border-zinc-800/50 bg-zinc-800/30"
+        className="relative border-b border-border/50 bg-muted/30"
         style={{ height: TRACK_HEIGHT }}
       />,
     );
@@ -732,14 +732,14 @@ export const TimelinePanel: React.FC<{ className?: string }> = ({ className }) =
   return (
     <div
       ref={panelRef}
-      className={cn('relative shrink-0 border-t border-zinc-800 bg-zinc-900', className)}
+      className={cn('relative shrink-0 border-t border-border bg-card', className)}
       style={{ height }}
     >
       <div
         className="absolute -top-1 left-0 right-0 z-30 h-2 cursor-ns-resize"
         onPointerDown={onResizePointerDown}
       />
-      <div className="flex h-8 items-center gap-3 border-b border-zinc-800 px-3 text-xs text-zinc-400">
+      <div className="flex h-8 items-center gap-3 border-b border-border px-3 text-xs text-muted-foreground">
         <TimecodeReadout fps={undoable.fps} duration={duration} />
         <Tooltip>
           <TooltipTrigger
@@ -747,7 +747,7 @@ export const TimelinePanel: React.FC<{ className?: string }> = ({ className }) =
               <Button
                 variant="ghost"
                 size="icon-sm"
-                className={snapping ? 'text-blue-400 hover:text-blue-400' : 'text-zinc-600 hover:text-zinc-500'}
+                className={snapping ? 'text-blue-400 hover:text-blue-400' : 'text-muted-foreground hover:text-foreground'}
                 title="吸附 (Shift+M)"
                 aria-pressed={snapping}
                 onClick={() => editorApi.getState().toggleSnapping()}
@@ -764,7 +764,7 @@ export const TimelinePanel: React.FC<{ className?: string }> = ({ className }) =
               <Button
                 variant="ghost"
                 size="icon-sm"
-                className="text-zinc-400 hover:text-zinc-200"
+                className="text-muted-foreground hover:text-foreground"
                 title="在播放头处分割 (S)"
                 disabled={!splittable}
                 onClick={() => {
@@ -789,7 +789,7 @@ export const TimelinePanel: React.FC<{ className?: string }> = ({ className }) =
         <Button
           variant="ghost"
           size="icon-xs"
-          className="text-zinc-400 hover:text-zinc-200"
+          className="text-muted-foreground hover:text-foreground"
           title="缩小"
           onClick={() => setZoom(zoom / 2)}
         >
@@ -817,7 +817,7 @@ export const TimelinePanel: React.FC<{ className?: string }> = ({ className }) =
         <Button
           variant="ghost"
           size="icon-xs"
-          className="text-zinc-400 hover:text-zinc-200"
+          className="text-muted-foreground hover:text-foreground"
           title="放大"
           onClick={() => setZoom(zoom * 2)}
         >
@@ -829,7 +829,7 @@ export const TimelinePanel: React.FC<{ className?: string }> = ({ className }) =
           className={
             zoomSetting === 'fit'
               ? 'text-blue-400 hover:text-blue-400'
-              : 'text-zinc-400 hover:text-zinc-200'
+              : 'text-muted-foreground hover:text-foreground'
           }
           title="适应：缩放到完整时长可见"
           onClick={() => {
@@ -841,7 +841,7 @@ export const TimelinePanel: React.FC<{ className?: string }> = ({ className }) =
         </Button>
       </div>
       <div className="flex overflow-y-auto" style={{ height: `calc(100% - 2rem)` }}>
-        <div className="shrink-0 border-r border-zinc-800" style={{ width: HEADER_WIDTH }}>
+        <div className="shrink-0 border-r border-border" style={{ width: HEADER_WIDTH }}>
           <div style={{ height: RULER_HEIGHT }} />
           {headerRows}
         </div>
@@ -891,7 +891,7 @@ export const TimelinePanel: React.FC<{ className?: string }> = ({ className }) =
                     return (
                       <div
                         data-move-slot
-                        className="pointer-events-none absolute z-20 rounded bg-zinc-500"
+                        className="pointer-events-none absolute z-20 rounded bg-muted-foreground"
                         style={{
                           left,
                           width,
@@ -909,7 +909,7 @@ export const TimelinePanel: React.FC<{ className?: string }> = ({ className }) =
                   return (
                     <div
                       data-move-slot
-                      className="pointer-events-none absolute z-10 rounded bg-zinc-600/70"
+                      className="pointer-events-none absolute z-10 rounded bg-muted-foreground/70"
                       style={{
                         left,
                         width,
@@ -923,7 +923,7 @@ export const TimelinePanel: React.FC<{ className?: string }> = ({ className }) =
             {/* 吸附线：贯穿整个时间线高度（官方 1px neutral-700） */}
             {guideFrame !== null ? (
               <div
-                className="pointer-events-none absolute inset-y-0 z-30 w-px bg-neutral-700"
+                className="pointer-events-none absolute inset-y-0 z-30 w-px bg-muted-foreground"
                 style={{ left: guideFrame * zoom }}
               />
             ) : null}

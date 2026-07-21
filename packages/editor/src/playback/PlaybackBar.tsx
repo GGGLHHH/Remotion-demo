@@ -17,7 +17,7 @@ const formatTimecode = (frame: number, fps: number): string =>
 const Timecode: React.FC<{ fps: number; durationInFrames: number }> = ({ fps, durationInFrames }) => {
   const frame = usePlayerFrame();
   return (
-    <span className="mx-2 text-xs tabular-nums text-zinc-400" data-timecode>
+    <span className="mx-2 text-xs tabular-nums text-muted-foreground" data-timecode>
       {formatTimecode(frame, fps)} / {formatTimecode(durationInFrames, fps)}
     </span>
   );
@@ -77,7 +77,7 @@ export const PlaybackBar: React.FC<{ className?: string }> = ({ className }) => 
   return (
     <div
       className={cn(
-        'flex h-10 shrink-0 items-center justify-center gap-1 border-t border-zinc-800 bg-zinc-900 px-4 text-sm',
+        'flex h-10 shrink-0 items-center justify-center gap-1 border-t border-border bg-card px-4 text-sm',
         className,
       )}
     >

@@ -70,7 +70,7 @@ export function EditorRoot({ deps, store, refs, initialState, fill }: EditorRoot
           </EditorToolbar>
           <div className="flex min-h-0 flex-1">
             <CanvasView />
-            <aside className="w-[349px] shrink-0 overflow-y-auto border-l border-zinc-800 text-sm">
+            <aside className="w-[349px] shrink-0 overflow-y-auto border-l border-border text-sm">
               <Inspector />
             </aside>
           </div>

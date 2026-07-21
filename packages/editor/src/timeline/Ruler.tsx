@@ -35,7 +35,7 @@ export const Ruler: React.FC<{
   return (
     <div
       data-ruler
-      className="relative cursor-pointer select-none overflow-hidden border-b border-zinc-800 text-[10px] text-zinc-500"
+      className="relative cursor-pointer select-none overflow-hidden border-b border-border text-[10px] text-muted-foreground"
       style={{ height: RULER_HEIGHT }}
       onPointerDown={(e) => {
         if (e.button !== 0) return;
@@ -50,7 +50,7 @@ export const Ruler: React.FC<{
     >
       {ticks.map((t) => (
         <div key={t.frame} className="absolute top-0 h-full" style={{ left: t.frame * zoom }}>
-          <div className="h-1.5 w-px bg-zinc-600" />
+          <div className="h-1.5 w-px bg-muted-foreground" />
           <span className="pl-1">{t.label}</span>
         </div>
       ))}

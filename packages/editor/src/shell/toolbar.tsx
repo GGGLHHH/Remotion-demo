@@ -96,7 +96,7 @@ export const EditorToolbar: React.FC<{ className?: string; children: React.React
   children,
 }) => (
   <header
-    className={cn('flex h-12 shrink-0 items-center gap-1.5 border-b border-zinc-800 px-4 text-sm', className)}
+    className={cn('flex h-12 shrink-0 items-center gap-1.5 border-b border-border px-4 text-sm', className)}
   >
     {children}
   </header>
@@ -230,7 +230,7 @@ export const ZoomControls: React.FC = () => {
       <IconButton label="缩小 (-)" onClick={() => setCanvasZoom(effective() / 2)}>
         <Minus />
       </IconButton>
-      <span className="min-w-11 text-center text-xs tabular-nums text-zinc-300">
+      <span className="min-w-11 text-center text-xs tabular-nums text-muted-foreground">
         {canvasZoom === 'fit' ? '适应' : `${Math.round(canvasZoom * 100)}%`}
       </span>
       <IconButton label="放大 (+)" onClick={() => setCanvasZoom(effective() * 2)}>

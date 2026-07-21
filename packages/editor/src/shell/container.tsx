@@ -55,7 +55,7 @@ export const EditorContainer: React.FC<{
 }> = ({ fill, className, children }) => {
   useEditorChrome();
   return (
-    <div className={cn('flex flex-col bg-zinc-900 text-zinc-100', fill ? 'h-full' : 'h-screen', className)}>
+    <div className={cn('flex flex-col bg-card text-foreground', fill ? 'h-full' : 'h-screen', className)}>
       {children}
     </div>
   );
