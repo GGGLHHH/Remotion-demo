@@ -2,10 +2,15 @@
 // 一站式：<EditorRoot deps=… />；或用 <EditorProvider> + `Editor.*` 零件（工具栏按钮 / 容器 /
 // Canvas / Timeline / Inspector / PlaybackBar）shadcn-compound 式自拼布局。
 
-// Provider / store / refs / hooks
+// ── headless 核心（主 API）─────────────────────────────────────────────
+// 用 EditorProvider 提供 store/refs/deps，用 useEditor(selector) 读响应式状态、
+// useEditorCommands() 取一套绑好的命令，配合 Canvas/Timeline/Inspector 组件自建任意 UI。
+// 具体 chrome（EditorRoot / Editor.* 工具栏）是可选的 batteries-included 层，见下。
 export { EditorProvider, useEditor, useEditorApi, useEditorRefs, useEditorDeps } from './state/context';
 export { createEditorStore } from './state/store';
 export { createInstanceRefs } from './state/instance-refs';
+export { useEditorCommands } from './lib/commands';
+export type { EditorCommands } from './lib/commands';
 
 // 一站式根组件（batteries-included preset）
 export { EditorRoot } from './EditorRoot';
