@@ -135,35 +135,36 @@ export default () => <EditorRoot deps={deps} />;
 想改工具栏/布局但又不想全headless，用 `Editor.*` compound 零件（context-connected，摆放即用）自拼：
 
 ```tsx
-import { EditorProvider, Editor } from "@gedatou/editor";
+import { EditorProvider, EditorContainer, Editor, Canvas, Inspector, Timeline, PlaybackBar } from "@gedatou/editor";
 
 <EditorProvider deps={deps}>
-  <Editor.Container>
+  <EditorContainer>
     <Editor.Toolbar>
       <Editor.Title>我的剪辑器</Editor.Title>
       <Editor.UndoButton /><Editor.RedoButton /><Editor.ImportAssetButton />
       <div className="ml-auto flex gap-2"><MyButton /><Editor.SaveButton /></div>
     </Editor.Toolbar>
     <div className="flex min-h-0 flex-1">
-      <Editor.Canvas />
-      <Editor.Inspector className="w-80" />
+      <Canvas />
+      <Inspector className="w-80" />
     </div>
-    <Editor.PlaybackBar />
-    <Editor.Timeline />
-  </Editor.Container>
+    <PlaybackBar />
+    <Timeline />
+  </EditorContainer>
 </EditorProvider>
 ```
 
-> 这些具体 UI 有内置文案（走 `deps.t` / 内置 zh）与默认样式；要完全掌控 chrome 就走上面的 headless 核心。
-> 面板 `Canvas`/`Timeline`/`Inspector`/`PlaybackBar` 均接受 `className`；`Editor.Container` 内含 `TooltipProvider`。
+> `Editor.*` 只含 chrome（工具栏容器/标题/按钮/徽章）；交互面用扁平的 `Canvas`/`Timeline`/`Inspector`/`PlaybackBar`
+> （均接受 `className`），外壳用 `EditorContainer`（内含 `TooltipProvider` + 快捷键/拦刷新）。
+> 这些具体 chrome 有内置文案（走 `deps.t` / 内置 zh）与默认样式；要完全掌控就走上面的 headless 核心。
 
 ## 导出一览
 
 - **headless 核心**：`EditorProvider`、`useEditor`、`useEditorApi`、`useEditorRefs`、`useEditorDeps`、
   `useEditorCommands`、`useEditorChrome`、`useShortcuts`；`createEditorStore`、`createInstanceRefs`
 - **交互面组件**：`Canvas`、`Timeline`、`Inspector`、`PlaybackBar`（均接受 `className`）
-- **可选外壳**：`EditorRoot`、`Editor.*` 命名空间（`Container`/`Toolbar`/`Title` + 各工具栏按钮 + 徽章）、
-  `EditorContainer`、`TooltipProvider`
+- **外壳 / 可选 chrome**：`EditorContainer`、`TooltipProvider`、`EditorRoot`（preset）、
+  `Editor.*` 命名空间（`Toolbar`/`Title` + 各工具栏按钮 + 徽章，仅 chrome）
 - **命令式操作**：`importFiles`、`startRender`、`generateCaptions`、`cleanupDeletedAssets`、
   `saveState`、`loadStateFromFile`、`downloadStateFile`、`restoreLocalUrls`、`serializeState`、`deserializeState`
 - **i18n**：`zhMessages`（zh 默认 + key 目录）
