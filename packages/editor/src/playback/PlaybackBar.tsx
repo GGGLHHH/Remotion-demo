@@ -2,6 +2,7 @@ import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { Maximize, Pause, Play, Repeat, SkipBack, SkipForward, Volume2, VolumeX } from 'lucide-react';
 import { Button } from '../components/ui/button';
+import { cn } from '../lib/utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../components/ui/tooltip';
 import { useEditor, useEditorRefs } from '../state/context';
 import { usePlayerFrame } from '../canvas/player-ref';
@@ -41,7 +42,7 @@ const Btn: React.FC<{
   </Tooltip>
 );
 
-export const PlaybackBar: React.FC = () => {
+export const PlaybackBar: React.FC<{ className?: string }> = ({ className }) => {
   const refs = useEditorRefs();
   const fps = useEditor((s) => s.undoable.fps);
   const items = useEditor((s) => s.undoable.items);
@@ -74,7 +75,12 @@ export const PlaybackBar: React.FC = () => {
   }, [playerMuted]);
 
   return (
-    <div className="flex h-10 shrink-0 items-center justify-center gap-1 border-t border-zinc-800 bg-zinc-900 px-4 text-sm">
+    <div
+      className={cn(
+        'flex h-10 shrink-0 items-center justify-center gap-1 border-t border-zinc-800 bg-zinc-900 px-4 text-sm',
+        className,
+      )}
+    >
       <Btn title="跳到开头" onClick={() => refs.player.current?.seekTo(0)}>
         <SkipBack />
       </Btn>

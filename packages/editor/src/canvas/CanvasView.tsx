@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Player } from '@remotion/player';
 import { MainComposition, calcDuration } from '@gedatou/shared/composition';
 import { useEditor, useEditorApi, useEditorDeps, useEditorRefs } from '../state/context';
+import { cn } from '../lib/utils';
 import { importFiles } from '../lib/import-assets';
 import { SelectionOverlay } from './SelectionOverlay';
 import { CompositionResizeHandles } from './CompositionResizeHandles';
@@ -11,16 +12,12 @@ import { TextEditOverlay } from './TextEditOverlay';
 import { DrawSolidOverlay } from './DrawSolidOverlay';
 import { TextToolOverlay } from './TextToolOverlay';
 
-/** 画布工具模式（状态由 App 持有）：绘制色块 / 点击放置文本 */
-export type CanvasTool = 'solid' | 'text' | null;
+export type { CanvasTool } from '../state/store';
 
 /** 与 store.setCanvasZoom 相同的钳制，光标锚定的平移计算必须用钳制后的值才不漂 */
 const clampZoom = (z: number) => Math.min(4, Math.max(0.1, z));
 
-export const CanvasView: React.FC<{
-  tool: CanvasTool;
-  onExitTool: () => void;
-}> = ({ tool, onExitTool }) => {
+export const CanvasView: React.FC<{ className?: string }> = ({ className }) => {
   const editorApi = useEditorApi();
   const deps = useEditorDeps();
   const refs = useEditorRefs();
@@ -30,6 +27,9 @@ export const CanvasView: React.FC<{
   const fontHoverPreview = useEditor((s) => s.fontHoverPreview);
   const cropMode = useEditor((s) => s.itemSelectedForCrop !== null);
   const loop = useEditor((s) => s.loop);
+  // 工具模式移入 store（原 EditorShell 本地态）：工具栏按钮写、画布读
+  const tool = useEditor((s) => s.canvasTool);
+  const setCanvasTool = useEditor((s) => s.setCanvasTool);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [fitScale, setFitScale] = useState(0.1);
@@ -191,7 +191,7 @@ export const CanvasView: React.FC<{
   };
 
   return (
-    <div className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-zinc-950">
+    <div className={cn('relative flex min-h-0 min-w-0 flex-1 flex-col bg-zinc-950', className)}>
       <div
         ref={containerRef}
         className="relative min-h-0 min-w-0 flex-1 overflow-hidden"
@@ -239,8 +239,8 @@ export const CanvasView: React.FC<{
           {cropMode || tool !== null ? null : <CompositionResizeHandles scale={scale} />}
           <CropOverlay scale={scale} />
           <TextEditOverlay scale={scale} />
-          {tool === 'solid' ? <DrawSolidOverlay scale={scale} onDone={onExitTool} /> : null}
-          {tool === 'text' ? <TextToolOverlay scale={scale} onDone={onExitTool} /> : null}
+          {tool === 'solid' ? <DrawSolidOverlay scale={scale} onDone={() => setCanvasTool(null)} /> : null}
+          {tool === 'text' ? <TextToolOverlay scale={scale} onDone={() => setCanvasTool(null)} /> : null}
         </div>
         {voidMarquee ? (
           <div

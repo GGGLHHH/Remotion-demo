@@ -10,6 +10,10 @@ import {
 } from '@gedatou/shared';
 import { removeEmptyTracks } from '../timeline/ops';
 
+/** 画布工具模式：绘制色块 / 点击放置文本。原 EditorShell 本地 state，移入 store
+ *  供拆分后的工具栏按钮与画布各自订阅（context-connected，无需 prop 对传）。 */
+export type CanvasTool = 'solid' | 'text' | null;
+
 export type RenderingTask = {
   id: string;
   status: 'queued' | 'rendering' | 'done' | 'error';
@@ -45,6 +49,9 @@ export type EditorStore = {
   /** 画布缩放：'fit' 表示适配容器 */
   canvasZoom: number | 'fit';
   setCanvasZoom: (zoom: number | 'fit') => void;
+  /** 画布工具模式（瞬时 UI 态） */
+  canvasTool: CanvasTool;
+  setCanvasTool: (tool: CanvasTool) => void;
   /** 时间轴缩放（px/帧）；'fit' = 自动适配可视宽度（官方滑杆 0 位） */
   timelineZoom: number | 'fit';
   setTimelineZoom: (zoom: number | 'fit') => void;
@@ -164,6 +171,8 @@ export function createEditorStore(init?: EditorInitialState): EditorStoreApi {
   canvasZoom: 'fit',
   setCanvasZoom: (zoom) =>
     set({ canvasZoom: zoom === 'fit' ? zoom : Math.min(4, Math.max(0.1, zoom)) }),
+  canvasTool: null,
+  setCanvasTool: (tool) => set({ canvasTool: tool }),
 
   timelineZoom: 'fit',
   setTimelineZoom: (zoom) =>

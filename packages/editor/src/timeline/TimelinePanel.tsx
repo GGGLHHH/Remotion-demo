@@ -3,6 +3,7 @@ import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 
 import { Eye, EyeOff, Magnet, Minus, Plus, Scissors, Volume2, VolumeX } from 'lucide-react';
 import type { EditorStarterItem, Track, UndoableState } from '@gedatou/shared';
 import { Button } from '../components/ui/button';
+import { cn } from '../lib/utils';
 import {
   ContextMenu,
   ContextMenuContent,
@@ -185,7 +186,7 @@ const TimecodeReadout: React.FC<{ fps: number; duration: number }> = ({ fps, dur
   );
 };
 
-export const TimelinePanel: React.FC = () => {
+export const TimelinePanel: React.FC<{ className?: string }> = ({ className }) => {
   const editorApi = useEditorApi();
   const deps = useEditorDeps();
   const refs = useEditorRefs();
@@ -729,7 +730,11 @@ export const TimelinePanel: React.FC = () => {
   const movingItem = moveVisual ? undoable.items[moveVisual.id] : null;
 
   return (
-    <div ref={panelRef} className="relative shrink-0 border-t border-zinc-800 bg-zinc-900" style={{ height }}>
+    <div
+      ref={panelRef}
+      className={cn('relative shrink-0 border-t border-zinc-800 bg-zinc-900', className)}
+      style={{ height }}
+    >
       <div
         className="absolute -top-1 left-0 right-0 z-30 h-2 cursor-ns-resize"
         onPointerDown={onResizePointerDown}

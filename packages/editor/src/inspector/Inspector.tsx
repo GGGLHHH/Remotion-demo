@@ -679,15 +679,24 @@ const ItemPanel: React.FC<{ item: EditorStarterItem }> = ({ item }) => {
   );
 };
 
-export const Inspector: React.FC = () => {
+export const Inspector: React.FC<{ className?: string }> = ({ className }) => {
   const selectedItemIds = useEditor((s) => s.selectedItemIds);
   const items = useEditor((s) => s.undoable.items);
 
   const selected = selectedItemIds.map((id) => items[id]).filter(Boolean);
 
-  if (selected.length === 0) return <CompositionPanel />;
-  // 官方行为：多选时面板完全留空
-  if (selected.length > 1) return null;
-  // key=item.id：切换选中时重挂，重置锁比例/折叠等本地状态
-  return <ItemPanel key={selected[0].id} item={selected[0]} />;
+  const content =
+    selected.length === 0 ? (
+      <CompositionPanel />
+    ) : selected.length > 1 ? (
+      // 官方行为：多选时面板完全留空
+      null
+    ) : (
+      // key=item.id：切换选中时重挂，重置锁比例/折叠等本地状态
+      <ItemPanel key={selected[0].id} item={selected[0]} />
+    );
+
+  // 无 className（EditorRoot preset 用外层 aside 控宽）→ 直接返回内容，DOM 不变；
+  // 传 className（自拼布局的宿主）→ 包一层带样式的容器，空/多选时也保持列宽。
+  return className ? <div className={className}>{content}</div> : content;
 };
