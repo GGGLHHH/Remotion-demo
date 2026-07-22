@@ -114,30 +114,13 @@ export type CaptionsItem = BaseItem & {
   maxLines: number;
 } & Omit<TextStyle, 'backgroundColor' | 'backgroundPadding' | 'backgroundBorderRadius'>;
 
-// 房产叠加复合块:各是「时间线上一个块」,内部多元素由专用渲染器画(几何见 overlay-design.ts)。
-// 满幅盒(left/top=0,width/height=画布)——渲染器按令牌在盒内定位卡片,故 position/尺寸不占额外块。
-export type OverlayScale = 'small' | 'medium' | 'large';
-
-export type LowerThirdItem = BaseItem & {
-  type: 'lowerThird';
-  position: 'top' | 'middle' | 'bottom';
-  scale: OverlayScale; // 字号/卡高倍率
-  bgColor: string; // 底卡色(hex)
-  bgOpacity: number; // 0-1,仅作用于底卡,文字不透明
-  textColor: string; // 价格行色;地址/明细为固定柔色
-  address: string;
-  price: string;
-  details: string;
-};
-
-export type CoverItem = BaseItem & {
-  type: 'cover';
-  scale: OverlayScale; // 字号倍率
-  bgColor: string; // 满幅底色(hex)
-  eyebrow: string; // 眉标(FOR SALE / THANK YOU)
-  title: string;
-  price: string; // 空串则不显示价格行
-  subtitle: string;
+// 自定义素材块:库不含任何业务版式。消费端定义 kind/data 并 registerCustomItem 注册渲染器;
+// 一个 custom item = 时间线上一个块,渲染器在 item 盒内自由画多元素。data 需可 JSON 序列化。
+export type CustomItem = BaseItem & {
+  type: 'custom';
+  kind: string; // 渲染器注册 key(见 custom-items.ts)
+  label: string; // 时间线块显示名
+  data: Record<string, unknown>; // 渲染器自定义数据
 };
 
 export type EditorStarterItem =
@@ -148,8 +131,7 @@ export type EditorStarterItem =
   | SolidItem
   | AudioItem
   | CaptionsItem
-  | LowerThirdItem
-  | CoverItem;
+  | CustomItem;
 
 // ---- 轨道 ----
 

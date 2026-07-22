@@ -14,15 +14,13 @@ const COLORS: Record<EditorStarterItem['type'], string> = {
   image: 'bg-amber-600/80',
   gif: 'bg-pink-600/80',
   captions: 'bg-rose-600/80',
-  lowerThird: 'bg-indigo-600/80',
-  cover: 'bg-slate-600/80',
+  custom: 'bg-indigo-600/80',
 };
 
 export const itemLabel = (item: EditorStarterItem): string => {
   if (item.type === 'text') return item.text.slice(0, 20) || 'Text';
   if (item.type === 'solid') return 'Solid';
-  if (item.type === 'lowerThird') return item.price || 'Lower third';
-  if (item.type === 'cover') return item.title || 'Cover';
+  if (item.type === 'custom') return item.label || item.kind;
   return item.type;
 };
 
