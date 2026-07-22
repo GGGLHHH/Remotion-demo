@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { createSolidItem } from '@gedatou/shared';
 import { createEditorStore } from '../state/store';
-import { applyAnimationPreset, clearKeyframes, moveKeyframe, setKeyframeValue, toggleKeyframe } from './keyframe-ops';
+import {
+  applyAnimationPreset,
+  clearKeyframes,
+  moveKeyframe,
+  moveKeyframesAtFrame,
+  setKeyframeEasing,
+  setKeyframeValue,
+  toggleKeyframe,
+} from './keyframe-ops';
 
 const mk = () => {
   const store = createEditorStore();
@@ -47,6 +55,35 @@ describe('keyframe-ops', () => {
     setKeyframeValue(store, id, 'left', 5, 1, false);
     expect(store.getState().past.length).toBe(past0); // 未提交
     store.getState().commitPending();
+    expect(store.getState().past.length).toBe(past0 + 1);
+  });
+
+  it('无关键帧的帧上改 easing 是 no-op,不占 undo 槽', () => {
+    const { store, id } = mk();
+    const past0 = store.getState().past.length;
+    setKeyframeEasing(store, id, 'left', 5, 'linear');
+    expect(store.getState().past.length).toBe(past0);
+  });
+
+  it('move 的 from 帧无关键帧是 no-op,不占 undo 槽', () => {
+    const { store, id } = mk();
+    const past0 = store.getState().past.length;
+    moveKeyframe(store, id, 'left', 5, 10);
+    expect(store.getState().past.length).toBe(past0);
+  });
+
+  it('moveKeyframesAtFrame 的 from 帧任何属性都无关键帧是 no-op,不占 undo 槽', () => {
+    const { store, id } = mk();
+    setKeyframeValue(store, id, 'left', 5, 1);
+    const past0 = store.getState().past.length;
+    moveKeyframesAtFrame(store, id, 20, 30);
+    expect(store.getState().past.length).toBe(past0);
+  });
+
+  it('sanity: 真实的 setKeyframeValue 仍恰好占 1 条 undo', () => {
+    const { store, id } = mk();
+    const past0 = store.getState().past.length;
+    setKeyframeValue(store, id, 'left', 5, 1);
     expect(store.getState().past.length).toBe(past0 + 1);
   });
 });

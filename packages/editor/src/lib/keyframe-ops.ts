@@ -20,7 +20,10 @@ const patchKf = (store: EditorStoreApi, itemId: string, prop: AnimatableProp, fn
   store.getState().updateUndoable((s) => {
     const it = s.items[itemId];
     if (!it) return s;
-    const next = withKeyframeList(it, prop, fn(it.keyframes?.[prop] ?? [], it));
+    const prev = it.keyframes?.[prop] ?? [];
+    const nextList = fn(prev, it);
+    if (nextList === prev) return s; // 无变化;交给 updateUndoable 的 next===undoable 兜底,不占 undo 槽
+    const next = withKeyframeList(it, prop, nextList);
     return { ...s, items: { ...s.items, [itemId]: next } };
   }, { commit });
 };
@@ -48,7 +51,7 @@ export const moveKeyframe = (store: EditorStoreApi, itemId: string, prop: Animat
   patchKf(store, itemId, prop, (list, it) => moveKeyframeInList(list, from, clampFrame(it, to)), commit);
 
 export const clearKeyframes = (store: EditorStoreApi, itemId: string, prop: AnimatableProp): void =>
-  patchKf(store, itemId, prop, () => []);
+  patchKf(store, itemId, prop, (list) => (list.length ? [] : list));
 
 /** 把某帧上所有属性的关键帧一起挪(时间线合并轨拖拽) */
 export const moveKeyframesAtFrame = (store: EditorStoreApi, itemId: string, from: number, to: number, commit = true): void => {
@@ -61,6 +64,7 @@ export const moveKeyframesAtFrame = (store: EditorStoreApi, itemId: string, from
       const list = it.keyframes[prop];
       if (list && keyframeAt(list, from)) next = withKeyframeList(next, prop, moveKeyframeInList(list, from, f));
     }
+    if (next === it) return s; // 该帧上没有任何属性的关键帧;不占 undo 槽
     return { ...s, items: { ...s.items, [itemId]: next } };
   }, { commit });
 };
