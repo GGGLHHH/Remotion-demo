@@ -1,7 +1,7 @@
 import type React from 'react';
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Eye, EyeOff, Magnet, Minus, Plus, Scissors, Volume2, VolumeX } from 'lucide-react';
-import type { EditorStarterItem, Track, UndoableState } from '@gedatou/shared';
+import type { EditorStarterItem, Track, Transition, UndoableState } from '@gedatou/shared';
 import { Button } from '../components/ui/button';
 import { cn } from '../lib/utils';
 import {
@@ -42,6 +42,7 @@ import {
 } from './ops';
 import { importFiles } from '../lib/import-assets';
 import { copySelection, duplicateSelection } from '../lib/clipboard';
+import { addTransition, applyTransitionDuration } from '../lib/transition-ops';
 import { useT } from '../lib/i18n';
 
 /** 修剪吸附阈值（官方约 10px） */
@@ -200,6 +201,8 @@ export const TimelinePanel: React.FC<{ className?: string }> = ({ className }) =
   const setHeight = useEditor((s) => s.setTimelineHeight);
   const snapping = useEditor((s) => s.snappingEnabled);
   const selectedIds = useEditor((s) => s.selectedItemIds);
+  const transitions = useEditor((s) => s.undoable.transitions);
+  const selectedTransitionId = useEditor((s) => s.selectedTransitionId);
 
   const panelRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -520,6 +523,30 @@ export const TimelinePanel: React.FC<{ className?: string }> = ({ className }) =
     };
   };
 
+  /** 转场 pill 拖拽调时长（手柄小拖拽骨架，同 ItemBlock 的 startHandleDrag）：
+      指针 x → 内容坐标帧号，newDur = A 出点 − 该帧（钳制在 op 内做），松手一次性提交 */
+  const onTransitionPointerDown = (e: React.PointerEvent, tr: Transition, a: EditorStarterItem) => {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    editorApi.getState().setSelectedTransition(tr.id);
+    const el = e.currentTarget as HTMLElement;
+    el.setPointerCapture(e.pointerId);
+    const aEnd = a.from + a.durationInFrames;
+    const onMove = (ev: PointerEvent) => {
+      const cRect = contentRef.current?.getBoundingClientRect();
+      if (!cRect) return;
+      const frameAtPointer = (ev.clientX - cRect.left) / zoomRef.current;
+      applyTransitionDuration(editorApi, tr.id, Math.round(aEnd - frameAtPointer), false);
+    };
+    const onUp = () => {
+      el.removeEventListener('pointermove', onMove);
+      el.removeEventListener('pointerup', onUp);
+      editorApi.getState().commitPending();
+    };
+    el.addEventListener('pointermove', onMove);
+    el.addEventListener('pointerup', onUp);
+  };
+
   const onPointerMove = (e: React.PointerEvent) => {
     const d = drag.current;
     if (!d) return;
@@ -679,6 +706,7 @@ export const TimelinePanel: React.FC<{ className?: string }> = ({ className }) =
   ));
   const laneRows = undoable.tracks.map((track, ti) => {
     const rowItems = Object.values(undoable.items).filter((i) => i.trackId === track.id);
+    const rowTransitions = Object.values(transitions).filter((tr) => tr.trackId === track.id);
     return (
       <div
         key={track.id}
@@ -694,17 +722,62 @@ export const TimelinePanel: React.FC<{ className?: string }> = ({ className }) =
             onPointerDown={onItemPointerDown}
           />
         ))}
-        {/* 帧级相邻的两块边界：4px 滚动编辑热区（压在两侧修剪手柄之上） */}
+        {/* 帧级相邻的两块边界：4px 滚动编辑热区（压在两侧修剪手柄之上）+ 建转场 '+' 徽章。
+            徽章是 roll 热区的子节点（纯 CSS group-hover，默认 pointer-events-none）：
+            未悬停时对 roll 的点击/拖拽零影响，只有真悬停在这 4px 热区上才现身并接管点击 */}
         {rowItems.flatMap((a) => {
           const b = rowItems.find((o) => o.from === a.from + a.durationInFrames);
           if (!b) return [];
+          // 一旦存在转场，B 会左移形成重叠，此处的精确相邻不再成立——这里已隐含"无转场"；
+          // 仍显式核对一次（防御性，对齐 op 层的真源判断）
+          const hasTransition = rowTransitions.some(
+            (tr) => tr.fromItemId === a.id && tr.toItemId === b.id,
+          );
           return [
             <div
               key={`roll-${a.id}`}
               data-roll
-              className="absolute inset-y-1.5 z-40 w-1 cursor-ew-resize"
+              className="group absolute inset-y-1.5 z-40 w-1 cursor-ew-resize"
               style={{ left: b.from * zoom - 2 }}
               onPointerDown={(e) => onRollPointerDown(e, a.id, b.id)}
+            >
+              {!hasTransition ? (
+                <button
+                  type="button"
+                  data-add-transition
+                  className="pointer-events-none absolute top-1/2 left-1/2 z-40 flex size-3.5 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-white/60 bg-black/90 text-white opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100"
+                  title={t('timeline.addTransition')}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    addTransition(editorApi, a.id, b.id);
+                  }}
+                >
+                  <Plus className="size-2.5" />
+                </button>
+              ) : null}
+            </div>,
+          ];
+        })}
+        {/* 已存在的转场：填充 pill 覆盖重叠区（左缘=B.from，右缘=A 出点）；
+            pointerdown 选中 + 启动调时长拖拽（stopPropagation，不触碰块 move / roll 手势） */}
+        {rowTransitions.flatMap((tr) => {
+          const a = undoable.items[tr.fromItemId];
+          const b = undoable.items[tr.toItemId];
+          if (!a || !b) return [];
+          const left = b.from * zoom;
+          const width = Math.max(4, (a.from + a.durationInFrames - b.from) * zoom);
+          return [
+            <div
+              key={`transition-${tr.id}`}
+              data-transition={tr.id}
+              className={cn(
+                'absolute inset-y-1.5 z-40 cursor-ew-resize rounded bg-white/25 ring-1 ring-inset ring-white/50 hover:bg-white/35',
+                selectedTransitionId === tr.id && 'ring-2 ring-[#0B84F3]',
+              )}
+              style={{ left, width }}
+              title={t('timeline.transition')}
+              onPointerDown={(e) => onTransitionPointerDown(e, tr, a)}
             />,
           ];
         })}
