@@ -268,7 +268,7 @@ export function createEditorStore(init?: EditorInitialState): EditorStoreApi {
       }
       // 孤儿清理：引用了被删 item 的转场一并删除（渲染端不容忍 dangling id）
       const transitions = Object.fromEntries(
-        Object.entries(s.transitions).filter(
+        Object.entries(s.transitions ?? {}).filter(
           ([, t]) => !selectedItemIds.includes(t.fromItemId) && !selectedItemIds.includes(t.toItemId),
         ),
       );

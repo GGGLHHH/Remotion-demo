@@ -813,7 +813,7 @@ const ItemPanel: React.FC<{ item: EditorStarterItem }> = ({ item }) => {
 
 const TransitionPanel: React.FC<{ id: string }> = ({ id }) => {
   const api = useEditorApi();
-  const t = useEditor((s) => s.undoable.transitions[id]);
+  const t = useEditor((s) => s.undoable.transitions?.[id]);
   if (!t) return null;
   return (
     <Section title="Transition">

@@ -203,7 +203,8 @@ export const TimelinePanel: React.FC<{ className?: string }> = ({ className }) =
   const setHeight = useEditor((s) => s.setTimelineHeight);
   const snapping = useEditor((s) => s.snappingEnabled);
   const selectedIds = useEditor((s) => s.selectedItemIds);
-  const transitions = useEditor((s) => s.undoable.transitions);
+  // transitions 是加法字段：消费方(如 workbench-v2)可能持有早于该字段的 state，缺省为空表
+  const transitions = useEditor((s) => s.undoable.transitions) ?? ({} as Record<string, Transition>);
   const selectedTransitionId = useEditor((s) => s.selectedTransitionId);
 
   const panelRef = useRef<HTMLDivElement>(null);
@@ -629,7 +630,7 @@ export const TimelinePanel: React.FC<{ className?: string }> = ({ className }) =
       // roll 热区点击（未越过拖拽阈值）且该切点尚无转场 ⇒ 建转场；真实拖拽（moved）仍按原逻辑提交 roll 编辑
       const bId = d.rollingNeighborId;
       if (bId && !d.moved) {
-        const exists = Object.values(editorApi.getState().undoable.transitions).some(
+        const exists = Object.values(editorApi.getState().undoable.transitions ?? {}).some(
           (tr) => tr.fromItemId === d.id && tr.toItemId === bId,
         );
         if (!exists) addTransition(editorApi, d.id, bId);
