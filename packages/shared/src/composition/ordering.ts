@@ -9,9 +9,9 @@ export const getOrderedItems = (state: UndoableState): EditorStarterItem[] => {
   for (let i = state.tracks.length - 1; i >= 0; i--) {
     const track = state.tracks[i];
     if (track.hidden) continue;
-    for (const item of Object.values(state.items)) {
-      if (item.trackId === track.id) result.push(item);
-    }
+    const trackItems = Object.values(state.items).filter((it) => it.trackId === track.id);
+    trackItems.sort((x, y) => x.from - y.from);
+    for (const item of trackItems) result.push(item);
   }
   return result;
 };

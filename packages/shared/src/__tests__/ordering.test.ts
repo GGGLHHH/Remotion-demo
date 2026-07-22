@@ -22,4 +22,15 @@ describe('getOrderedItems', () => {
     state.items = { [a.id]: a };
     expect(getOrderedItems(state)).toEqual([]);
   });
+  test('同轨内按 from 升序：后开始者排在后面（画在上层，供转场叠加）', () => {
+    const state = createEmptyState({ width: 1080, height: 1920 });
+    const t = createTrack('T');
+    state.tracks = [t];
+    const later = createSolidItem({ trackId: t.id, from: 5, width: 10, height: 10 });
+    const earlier = createSolidItem({ trackId: t.id, from: 0, width: 10, height: 10 });
+    // 故意按 from 5 在前、from 0 在后的顺序塞进 items map，验证排序不依赖插入顺序
+    state.items = { [later.id]: later, [earlier.id]: earlier };
+    const ordered = getOrderedItems(state);
+    expect(ordered.map((i) => i.id)).toEqual([earlier.id, later.id]);
+  });
 });
