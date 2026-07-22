@@ -323,6 +323,8 @@ const LayoutSection: React.FC<{
   // W/H 的 onChange 走 setW/setH（联动锁），不套 AnimatableNumberField 壳，只在此换 value 的读数来源
   const wValue = useAnimatedValue(item, 'width', kf);
   const hValue = useAnimatedValue(item, 'height', kf);
+  // rotate-90 按钮需以此解析值（而非静态 item.rotation）为基数，与字段显示保持一致
+  const rotationValue = useAnimatedValue(item, 'rotation', kf);
   /** 有关键帧的属性写关键帧（在播放头处 upsert），否则走原静态 patch —— 无关键帧条目行为不变。
    *  播放头帧号在提交时刻读取（imperative），不订阅，播放中不拖累整个面板重渲。 */
   const animPatch = (prop: AnimatableProp, v: number, commit?: boolean) => {
@@ -433,15 +435,14 @@ const LayoutSection: React.FC<{
       </div>
       <div className="flex items-end gap-2">
         <div className="flex flex-1 items-end gap-1">
-          <AnimatableNumberField
-            item={item}
-            prop="rotation"
-            kf={kf}
+          <NumberField
             label={t('inspector.rotation')}
             icon={RotateCwIcon}
             className="flex-1"
+            value={rotationValue}
             onChange={(v, c) => animPatch('rotation', v, c)}
           />
+          <KeyframeToggle item={item} prop="rotation" kf={kf} />
         </div>
         <div className="flex flex-col">
           <Tooltip>
@@ -450,7 +451,7 @@ const LayoutSection: React.FC<{
                 <Button
                   variant="outline"
                   size="icon-sm"
-                  onClick={() => animPatch('rotation', (item.rotation + 90) % 360, true)}
+                  onClick={() => animPatch('rotation', (rotationValue + 90) % 360, true)}
                 >
                   <RotateCwSquareIcon />
                 </Button>
