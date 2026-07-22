@@ -1,8 +1,9 @@
 import type React from 'react';
-import { memo, useRef, useState } from 'react';
+import { memo, useMemo, useRef, useState } from 'react';
 import type { EditorStarterItem } from '@gedatou/shared';
 import { useEditor, useEditorApi } from '../state/context';
 import { useT } from '../lib/i18n';
+import { moveKeyframesAtFrame } from '../lib/keyframe-ops';
 import { Filmstrip } from './Filmstrip';
 import { Waveform } from './Waveform';
 
@@ -102,6 +103,13 @@ export const ItemBlock = memo<{
   const editorApi = useEditorApi();
   const t = useT();
   const selected = useEditor((s) => s.selectedItemIds.includes(item.id));
+  /** 合并关键帧帧集：跨所有属性去重排序，供底部关键帧轨渲染 */
+  const kfFrames = useMemo(() => {
+    const set = new Set<number>();
+    const kfs = item.keyframes;
+    if (kfs) for (const p of Object.keys(kfs)) for (const k of kfs[p as keyof typeof kfs]!) set.add(k.frame);
+    return [...set].sort((a, b) => a - b);
+  }, [item.keyframes]);
   const mediaUrl = useEditor((s) => {
     if (item.type !== 'video' && item.type !== 'audio') return null;
     return s.localUrls[item.assetId] ?? s.undoable.assets[item.assetId]?.url ?? null;
@@ -216,6 +224,21 @@ export const ItemBlock = memo<{
       },
       () => setDragTip(null),
     );
+  };
+
+  /** 关键帧轨拖拽：某帧上所有属性的关键帧一起挪；cur 随每次 move 更新为最新落帧，
+      否则第二次 move 会以过期的 fromFrame 去找已不存在的关键帧 */
+  const onKeyframeDotDown = (e: React.PointerEvent, fromFrame: number) => {
+    e.stopPropagation(); // 别触发块 move 手势
+    const startX = e.clientX;
+    let cur = fromFrame;
+    startHandleDrag(e, (ev) => {
+      const to = Math.max(0, Math.min(item.durationInFrames, Math.round(fromFrame + (ev.clientX - startX) / zoom)));
+      if (to !== cur) {
+        moveKeyframesAtFrame(editorApi, item.id, cur, to, false);
+        cur = to;
+      }
+    });
   };
 
   /** 悬停域（官方：悬停胶片区只显视觉角标，悬停音频区只显音频角标） */
@@ -409,6 +432,21 @@ export const ItemBlock = memo<{
         ) : null
       ) : (
         <span className="relative z-10 truncate select-none">{itemLabel(item)}</span>
+      )}
+      {/* 合并关键帧轨（仅选中项）：每个有 ≥1 关键帧的帧一个可拖点，横向拖拽整帧重定位 */}
+      {selected && kfFrames.length > 0 && (
+        <div className="absolute inset-x-0 bottom-0 z-10 h-2" data-kf-lane>
+          {kfFrames.map((f) => (
+            <button
+              key={f}
+              type="button"
+              data-kf-dot
+              className="absolute bottom-0 size-2 -translate-x-1/2 rotate-45 border border-background bg-primary"
+              style={{ left: f * zoom }}
+              onPointerDown={(e) => onKeyframeDotDown(e, f)}
+            />
+          ))}
+        </div>
       )}
       </div>
       {/* 拖拽中的提示：黑色小盒跟随光标（官方样式） */}
