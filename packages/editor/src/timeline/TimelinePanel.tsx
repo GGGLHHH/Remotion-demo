@@ -90,6 +90,8 @@ type DragState =
       snapshot: UndoableState;
       /** 滚动编辑（相邻块边界热区）联动的相邻项 */
       rollingNeighborId: string | null;
+      /** 是否已越过点击阈值（区分 roll 热区的点击建转场 vs 真实拖拽）；普通 trim 不读取 */
+      moved: boolean;
     }
   | { kind: 'marquee'; startX: number; startY: number; curX: number; curY: number };
 
@@ -466,6 +468,7 @@ export const TimelinePanel: React.FC<{ className?: string }> = ({ className }) =
         startX: e.clientX,
         snapshot: store.undoable,
         rollingNeighborId: null,
+        moved: false,
       };
       setTrimming({ id: item.id, edge });
       return;
@@ -520,6 +523,7 @@ export const TimelinePanel: React.FC<{ className?: string }> = ({ className }) =
       startX: e.clientX,
       snapshot: editorApi.getState().undoable,
       rollingNeighborId: bId,
+      moved: false,
     };
   };
 
@@ -553,6 +557,8 @@ export const TimelinePanel: React.FC<{ className?: string }> = ({ className }) =
     const store = editorApi.getState();
 
     if (d.kind === 'trim') {
+      // 3px 阈值：区分 roll 热区的点击（建转场）与真实拖拽（roll 编辑）
+      if (!d.moved && Math.abs(e.clientX - d.startX) >= 3) d.moved = true;
       // 官方：按住 Shift 完全抑制修剪（边缘回到起拖位置，松开恢复）
       if (e.shiftKey) {
         setTrimGuide(null);
@@ -616,6 +622,14 @@ export const TimelinePanel: React.FC<{ className?: string }> = ({ className }) =
     setTrimGuide(null);
     if (!d) return;
     if (d.kind === 'trim') {
+      // roll 热区点击（未越过拖拽阈值）且该切点尚无转场 ⇒ 建转场；真实拖拽（moved）仍按原逻辑提交 roll 编辑
+      const bId = d.rollingNeighborId;
+      if (bId && !d.moved) {
+        const exists = Object.values(editorApi.getState().undoable.transitions).some(
+          (tr) => tr.fromItemId === d.id && tr.toItemId === bId,
+        );
+        if (!exists) addTransition(editorApi, d.id, bId);
+      }
       editorApi.getState().commitPending();
     }
   };
@@ -723,8 +737,9 @@ export const TimelinePanel: React.FC<{ className?: string }> = ({ className }) =
           />
         ))}
         {/* 帧级相邻的两块边界：4px 滚动编辑热区（压在两侧修剪手柄之上）+ 建转场 '+' 徽章。
-            徽章是 roll 热区的子节点（纯 CSS group-hover，默认 pointer-events-none）：
-            未悬停时对 roll 的点击/拖拽零影响，只有真悬停在这 4px 热区上才现身并接管点击 */}
+            徽章纯装饰（永远 pointer-events-none，仅 group-hover 现身）：真正的点击建转场
+            落在 roll 热区自身——onRollPointerDown 按下、pointerup 时按"是否越过拖拽阈值"
+            区分点击（建转场）与拖拽（roll 编辑），见 onPointerUp */}
         {rowItems.flatMap((a) => {
           const b = rowItems.find((o) => o.from === a.from + a.durationInFrames);
           if (!b) return [];
@@ -742,19 +757,13 @@ export const TimelinePanel: React.FC<{ className?: string }> = ({ className }) =
               onPointerDown={(e) => onRollPointerDown(e, a.id, b.id)}
             >
               {!hasTransition ? (
-                <button
-                  type="button"
+                <div
                   data-add-transition
-                  className="pointer-events-none absolute top-1/2 left-1/2 z-40 flex size-3.5 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-white/60 bg-black/90 text-white opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100"
-                  title={t('timeline.addTransition')}
-                  onPointerDown={(e) => e.stopPropagation()}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    addTransition(editorApi, a.id, b.id);
-                  }}
+                  aria-hidden="true"
+                  className="pointer-events-none absolute top-1/2 left-1/2 z-40 flex size-3.5 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-white/60 bg-black/90 text-white opacity-0 transition-opacity group-hover:opacity-100"
                 >
                   <Plus className="size-2.5" />
-                </button>
+                </div>
               ) : null}
             </div>,
           ];
