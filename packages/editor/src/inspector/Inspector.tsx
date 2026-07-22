@@ -28,7 +28,7 @@ import type {
   EditorStarterItem,
 } from '@gedatou/shared';
 import { ANIMATABLE_PROPS } from '@gedatou/shared';
-import { PRESET_IDS } from '@gedatou/shared/composition';
+import { PRESET_IDS, TRANSITION_PRESETS, presetIdOf } from '@gedatou/shared/composition';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popover';
@@ -45,7 +45,7 @@ import { useEditor, useEditorApi, useEditorDeps, useEditorRefs } from '../state/
 import { usePlayerFrameDerived } from '../canvas/player-ref';
 import { startRender } from '../lib/render-client';
 import { generateCaptions } from '../lib/captioning';
-import { applyTransitionDuration, removeTransition } from '../lib/transition-ops';
+import { applyTransitionDuration, applyTransitionPreset, removeTransition } from '../lib/transition-ops';
 import { useT } from '../lib/i18n';
 import { NumberField } from './NumberField';
 import { ColorField, FadeSliders, Row, Section, SliderField } from './fields';
@@ -814,11 +814,33 @@ const ItemPanel: React.FC<{ item: EditorStarterItem }> = ({ item }) => {
 const TransitionPanel: React.FC<{ id: string }> = ({ id }) => {
   const api = useEditorApi();
   const t = useEditor((s) => s.undoable.transitions?.[id]);
+  const [presetOpen, setPresetOpen] = useState(false);
   if (!t) return null;
+  const currentLabel = TRANSITION_PRESETS.find((p) => p.id === presetIdOf(t))?.label ?? 'Cross Dissolve';
   return (
     <Section title="Transition">
       <Row label="Type">
-        <span className="text-xs text-muted-foreground">Cross Dissolve</span>
+        <Popover open={presetOpen} onOpenChange={setPresetOpen}>
+          <PopoverTrigger render={<Button variant="outline" size="sm" className="gap-1" />}>
+            {currentLabel}
+            <ChevronDownIcon />
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-40 gap-0.5 p-1">
+            {TRANSITION_PRESETS.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                className="rounded-md px-2 py-1 text-left text-xs hover:bg-accent"
+                onClick={() => {
+                  applyTransitionPreset(api, id, p.id);
+                  setPresetOpen(false);
+                }}
+              >
+                {p.label}
+              </button>
+            ))}
+          </PopoverContent>
+        </Popover>
       </Row>
       <Row label="Duration">
         <NumberField

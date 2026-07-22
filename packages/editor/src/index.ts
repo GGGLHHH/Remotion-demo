@@ -83,7 +83,7 @@ export {
   setKeyframeEasing, setKeyframeValue, toggleKeyframe,
 } from './lib/keyframe-ops';
 export type { AnimatableProp, Keyframe, KeyframeEasing } from '@gedatou/shared';
-export { addTransition, applyTransitionDuration, removeTransition } from './lib/transition-ops';
+export { addTransition, applyTransitionDuration, applyTransitionPreset, removeTransition } from './lib/transition-ops';
 export type { Transition, TransitionType } from '@gedatou/shared';
 export type { PresetId } from '@gedatou/shared/composition';
 export {
