@@ -25,6 +25,7 @@ import type {
   EditorStarterAsset,
   EditorStarterItem,
 } from '@gedatou/shared';
+import { PRESET_IDS, type PresetId } from '@gedatou/shared/composition';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import {
@@ -42,7 +43,7 @@ import { startRender } from '../lib/render-client';
 import { generateCaptions } from '../lib/captioning';
 import { useT } from '../lib/i18n';
 import { NumberField } from './NumberField';
-import { ColorField, FadeSliders, Section, SliderField } from './fields';
+import { ColorField, FadeSliders, Row, Section, SliderField } from './fields';
 import { BackgroundSection, StrokeSection, TypographySection } from './TextPanel';
 import { MediaPanel } from './MediaPanel';
 import { CaptionsPanel } from './CaptionsPanel';
@@ -460,6 +461,35 @@ const LayoutSection: React.FC<{
 };
 
 
+// ---- 动画预设（一键套用：写入多属性关键帧，见 lib/keyframe-ops#applyAnimationPreset） ----
+
+const AnimationSection: React.FC<{ itemId: string }> = ({ itemId }) => {
+  const t = useT();
+  const kf = useItemKeyframes(itemId);
+  return (
+    <Section title={t('inspector.animation')} collapsible defaultOpen={false}>
+      <Row label={t('inspector.preset')}>
+        <select
+          className="h-7 rounded border bg-transparent px-1 text-xs"
+          value=""
+          onChange={(e) => {
+            const v = e.target.value as PresetId;
+            if (v) kf.applyPreset(v);
+            e.currentTarget.value = '';
+          }}
+        >
+          <option value="">…</option>
+          {PRESET_IDS.map((id) => (
+            <option key={id} value={id}>
+              {id}
+            </option>
+          ))}
+        </select>
+      </Row>
+    </Section>
+  );
+};
+
 // ---- 填充（官方 Fill 区：透明度滑杆 + 颜色 + 圆角） ----
 
 const FillSection: React.FC<{
@@ -715,6 +745,7 @@ const ItemPanel: React.FC<{ item: EditorStarterItem }> = ({ item }) => {
           lockDefault={isMedia}
         />
       ) : null}
+      {isVisual ? <AnimationSection itemId={item.id} /> : null}
       {item.type === 'text' ? <TypographySection item={item} /> : null}
       {item.type === 'solid' ? (
         <FillSection item={item} patch={patch} color={item.color} onColor={(v) => patch({ color: v })} showRadius />
