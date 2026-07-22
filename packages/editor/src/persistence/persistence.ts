@@ -20,6 +20,7 @@ export const deserializeState = (raw: string): UndoableState | null => {
     const parsed = JSON.parse(raw) as UndoableState;
     if (!parsed || !Array.isArray(parsed.tracks) || typeof parsed.items !== 'object') return null;
     normalizeLegacyFades(Object.values(parsed.items));
+    parsed.transitions ??= {};
     return parsed;
   } catch {
     return null;

@@ -106,4 +106,5 @@ export const createEmptyState = (params: { width: number; height: number }): Und
   compositionWidth: params.width,
   compositionHeight: params.height,
   deletedAssets: [],
+  transitions: {},
 });

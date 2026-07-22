@@ -152,6 +152,18 @@ export type Track = {
   muted: boolean;
 };
 
+// ---- 转场 ----
+
+export type TransitionType = 'fade'; // 单成员联合;v2 加 'slide'|'wipe'… 零迁移
+export type Transition = {
+  id: string;
+  trackId: string;
+  fromItemId: string; // 出场(A)
+  toItemId: string;   // 入场(B)
+  type: TransitionType;
+  durationInFrames: number;
+};
+
 // ---- 可撤销状态（唯一进撤销栈/持久化的部分）----
 
 export type UndoableState = {
@@ -163,4 +175,5 @@ export type UndoableState = {
   compositionWidth: number;
   compositionHeight: number;
   deletedAssets: DeletedAsset[];
+  transitions: Record<string, Transition>;
 };
