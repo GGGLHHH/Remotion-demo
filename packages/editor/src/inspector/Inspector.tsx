@@ -41,6 +41,7 @@ import { useEditor, useEditorApi, useEditorDeps, useEditorRefs } from '../state/
 import { usePlayerFrameDerived } from '../canvas/player-ref';
 import { startRender } from '../lib/render-client';
 import { generateCaptions } from '../lib/captioning';
+import { applyTransitionDuration, removeTransition } from '../lib/transition-ops';
 import { useT } from '../lib/i18n';
 import { NumberField } from './NumberField';
 import { ColorField, FadeSliders, Row, Section, SliderField } from './fields';
@@ -777,6 +778,32 @@ const ItemPanel: React.FC<{ item: EditorStarterItem }> = ({ item }) => {
   );
 };
 
+// ---- 转场面板：选中时间线上的转场 pill 时显示（互斥已由 store 保证） ----
+
+const TransitionPanel: React.FC<{ id: string }> = ({ id }) => {
+  const api = useEditorApi();
+  const t = useEditor((s) => s.undoable.transitions[id]);
+  if (!t) return null;
+  return (
+    <Section title="Transition">
+      <Row label="Type">
+        <span className="text-xs text-muted-foreground">Cross Dissolve</span>
+      </Row>
+      <Row label="Duration">
+        <NumberField
+          inline
+          label=""
+          value={t.durationInFrames}
+          onChange={(v, c) => applyTransitionDuration(api, id, v, c)}
+        />
+      </Row>
+      <Button size="sm" variant="ghost" onClick={() => removeTransition(api, id)}>
+        Remove
+      </Button>
+    </Section>
+  );
+};
+
 /** 注入槽(宿主放自定义控件,库自身不放内容 —— 不传时 DOM 与官方一致):
  *  - canvasExtra:检查器「画布」区末尾(如尺寸预设)
  *  - exportExtra:「导出」区末尾、渲染任务列表之后(如渲染产物的持久历史) */
@@ -786,20 +813,22 @@ export const Inspector: React.FC<{
   exportExtra?: React.ReactNode;
 }> = ({ className, canvasExtra, exportExtra }) => {
   const selectedItemIds = useEditor((s) => s.selectedItemIds);
+  const selectedTransitionId = useEditor((s) => s.selectedTransitionId);
   const items = useEditor((s) => s.undoable.items);
 
   const selected = selectedItemIds.map((id) => items[id]).filter(Boolean);
 
-  const content =
-    selected.length === 0 ? (
-      <CompositionPanel canvasExtra={canvasExtra} exportExtra={exportExtra} />
-    ) : selected.length > 1 ? (
-      // 官方行为：多选时面板完全留空
-      null
-    ) : (
-      // key=item.id：切换选中时重挂，重置锁比例/折叠等本地状态
-      <ItemPanel key={selected[0].id} item={selected[0]} />
-    );
+  const content = selectedTransitionId ? (
+    <TransitionPanel id={selectedTransitionId} />
+  ) : selected.length === 0 ? (
+    <CompositionPanel canvasExtra={canvasExtra} exportExtra={exportExtra} />
+  ) : selected.length > 1 ? (
+    // 官方行为：多选时面板完全留空
+    null
+  ) : (
+    // key=item.id：切换选中时重挂，重置锁比例/折叠等本地状态
+    <ItemPanel key={selected[0].id} item={selected[0]} />
+  );
 
   // 无 className（EditorRoot preset 用外层 aside 控宽）→ 直接返回内容，DOM 不变；
   // 传 className（自拼布局的宿主）→ 包一层带样式的容器，空/多选时也保持列宽。

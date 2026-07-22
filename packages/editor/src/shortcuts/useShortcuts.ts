@@ -3,6 +3,7 @@ import { useEditorApi, useEditorDeps, useEditorRefs } from '../state/context';
 import { resolveSplitTargets, splitItemsAtFrame } from '../timeline/ops';
 import { saveState } from '../persistence/persistence';
 import { importFiles } from '../lib/import-assets';
+import { removeTransition } from '../lib/transition-ops';
 import {
   CLIPBOARD_MARKER,
   buildClipboardPayload,
@@ -62,13 +63,20 @@ export const useShortcuts = () => {
       }
       if (e.key === 'Delete' || e.key === 'Backspace') {
         e.preventDefault();
+        if (store.selectedTransitionId) {
+          removeTransition(editorApi, store.selectedTransitionId);
+          return;
+        }
         store.deleteSelected();
         return;
       }
       if (e.key === 'Escape') {
         if (store.itemSelectedForCrop) store.setItemSelectedForCrop(null);
         else if (store.textItemEditing) store.setTextItemEditing(null);
-        else store.setSelected([]);
+        else {
+          store.setSelected([]);
+          store.setSelectedTransition(null);
+        }
         return;
       }
       if (e.key === ' ') {
