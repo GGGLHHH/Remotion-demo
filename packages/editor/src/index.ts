@@ -77,6 +77,12 @@ export { startRender } from './lib/render-client';
 export { generateCaptions } from './lib/captioning';
 export { cleanupDeletedAssets } from './lib/cleanup-assets';
 export {
+  applyAnimationPreset, clearKeyframes, moveKeyframe, moveKeyframesAtFrame,
+  setKeyframeEasing, setKeyframeValue, toggleKeyframe,
+} from './lib/keyframe-ops';
+export type { AnimatableProp, Keyframe, KeyframeEasing } from '@gedatou/shared';
+export type { PresetId } from '@gedatou/shared/composition';
+export {
   saveState,
   loadStateFromFile,
   downloadStateFile,

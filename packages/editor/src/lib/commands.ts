@@ -1,11 +1,13 @@
 import { useMemo } from 'react';
-import type { UndoableState } from '@gedatou/shared';
+import type { AnimatableProp, UndoableState } from '@gedatou/shared';
+import type { PresetId } from '@gedatou/shared/composition';
 import { useEditorApi, useEditorDeps, useEditorRefs } from '../state/context';
 import type { CanvasTool } from '../state/store';
 import { importFiles } from './import-assets';
 import { startRender } from './render-client';
 import { cleanupDeletedAssets } from './cleanup-assets';
 import { addSolidItem, addTextItem } from './add-items';
+import { applyAnimationPreset, toggleKeyframe } from './keyframe-ops';
 import { copySelection, duplicateSelection, pasteClipboard } from './clipboard';
 import { downloadStateFile, loadStateFromFile, saveState } from '../persistence/persistence';
 import { bringToFront, resolveSplitTargets, sendToBack, splitItemsAtFrame } from '../timeline/ops';
@@ -35,6 +37,9 @@ export type EditorCommands = {
   addText: (at: { x: number; y: number }, atFrame?: number, text?: string) => void;
   addSolid: (rect: { left: number; top: number; width: number; height: number }, atFrame?: number) => void;
   importAssets: (files: File[]) => Promise<void>;
+  // 关键帧（frame 不传用当前播放头相对项起点的帧数）
+  toggleKeyframe: (itemId: string, prop: AnimatableProp, frame?: number) => void;
+  applyAnimationPreset: (itemId: string, presetId: PresetId) => void;
   // 排列 / 时间线（itemId 不传作用于当前选中）
   bringToFront: (itemId?: string) => void;
   sendToBack: (itemId?: string) => void;
@@ -102,6 +107,10 @@ export function useEditorCommands(): EditorCommands {
       addText: (at, atFrame, text) => addTextItem(api, at, atFrame ?? frame(), text),
       addSolid: (rect, atFrame) => addSolidItem(api, rect, atFrame ?? frame()),
       importAssets: (files) => importFiles(api, deps, files, undefined, undefined, frame()),
+
+      toggleKeyframe: (itemId, prop, frame) =>
+        toggleKeyframe(api, itemId, prop, frame ?? refs.getPlayerFrame() - (api.getState().undoable.items[itemId]?.from ?? 0)),
+      applyAnimationPreset: (itemId, presetId) => applyAnimationPreset(api, itemId, presetId),
 
       bringToFront: forSelected(bringToFront),
       sendToBack: forSelected(sendToBack),
