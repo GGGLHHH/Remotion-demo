@@ -36,7 +36,7 @@ import {
 } from '../components/ui/select';
 import { Spinner } from '../components/ui/spinner';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../components/ui/tooltip';
-import { useEditor, useEditorApi, useEditorDeps } from '../state/context';
+import { useEditor, useEditorApi, useEditorDeps, useEditorRefs } from '../state/context';
 import { usePlayerFrameDerived } from '../canvas/player-ref';
 import { startRender } from '../lib/render-client';
 import { generateCaptions } from '../lib/captioning';
@@ -47,7 +47,7 @@ import { BackgroundSection, StrokeSection, TypographySection } from './TextPanel
 import { MediaPanel } from './MediaPanel';
 import { CaptionsPanel } from './CaptionsPanel';
 import { KeyframeToggle } from './KeyframeToggle';
-import { useItemKeyframes, type ItemKeyframesApi } from './use-item-keyframes';
+import { useItemKeyframes } from './use-item-keyframes';
 
 export type PatchFn = (partial: Partial<EditorStarterItem>, commit?: boolean) => void;
 
@@ -310,17 +310,23 @@ const LayoutSection: React.FC<{
   patch: PatchFn;
   showLock: boolean;
   lockDefault: boolean;
-  kf: ItemKeyframesApi;
-}> = ({ item, patch, showLock, lockDefault, kf }) => {
+}> = ({ item, patch, showLock, lockDefault }) => {
   const t = useT();
-  const updateUndoable = useEditor((s) => s.updateUndoable);
+  const editorApi = useEditorApi();
+  const kf = useItemKeyframes(item.id);
+  const refs = useEditorRefs();
   // ItemPanel 以 item.id 为 key 重挂，锁比例默认值随类型生效（图片/视频默认开）
   const [locked, setLocked] = useState(lockDefault);
-  // 当前播放头相对本 item 的帧号（仅原始值变化才重渲，播放中不拖累整个面板）
-  const frameInItem = usePlayerFrameDerived((f) => Math.max(0, Math.min(item.durationInFrames, f - item.from)));
-  /** 有关键帧的属性写关键帧（在播放头处 upsert），否则走原静态 patch —— 无关键帧条目行为不变 */
-  const animPatch = (prop: AnimatableProp, v: number, commit?: boolean) =>
-    kf.has(prop) ? kf.setValue(prop, frameInItem, v, commit) : patch({ [prop]: v } as Partial<EditorStarterItem>, commit);
+  /** 有关键帧的属性写关键帧（在播放头处 upsert），否则走原静态 patch —— 无关键帧条目行为不变。
+   *  播放头帧号在提交时刻读取（imperative），不订阅，播放中不拖累整个面板重渲。 */
+  const animPatch = (prop: AnimatableProp, v: number, commit?: boolean) => {
+    if (kf.has(prop)) {
+      const f = Math.max(0, Math.min(item.durationInFrames, refs.getPlayerFrame() - item.from));
+      kf.setValue(prop, f, v, commit);
+    } else {
+      patch({ [prop]: v } as Partial<EditorStarterItem>, commit);
+    }
+  };
 
   const alignGroup = (defs: typeof ALIGNS) => (
     <div className="flex flex-1">
@@ -332,22 +338,15 @@ const LayoutSection: React.FC<{
                 variant="outline"
                 size="icon-sm"
                 className={groupCls(i, defs.length)}
-                onClick={() =>
-                  updateUndoable((s) => {
-                    const cur = s.items[item.id];
-                    if (!cur) return s;
-                    return {
-                      ...s,
-                      items: {
-                        ...s.items,
-                        [item.id]: {
-                          ...cur,
-                          ...a.apply(s.compositionWidth, s.compositionHeight, cur),
-                        } as EditorStarterItem,
-                      },
-                    };
-                  })
-                }
+                onClick={() => {
+                  const s = editorApi.getState().undoable;
+                  const cur = s.items[item.id];
+                  if (!cur) return;
+                  const [key, value] = Object.entries(
+                    a.apply(s.compositionWidth, s.compositionHeight, cur),
+                  )[0] as [AnimatableProp, number];
+                  animPatch(key, value, true);
+                }}
               >
                 <a.icon />
               </Button>
@@ -446,7 +445,7 @@ const LayoutSection: React.FC<{
                 <Button
                   variant="outline"
                   size="icon-sm"
-                  onClick={() => patch({ rotation: (item.rotation + 90) % 360 })}
+                  onClick={() => animPatch('rotation', (item.rotation + 90) % 360, true)}
                 >
                   <RotateCwSquareIcon />
                 </Button>
@@ -469,13 +468,19 @@ const FillSection: React.FC<{
   color?: string;
   onColor?: (v: string) => void;
   showRadius?: boolean;
-  kf: ItemKeyframesApi;
-}> = ({ item, patch, color, onColor, showRadius, kf }) => {
+}> = ({ item, patch, color, onColor, showRadius }) => {
   const t = useT();
+  const kf = useItemKeyframes(item.id);
+  const refs = useEditorRefs();
   const pct = Math.round(item.opacity * 100);
-  const frameInItem = usePlayerFrameDerived((f) => Math.max(0, Math.min(item.durationInFrames, f - item.from)));
-  const animPatch = (prop: AnimatableProp, v: number, commit?: boolean) =>
-    kf.has(prop) ? kf.setValue(prop, frameInItem, v, commit) : patch({ [prop]: v } as Partial<EditorStarterItem>, commit);
+  const animPatch = (prop: AnimatableProp, v: number, commit?: boolean) => {
+    if (kf.has(prop)) {
+      const f = Math.max(0, Math.min(item.durationInFrames, refs.getPlayerFrame() - item.from));
+      kf.setValue(prop, f, v, commit);
+    } else {
+      patch({ [prop]: v } as Partial<EditorStarterItem>, commit);
+    }
+  };
   return (
     <Section title={t('inspector.fill')} collapsible defaultOpen>
       <div className="flex items-end gap-1">
@@ -686,7 +691,6 @@ const ItemPanel: React.FC<{ item: EditorStarterItem }> = ({ item }) => {
     'assetId' in item ? s.undoable.assets[item.assetId] : undefined,
   );
   const patch = useItemPatch(item.id);
-  const kf = useItemKeyframes(item.id);
 
   // custom item 的领域面板:宿主经 deps.customItemPanels 按 kind 提供,渲染在通用分区之前
   const CustomPanel = item.type === 'custom' ? deps.customItemPanels?.[item.kind] : undefined;
@@ -709,22 +713,21 @@ const ItemPanel: React.FC<{ item: EditorStarterItem }> = ({ item }) => {
           // 官方：图片/视频默认锁定宽高比（高亮），纯色可用但默认关，文本/字幕无此按钮
           showLock={item.type === 'solid' || isMedia}
           lockDefault={isMedia}
-          kf={kf}
         />
       ) : null}
       {item.type === 'text' ? <TypographySection item={item} /> : null}
       {item.type === 'solid' ? (
-        <FillSection item={item} patch={patch} color={item.color} onColor={(v) => patch({ color: v })} showRadius kf={kf} />
+        <FillSection item={item} patch={patch} color={item.color} onColor={(v) => patch({ color: v })} showRadius />
       ) : null}
       {item.type === 'text' ? (
         <>
-          <FillSection item={item} patch={patch} color={item.color} onColor={(v) => patch({ color: v })} kf={kf} />
+          <FillSection item={item} patch={patch} color={item.color} onColor={(v) => patch({ color: v })} />
           <StrokeSection item={item} />
           <BackgroundSection item={item} />
         </>
       ) : null}
-      {isMedia ? <FillSection item={item} patch={patch} showRadius kf={kf} /> : null}
-      {item.type === 'captions' ? <FillSection item={item} patch={patch} kf={kf} /> : null}
+      {isMedia ? <FillSection item={item} patch={patch} showRadius /> : null}
+      {item.type === 'captions' ? <FillSection item={item} patch={patch} /> : null}
       {croppable && 'crop' in item ? (
         <CropSection item={item} mediaW={asset.width} mediaH={asset.height} patch={patch} />
       ) : null}
