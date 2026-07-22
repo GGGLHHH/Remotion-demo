@@ -559,6 +559,10 @@ export const TimelinePanel: React.FC<{ className?: string }> = ({ className }) =
     if (d.kind === 'trim') {
       // 3px 阈值：区分 roll 热区的点击（建转场）与真实拖拽（roll 编辑）
       if (!d.moved && Math.abs(e.clientX - d.startX) >= 3) d.moved = true;
+      // roll 热区在越过阈值前不写 store：否则 sub-3px 抖动会先 commit:false 一次微 roll，
+      // pointerup 时 addTransition 又读到这个已被污染的状态、commitPending 再补一条——
+      // 一次点击炸出两条乱序 past。普通 trim（rollingNeighborId 为 null）不受影响。
+      if (d.rollingNeighborId && !d.moved) return;
       // 官方：按住 Shift 完全抑制修剪（边缘回到起拖位置，松开恢复）
       if (e.shiftKey) {
         setTrimGuide(null);
@@ -754,6 +758,7 @@ export const TimelinePanel: React.FC<{ className?: string }> = ({ className }) =
               data-roll
               className="group absolute inset-y-1.5 z-40 w-1 cursor-ew-resize"
               style={{ left: b.from * zoom - 2 }}
+              title={!hasTransition ? t('timeline.addTransition') : undefined}
               onPointerDown={(e) => onRollPointerDown(e, a.id, b.id)}
             >
               {!hasTransition ? (
