@@ -2,6 +2,7 @@ import type React from 'react';
 import { Sequence, interpolate, useCurrentFrame } from 'remotion';
 import type { EditorStarterItem, UndoableState } from '../types';
 import { getCustomItemRenderer } from '../custom-items';
+import { resolveProp } from './keyframes';
 import { CaptionsItemRenderer } from './items/CaptionsItemRenderer';
 import { SolidItemRenderer } from './items/SolidItemRenderer';
 import { TextItemRenderer } from './items/TextItemRenderer';
@@ -97,16 +98,22 @@ const ItemPositioner: React.FC<{ item: EditorStarterItem; ctx: RenderContext; tr
           { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' },
         )
       : 1;
+  const left = resolveProp(item, 'left', frame);
+  const top = resolveProp(item, 'top', frame);
+  const width = resolveProp(item, 'width', frame);
+  const height = resolveProp(item, 'height', frame);
+  const rotation = resolveProp(item, 'rotation', frame);
+  const baseOpacity = resolveProp(item, 'opacity', frame);
   return (
     <div
       style={{
         position: 'absolute',
-        left: item.left,
-        top: item.top,
-        width: item.width,
-        height: item.height,
-        rotate: `${item.rotation}deg`,
-        opacity: item.opacity * fadeIn * fadeOut,
+        left,
+        top,
+        width,
+        height,
+        rotate: `${rotation}deg`,
+        opacity: baseOpacity * fadeIn * fadeOut,
         borderRadius: item.borderRadius,
         overflow: item.borderRadius > 0 ? 'hidden' : undefined,
       }}
