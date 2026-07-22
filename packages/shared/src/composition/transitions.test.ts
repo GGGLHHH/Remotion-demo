@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createEmptyState, createSolidItem } from '../factories';
 import type { Transition, UndoableState } from '../types';
-import { getTransitionRenderProps } from './transitions';
+import { getTransitionRenderProps, transitionVisual } from './transitions';
 
 // A: from 0 dur 60;B: from 45 dur 60(重叠 15,fade 15)
 const mk = (): UndoableState => {
@@ -47,5 +47,43 @@ describe('getTransitionRenderProps', () => {
     s.transitions.y = { id: 'y', trackId: 't', fromItemId: 'B', toItemId: 'C', type: 'fade', durationInFrames: 15 };
     // 在 B 的出场窗口中点附近,B 已淡入完成(=1)、正在淡出
     expect(getTransitionRenderProps(s, s.items.B, 97.5).opacity).toBeCloseTo(0.5);
+  });
+});
+
+describe('transitionVisual', () => {
+  it('fade: 仅 opacity(入场 p / 出场 1-p),无 translate/scale/clipPath —— 不回归 v1', () => {
+    const vin = transitionVisual('fade', undefined, 'in', 0.5);
+    expect(vin).toEqual({ opacity: 0.5 });
+    expect(transitionVisual('fade', undefined, 'out', 0.5)).toEqual({ opacity: 0.5 });
+    expect(transitionVisual('fade', undefined, 'in', 0).opacity).toBe(0);
+    expect(transitionVisual('fade', undefined, 'out', 1).opacity).toBe(0);
+  });
+
+  it('slide: 入场从反侧滑到 0,出场被推向 direction 侧,opacity 恒 1', () => {
+    // slide-left:新内容从右进入 → in 从 100%→0;旧内容推向左 → out 0→-100%
+    expect(transitionVisual('slide', 'left', 'in', 0)).toEqual({ opacity: 1, translate: '100% 0%' });
+    expect(transitionVisual('slide', 'left', 'in', 1)).toEqual({ opacity: 1, translate: '0% 0%' });
+    expect(transitionVisual('slide', 'left', 'out', 1)).toEqual({ opacity: 1, translate: '-100% 0%' });
+    expect(transitionVisual('slide', 'right', 'out', 1)).toEqual({ opacity: 1, translate: '100% 0%' });
+    expect(transitionVisual('slide', 'up', 'in', 0)).toEqual({ opacity: 1, translate: '0% 100%' });
+    expect(transitionVisual('slide', 'down', 'out', 1)).toEqual({ opacity: 1, translate: '0% 100%' });
+  });
+
+  it('wipe: 入场 clipPath 从某边揭开,出场不裁', () => {
+    expect(transitionVisual('wipe', 'left', 'in', 0)).toEqual({ opacity: 1, clipPath: 'inset(0 100% 0 0)' });
+    expect(transitionVisual('wipe', 'left', 'in', 1)).toEqual({ opacity: 1, clipPath: 'inset(0 0% 0 0)' });
+    expect(transitionVisual('wipe', 'right', 'in', 0)).toEqual({ opacity: 1, clipPath: 'inset(0 0 0 100%)' });
+    expect(transitionVisual('wipe', 'up', 'in', 0)).toEqual({ opacity: 1, clipPath: 'inset(0 0 100% 0)' });
+    expect(transitionVisual('wipe', 'down', 'in', 0)).toEqual({ opacity: 1, clipPath: 'inset(100% 0 0 0)' });
+    expect(transitionVisual('wipe', 'left', 'out', 0.5)).toEqual({ opacity: 1 });
+  });
+
+  it('zoom: 入场 scale + 淡入,出场反向 scale + 淡出', () => {
+    expect(transitionVisual('zoom', 'in', 'in', 0)).toEqual({ opacity: 0, scale: '0.6' });
+    expect(transitionVisual('zoom', 'in', 'in', 1)).toEqual({ opacity: 1, scale: '1' });
+    expect(transitionVisual('zoom', 'in', 'out', 0)).toEqual({ opacity: 1, scale: '1' });
+    expect(transitionVisual('zoom', 'in', 'out', 1)).toEqual({ opacity: 0, scale: '1.2' });
+    expect(transitionVisual('zoom', 'out', 'in', 0)).toEqual({ opacity: 0, scale: '1.2' });
+    expect(transitionVisual('zoom', 'out', 'in', 1)).toEqual({ opacity: 1, scale: '1' });
   });
 });

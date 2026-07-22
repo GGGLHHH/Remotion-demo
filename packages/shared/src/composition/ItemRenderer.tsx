@@ -105,6 +105,7 @@ const ItemPositioner: React.FC<{ item: EditorStarterItem; ctx: RenderContext; tr
   const height = resolveProp(item, 'height', frame);
   const rotation = resolveProp(item, 'rotation', frame);
   const baseOpacity = resolveProp(item, 'opacity', frame);
+  const tp = getTransitionRenderProps(ctx.state, item, item.from + frame);
   return (
     <div
       style={{
@@ -114,7 +115,10 @@ const ItemPositioner: React.FC<{ item: EditorStarterItem; ctx: RenderContext; tr
         width,
         height,
         rotate: `${rotation}deg`,
-        opacity: baseOpacity * fadeIn * fadeOut * getTransitionRenderProps(ctx.state, item, item.from + frame).opacity,
+        translate: tp.translate, // 转场位移/缩放:CSS 独立变换属性,与 rotate 自动合成;undefined 无效果
+        scale: tp.scale,
+        opacity: baseOpacity * fadeIn * fadeOut * tp.opacity,
+        clipPath: tp.clipPath, // wipe 揭示
         borderRadius: item.borderRadius,
         overflow: item.borderRadius > 0 ? 'hidden' : undefined,
       }}
