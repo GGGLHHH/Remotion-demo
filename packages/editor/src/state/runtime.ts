@@ -54,7 +54,7 @@ export type NotifyFn = (message: string, level?: 'info' | 'success' | 'error') =
 /**
  * 文本解析器（可选注入）：库本身不做 i18n（不切语言、不内置多语言、不引 i18n 依赖），
  * 只把「文本」当作又一个 app 关注点外包给消费方——和 transport/storage/notify 同一个注入哲学。
- * (key, params) => 译文。不注入、或对某 key 返回 key 本身时，回落库内置 zh 默认字典（见 locales/zh）。
+ * (key, params) => 译文。不注入、或对某 key 返回 key 本身时，回落库内置 en 默认字典（见 locales/en）。
  * 消费方（如接了 react-i18next 的宿主）注入自己的 t 即可让编辑器跟随宿主语言，库一行不用改。
  */
 export type EditorT = (key: string, params?: Record<string, string | number>) => string;
@@ -64,13 +64,12 @@ export type EditorDeps = {
   transport: EditorTransport;
   storage: EditorStorage;
   notify: NotifyFn;
-  /** 文本解析器（可选）：不传则用库内置 zh 默认文案。见 EditorT。 */
+  /** 文本解析器（可选）：不传则用库内置 en 默认文案。见 EditorT。 */
   t?: EditorT;
   /**
-   * 导出文件基础名（如项目地址）。库本身不知道「项目」，由消费方注入。
-   * 用取值函数而非常量：消费方切换当前项目时无需重建 editor。
-   * 下载名 = `${exportBaseName()} ${点击导出时刻}.${codec}`，由 lib/render-client
-   * 在前端组装（服务端只做清洗并挂到 Content-Disposition）。不注入则只有时间戳。
+   * 导出下载文件名（完整，含扩展名），点击导出时调用。库不含命名策略（项目名/时间戳
+   * 等约定由消费方组装）；不注入或返回 undefined 则不指定名字，渲染服务用自己的默认名
+   * （如任务 id）。用函数而非常量：消费方切换当前项目时无需重建 editor。
    */
-  exportBaseName?: () => string | undefined;
+  exportFileName?: (codec: 'mp4' | 'webm') => string | undefined;
 };

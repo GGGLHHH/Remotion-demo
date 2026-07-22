@@ -1,4 +1,3 @@
-import { buildDownloadName } from '@gedatou/shared';
 import { tFor } from './i18n';
 import type { EditorStoreApi } from '../state/store';
 import type { EditorDeps, RenderProgress } from '../state/runtime';
@@ -12,10 +11,9 @@ export const startRender = async (
 ): Promise<void> => {
   const t = tFor(deps);
   const { undoable, upsertRenderingTask } = store.getState();
-  // 文件名在前端组装：只有这里知道项目名（消费方注入的 exportBaseName）与导出时刻。
-  // 服务端只把它挂到 Content-Disposition（并做防御性清洗）。因为点下就有名字，
-  // 卡片全程可显示，无需等服务端回传。时间戳即「点击导出」的时刻。
-  const fileName = buildDownloadName(codec, deps.exportBaseName?.(), new Date());
+  // 文件名由消费方组装（exportFileName 注入，库无命名策略）；服务端只做防御性清洗并挂
+  // Content-Disposition。点下就有名字 → 任务卡片全程可显示；不注入则渲染服务回退默认名。
+  const fileName = deps.exportFileName?.(codec);
   let taskId: string;
   try {
     ({ taskId } = await deps.transport.startRender({ state: undoable, codec, fileName }));

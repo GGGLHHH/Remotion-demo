@@ -81,8 +81,8 @@ export {
   deserializeState,
 } from './persistence/persistence';
 
-// i18n：库不做 i18n，只暴露注入缝（EditorDeps.t / EditorT）+ 内置 zh 默认（也是完整 key 目录）。
-export { zhMessages } from './locales/zh';
+// i18n：库不做 i18n，只暴露注入缝（EditorDeps.t / EditorT）+ 内置 en 默认（也是完整 key 目录）。
+export { enMessages } from './locales/en';
 
 // 类型
 export type { EditorStore, EditorStoreApi, EditorInitialState } from './state/store';

@@ -41,7 +41,6 @@ import { startRender } from '../lib/render-client';
 import { generateCaptions } from '../lib/captioning';
 import { useT } from '../lib/i18n';
 import { NumberField } from './NumberField';
-import { ASPECT_PRESETS, RES_PRESETS, aspectDims, isAspect, scaleToShort } from './canvas-presets';
 import { ColorField, FadeSliders, Section, SliderField } from './fields';
 import { BackgroundSection, StrokeSection, TypographySection } from './TextPanel';
 import { MediaPanel } from './MediaPanel';
@@ -213,44 +212,6 @@ const CompositionPanel: React.FC = () => {
             />
             <TooltipContent>{t('inspector.swapDimensions')}</TooltipContent>
           </Tooltip>
-        </div>
-        {/* 比例预设:保留当前短边(分辨率),换到目标比例 */}
-        <div className="mt-2 flex gap-1">
-          {ASPECT_PRESETS.map(([label, aw, ah]) => (
-            <Button
-              key={label}
-              variant={isAspect(width, height, aw, ah) ? 'default' : 'outline'}
-              size="sm"
-              className="h-7 flex-1 px-1 text-xs tabular-nums"
-              onClick={() =>
-                updateUndoable((s) => {
-                  const { w, h } = aspectDims(aw, ah, Math.min(s.compositionWidth, s.compositionHeight));
-                  return { ...s, compositionWidth: w, compositionHeight: h };
-                })
-              }
-            >
-              {label}
-            </Button>
-          ))}
-        </div>
-        {/* 分辨率预设:保留当前比例,整体缩放到目标短边 */}
-        <div className="mt-1 flex gap-1">
-          {RES_PRESETS.map(([label, short]) => (
-            <Button
-              key={label}
-              variant={Math.min(width, height) === short ? 'default' : 'outline'}
-              size="sm"
-              className="h-7 flex-1 px-1 text-xs tabular-nums"
-              onClick={() =>
-                updateUndoable((s) => {
-                  const { w, h } = scaleToShort(s.compositionWidth, s.compositionHeight, short);
-                  return { ...s, compositionWidth: w, compositionHeight: h };
-                })
-              }
-            >
-              {label}
-            </Button>
-          ))}
         </div>
       </Section>
       <Section title={t('inspector.duration')}>
