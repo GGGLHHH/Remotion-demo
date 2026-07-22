@@ -21,6 +21,8 @@ export { CanvasView as Canvas, Inspector, TimelinePanel as Timeline, PlaybackBar
 export { InspectorSections, useItemPatch, type PatchFn } from './inspector/Inspector';
 export { Section, Row, ColorField, SliderField, FadeSliders } from './inspector/fields';
 export { NumberField } from './inspector/NumberField';
+export { useItemKeyframes, type ItemKeyframesApi } from './inspector/use-item-keyframes';
+export { KeyframeToggle } from './inspector/KeyframeToggle';
 export type { CanvasTool } from './state/store';
 
 // 外壳行为（自绘外壳用）：容器 + 快捷键/拦刷新钩子 + tooltip provider。

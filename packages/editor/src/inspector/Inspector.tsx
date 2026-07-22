@@ -19,6 +19,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import type {
+  AnimatableProp,
   AssetStatus,
   Crop,
   EditorStarterAsset,
@@ -45,6 +46,8 @@ import { ColorField, FadeSliders, Section, SliderField } from './fields';
 import { BackgroundSection, StrokeSection, TypographySection } from './TextPanel';
 import { MediaPanel } from './MediaPanel';
 import { CaptionsPanel } from './CaptionsPanel';
+import { KeyframeToggle } from './KeyframeToggle';
+import { useItemKeyframes, type ItemKeyframesApi } from './use-item-keyframes';
 
 export type PatchFn = (partial: Partial<EditorStarterItem>, commit?: boolean) => void;
 
@@ -307,11 +310,17 @@ const LayoutSection: React.FC<{
   patch: PatchFn;
   showLock: boolean;
   lockDefault: boolean;
-}> = ({ item, patch, showLock, lockDefault }) => {
+  kf: ItemKeyframesApi;
+}> = ({ item, patch, showLock, lockDefault, kf }) => {
   const t = useT();
   const updateUndoable = useEditor((s) => s.updateUndoable);
   // ItemPanel 以 item.id 为 key 重挂，锁比例默认值随类型生效（图片/视频默认开）
   const [locked, setLocked] = useState(lockDefault);
+  // 当前播放头相对本 item 的帧号（仅原始值变化才重渲，播放中不拖累整个面板）
+  const frameInItem = usePlayerFrameDerived((f) => Math.max(0, Math.min(item.durationInFrames, f - item.from)));
+  /** 有关键帧的属性写关键帧（在播放头处 upsert），否则走原静态 patch —— 无关键帧条目行为不变 */
+  const animPatch = (prop: AnimatableProp, v: number, commit?: boolean) =>
+    kf.has(prop) ? kf.setValue(prop, frameInItem, v, commit) : patch({ [prop]: v } as Partial<EditorStarterItem>, commit);
 
   const alignGroup = (defs: typeof ALIGNS) => (
     <div className="flex flex-1">
@@ -351,20 +360,20 @@ const LayoutSection: React.FC<{
   );
 
   // ponytail: 锁比例按当前宽高比逐帧换算，长距离拖拽有轻微取整漂移；需要精确时在 scrub 起点缓存比例
-  const setW = (v: number, c: boolean) =>
-    patch(
-      locked
-        ? { width: v, height: Math.max(1, Math.round((v * item.height) / item.width)) }
-        : { width: v },
-      c,
-    );
-  const setH = (v: number, c: boolean) =>
-    patch(
-      locked
-        ? { height: v, width: Math.max(1, Math.round((v * item.width) / item.height)) }
-        : { height: v },
-      c,
-    );
+  // 无关键帧时两维一次 patch 合并提交（单条撤销，行为与改造前完全一致）；
+  // 但凡 width/height 任一打了关键帧，两维分开走 animPatch（关键帧按属性各自存列表，没有合并写入口）。
+  const setLinkedDim = (prop: 'width' | 'height', v: number, c: boolean) => {
+    const other = prop === 'width' ? 'height' : 'width';
+    const linked = locked ? Math.max(1, Math.round((v * item[other]) / item[prop])) : null;
+    if (!kf.has(prop) && (linked === null || !kf.has(other))) {
+      patch((linked === null ? { [prop]: v } : { [prop]: v, [other]: linked }) as Partial<EditorStarterItem>, c);
+      return;
+    }
+    animPatch(prop, v, c);
+    if (linked !== null) animPatch(other, linked, c);
+  };
+  const setW = (v: number, c: boolean) => setLinkedDim('width', v, c);
+  const setH = (v: number, c: boolean) => setLinkedDim('height', v, c);
 
   return (
     <Section title={t('inspector.layout')} collapsible defaultOpen>
@@ -378,15 +387,27 @@ const LayoutSection: React.FC<{
       <div className="flex flex-col gap-1">
         <span className="text-xs text-muted-foreground">{t('inspector.position')}</span>
         <div className="grid grid-cols-2 gap-2">
-          <NumberField inline label="X" value={item.left} onChange={(v, c) => patch({ left: v }, c)} />
-          <NumberField inline label="Y" value={item.top} onChange={(v, c) => patch({ top: v }, c)} />
+          <div className="flex items-center gap-1">
+            <NumberField inline label="X" className="flex-1" value={item.left} onChange={(v, c) => animPatch('left', v, c)} />
+            <KeyframeToggle item={item} prop="left" kf={kf} />
+          </div>
+          <div className="flex items-center gap-1">
+            <NumberField inline label="Y" className="flex-1" value={item.top} onChange={(v, c) => animPatch('top', v, c)} />
+            <KeyframeToggle item={item} prop="top" kf={kf} />
+          </div>
         </div>
       </div>
       <div className="flex flex-col gap-1">
         <span className="text-xs text-muted-foreground">{t('inspector.size')}</span>
         <div className="flex items-center gap-2">
-          <NumberField inline label="W" className="flex-1" value={item.width} min={1} onChange={setW} />
-          <NumberField inline label="H" className="flex-1" value={item.height} min={1} onChange={setH} />
+          <div className="flex flex-1 items-center gap-1">
+            <NumberField inline label="W" className="flex-1" value={item.width} min={1} onChange={setW} />
+            <KeyframeToggle item={item} prop="width" kf={kf} />
+          </div>
+          <div className="flex flex-1 items-center gap-1">
+            <NumberField inline label="H" className="flex-1" value={item.height} min={1} onChange={setH} />
+            <KeyframeToggle item={item} prop="height" kf={kf} />
+          </div>
           {showLock ? (
             <Tooltip>
               <TooltipTrigger
@@ -408,13 +429,16 @@ const LayoutSection: React.FC<{
         </div>
       </div>
       <div className="flex items-end gap-2">
-        <NumberField
-          label={t('inspector.rotation')}
-          icon={RotateCwIcon}
-          className="flex-1"
-          value={item.rotation}
-          onChange={(v, c) => patch({ rotation: v }, c)}
-        />
+        <div className="flex flex-1 items-end gap-1">
+          <NumberField
+            label={t('inspector.rotation')}
+            icon={RotateCwIcon}
+            className="flex-1"
+            value={item.rotation}
+            onChange={(v, c) => animPatch('rotation', v, c)}
+          />
+          <KeyframeToggle item={item} prop="rotation" kf={kf} />
+        </div>
         <div className="flex flex-col">
           <Tooltip>
             <TooltipTrigger
@@ -445,20 +469,29 @@ const FillSection: React.FC<{
   color?: string;
   onColor?: (v: string) => void;
   showRadius?: boolean;
-}> = ({ item, patch, color, onColor, showRadius }) => {
+  kf: ItemKeyframesApi;
+}> = ({ item, patch, color, onColor, showRadius, kf }) => {
   const t = useT();
   const pct = Math.round(item.opacity * 100);
+  const frameInItem = usePlayerFrameDerived((f) => Math.max(0, Math.min(item.durationInFrames, f - item.from)));
+  const animPatch = (prop: AnimatableProp, v: number, commit?: boolean) =>
+    kf.has(prop) ? kf.setValue(prop, frameInItem, v, commit) : patch({ [prop]: v } as Partial<EditorStarterItem>, commit);
   return (
     <Section title={t('inspector.fill')} collapsible defaultOpen>
-      <SliderField
-        label={t('inspector.opacity')}
-        value={pct}
-        min={0}
-        max={100}
-        step={1}
-        display={`${pct}%`}
-        onChange={(v) => patch({ opacity: v / 100 }, false)}
-      />
+      <div className="flex items-end gap-1">
+        <div className="min-w-0 flex-1">
+          <SliderField
+            label={t('inspector.opacity')}
+            value={pct}
+            min={0}
+            max={100}
+            step={1}
+            display={`${pct}%`}
+            onChange={(v) => animPatch('opacity', v / 100, false)}
+          />
+        </div>
+        <KeyframeToggle item={item} prop="opacity" kf={kf} />
+      </div>
       {color !== undefined && onColor ? (
         <ColorField label={t('inspector.color')} value={color} onChange={onColor} />
       ) : null}
@@ -653,6 +686,7 @@ const ItemPanel: React.FC<{ item: EditorStarterItem }> = ({ item }) => {
     'assetId' in item ? s.undoable.assets[item.assetId] : undefined,
   );
   const patch = useItemPatch(item.id);
+  const kf = useItemKeyframes(item.id);
 
   // custom item 的领域面板:宿主经 deps.customItemPanels 按 kind 提供,渲染在通用分区之前
   const CustomPanel = item.type === 'custom' ? deps.customItemPanels?.[item.kind] : undefined;
@@ -675,21 +709,22 @@ const ItemPanel: React.FC<{ item: EditorStarterItem }> = ({ item }) => {
           // 官方：图片/视频默认锁定宽高比（高亮），纯色可用但默认关，文本/字幕无此按钮
           showLock={item.type === 'solid' || isMedia}
           lockDefault={isMedia}
+          kf={kf}
         />
       ) : null}
       {item.type === 'text' ? <TypographySection item={item} /> : null}
       {item.type === 'solid' ? (
-        <FillSection item={item} patch={patch} color={item.color} onColor={(v) => patch({ color: v })} showRadius />
+        <FillSection item={item} patch={patch} color={item.color} onColor={(v) => patch({ color: v })} showRadius kf={kf} />
       ) : null}
       {item.type === 'text' ? (
         <>
-          <FillSection item={item} patch={patch} color={item.color} onColor={(v) => patch({ color: v })} />
+          <FillSection item={item} patch={patch} color={item.color} onColor={(v) => patch({ color: v })} kf={kf} />
           <StrokeSection item={item} />
           <BackgroundSection item={item} />
         </>
       ) : null}
-      {isMedia ? <FillSection item={item} patch={patch} showRadius /> : null}
-      {item.type === 'captions' ? <FillSection item={item} patch={patch} /> : null}
+      {isMedia ? <FillSection item={item} patch={patch} showRadius kf={kf} /> : null}
+      {item.type === 'captions' ? <FillSection item={item} patch={patch} kf={kf} /> : null}
       {croppable && 'crop' in item ? (
         <CropSection item={item} mediaW={asset.width} mediaH={asset.height} patch={patch} />
       ) : null}
