@@ -154,13 +154,15 @@ export type Track = {
 
 // ---- 转场 ----
 
-export type TransitionType = 'fade'; // 单成员联合;v2 加 'slide'|'wipe'… 零迁移
+export type TransitionType = 'fade' | 'slide' | 'wipe' | 'zoom';
+export type TransitionDirection = 'left' | 'right' | 'up' | 'down' | 'in' | 'out'; // slide/wipe 用 4 向;zoom 用 in/out;fade 无
 export type Transition = {
   id: string;
   trackId: string;
   fromItemId: string; // 出场(A)
   toItemId: string;   // 入场(B)
   type: TransitionType;
+  direction?: TransitionDirection; // 加法字段;旧数据(fade)无 → 忽略,零迁移
   durationInFrames: number;
 };
 
