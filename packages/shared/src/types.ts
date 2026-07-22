@@ -33,6 +33,14 @@ export type EditorStarterAsset = ImageAsset | VideoAsset | GifAsset | AudioAsset
 
 export type DeletedAsset = { assetId: string; deletedAt: number };
 
+// ---- 关键帧动画 ----
+export type KeyframeEasing = 'linear' | 'easeIn' | 'easeOut' | 'easeInOut' | 'hold';
+/** frame 相对 item 起点(0 = item.from);同一属性数组按 frame 升序、frame 唯一 */
+export type Keyframe = { frame: number; value: number; easing: KeyframeEasing };
+/** v1 白名单:核心 transform(底层机制属性无关,以后可扩) */
+export type AnimatableProp = 'left' | 'top' | 'width' | 'height' | 'rotation' | 'opacity';
+export const ANIMATABLE_PROPS: readonly AnimatableProp[] = ['left', 'top', 'width', 'height', 'rotation', 'opacity'];
+
 // ---- 条目（时间轴/画布实例）----
 
 type BaseItem = {
@@ -52,6 +60,8 @@ type BaseItem = {
   /** 淡入淡出时长（帧）：视觉不透明度淡变；audio 条目同时作为音量淡变（视频音量淡变见 audioFade*） */
   fadeInDurationInFrames: number;
   fadeOutDurationInFrames: number;
+  /** 稀疏:仅在打了关键帧的属性上存;非空则该属性渲染以关键帧为准、忽略静态值 */
+  keyframes?: Partial<Record<AnimatableProp, Keyframe[]>>;
 };
 
 export type Crop = { left: number; top: number; width: number; height: number };
