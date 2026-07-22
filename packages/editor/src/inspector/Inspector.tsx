@@ -84,7 +84,7 @@ const CODEC_LABELS: Record<'mp4' | 'webm', string> = {
   webm: 'WebM (VP8)',
 };
 
-const ExportSection: React.FC = () => {
+const ExportSection: React.FC<{ exportExtra?: React.ReactNode }> = ({ exportExtra }) => {
   const t = useT();
   const editorApi = useEditorApi();
   const deps = useEditorDeps();
@@ -144,6 +144,8 @@ const ExportSection: React.FC = () => {
           )}
         </div>
       ))}
+      {/* 宿主注入槽：渲染产物的持久历史（renderingTasks 是内存态、刷新即失，持久列表由宿主提供） */}
+      {exportExtra}
     </Section>
   );
 };
@@ -157,7 +159,10 @@ const formatTimecode = (frames: number, fps: number): string => {
   return `${mm}:${ss}.${cs}`;
 };
 
-const CompositionPanel: React.FC<{ canvasExtra?: React.ReactNode }> = ({ canvasExtra }) => {
+const CompositionPanel: React.FC<{ canvasExtra?: React.ReactNode; exportExtra?: React.ReactNode }> = ({
+  canvasExtra,
+  exportExtra,
+}) => {
   const t = useT();
   const width = useEditor((s) => s.undoable.compositionWidth);
   const height = useEditor((s) => s.undoable.compositionHeight);
@@ -220,7 +225,7 @@ const CompositionPanel: React.FC<{ canvasExtra?: React.ReactNode }> = ({ canvasE
           {formatTimecode(totalFrames, fps)}
         </div>
       </Section>
-      <ExportSection />
+      <ExportSection exportExtra={exportExtra} />
     </>
   );
 };
@@ -703,12 +708,14 @@ const ItemPanel: React.FC<{ item: EditorStarterItem }> = ({ item }) => {
   );
 };
 
-/** canvasExtra:检查器「画布」区末尾的注入槽(宿主放画布相关的自定义控件,如尺寸预设)。
- *  库自身不放任何内容 —— 不传时 DOM 与官方一致。 */
-export const Inspector: React.FC<{ className?: string; canvasExtra?: React.ReactNode }> = ({
-  className,
-  canvasExtra,
-}) => {
+/** 注入槽(宿主放自定义控件,库自身不放内容 —— 不传时 DOM 与官方一致):
+ *  - canvasExtra:检查器「画布」区末尾(如尺寸预设)
+ *  - exportExtra:「导出」区末尾、渲染任务列表之后(如渲染产物的持久历史) */
+export const Inspector: React.FC<{
+  className?: string;
+  canvasExtra?: React.ReactNode;
+  exportExtra?: React.ReactNode;
+}> = ({ className, canvasExtra, exportExtra }) => {
   const selectedItemIds = useEditor((s) => s.selectedItemIds);
   const items = useEditor((s) => s.undoable.items);
 
@@ -716,7 +723,7 @@ export const Inspector: React.FC<{ className?: string; canvasExtra?: React.React
 
   const content =
     selected.length === 0 ? (
-      <CompositionPanel canvasExtra={canvasExtra} />
+      <CompositionPanel canvasExtra={canvasExtra} exportExtra={exportExtra} />
     ) : selected.length > 1 ? (
       // 官方行为：多选时面板完全留空
       null
