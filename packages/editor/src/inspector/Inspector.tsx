@@ -157,7 +157,7 @@ const formatTimecode = (frames: number, fps: number): string => {
   return `${mm}:${ss}.${cs}`;
 };
 
-const CompositionPanel: React.FC = () => {
+const CompositionPanel: React.FC<{ canvasExtra?: React.ReactNode }> = ({ canvasExtra }) => {
   const t = useT();
   const width = useEditor((s) => s.undoable.compositionWidth);
   const height = useEditor((s) => s.undoable.compositionHeight);
@@ -213,6 +213,7 @@ const CompositionPanel: React.FC = () => {
             <TooltipContent>{t('inspector.swapDimensions')}</TooltipContent>
           </Tooltip>
         </div>
+        {canvasExtra}
       </Section>
       <Section title={t('inspector.duration')}>
         <div className="text-xs tabular-nums text-muted-foreground">
@@ -692,7 +693,12 @@ const ItemPanel: React.FC<{ item: EditorStarterItem }> = ({ item }) => {
   );
 };
 
-export const Inspector: React.FC<{ className?: string }> = ({ className }) => {
+/** canvasExtra:检查器「画布」区末尾的注入槽(宿主放画布相关的自定义控件,如尺寸预设)。
+ *  库自身不放任何内容 —— 不传时 DOM 与官方一致。 */
+export const Inspector: React.FC<{ className?: string; canvasExtra?: React.ReactNode }> = ({
+  className,
+  canvasExtra,
+}) => {
   const selectedItemIds = useEditor((s) => s.selectedItemIds);
   const items = useEditor((s) => s.undoable.items);
 
@@ -700,7 +706,7 @@ export const Inspector: React.FC<{ className?: string }> = ({ className }) => {
 
   const content =
     selected.length === 0 ? (
-      <CompositionPanel />
+      <CompositionPanel canvasExtra={canvasExtra} />
     ) : selected.length > 1 ? (
       // 官方行为：多选时面板完全留空
       null
