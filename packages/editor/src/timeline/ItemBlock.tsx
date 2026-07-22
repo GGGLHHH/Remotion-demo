@@ -435,13 +435,13 @@ export const ItemBlock = memo<{
       )}
       {/* 合并关键帧轨（仅选中项）：每个有 ≥1 关键帧的帧一个可拖点，横向拖拽整帧重定位 */}
       {selected && kfFrames.length > 0 && (
-        <div className="absolute inset-x-0 bottom-0 z-10 h-2" data-kf-lane>
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-2" data-kf-lane>
           {kfFrames.map((f) => (
             <button
               key={f}
               type="button"
               data-kf-dot
-              className="absolute bottom-0 size-2 -translate-x-1/2 rotate-45 border border-background bg-primary"
+              className="pointer-events-auto absolute bottom-0 size-2 -translate-x-1/2 rotate-45 border border-background bg-primary"
               style={{ left: f * zoom }}
               onPointerDown={(e) => onKeyframeDotDown(e, f)}
             />
