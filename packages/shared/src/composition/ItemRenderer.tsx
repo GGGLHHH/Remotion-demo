@@ -2,6 +2,8 @@ import type React from 'react';
 import { Sequence, interpolate, useCurrentFrame } from 'remotion';
 import type { EditorStarterItem, UndoableState } from '../types';
 import { CaptionsItemRenderer } from './items/CaptionsItemRenderer';
+import { CoverItemRenderer } from './items/CoverItemRenderer';
+import { LowerThirdItemRenderer } from './items/LowerThirdItemRenderer';
 import { SolidItemRenderer } from './items/SolidItemRenderer';
 import { TextItemRenderer } from './items/TextItemRenderer';
 import {
@@ -30,6 +32,10 @@ const ItemContent: React.FC<{ item: EditorStarterItem; ctx: RenderContext; track
   switch (item.type) {
     case 'solid':
       return <SolidItemRenderer item={item} />;
+    case 'lowerThird':
+      return <LowerThirdItemRenderer item={item} />;
+    case 'cover':
+      return <CoverItemRenderer item={item} />;
     case 'text':
       return (
         <TextItemRenderer

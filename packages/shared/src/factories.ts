@@ -1,5 +1,5 @@
 import { DEFAULT_FPS } from './constants';
-import type { SolidItem, TextItem, Track, UndoableState } from './types';
+import type { CoverItem, LowerThirdItem, OverlayScale, SolidItem, TextItem, Track, UndoableState } from './types';
 
 export const newId = (): string =>
   `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
@@ -64,6 +64,72 @@ export const createSolidItem = (params: {
   top: 0,
   width: params.width,
   height: params.height,
+});
+
+// 下三分之一复合块:满幅盒,渲染器按令牌在盒内画卡片(见 LowerThirdItemRenderer)
+export const createLowerThirdItem = (params: {
+  trackId: string;
+  from: number;
+  width: number;
+  height: number;
+  position?: LowerThirdItem['position'];
+  scale?: OverlayScale;
+  bgColor?: string;
+  bgOpacity?: number;
+  textColor?: string;
+  address?: string;
+  price?: string;
+  details?: string;
+}): LowerThirdItem => ({
+  ...baseItemDefaults,
+  id: newId(),
+  type: 'lowerThird',
+  trackId: params.trackId,
+  from: params.from,
+  durationInFrames: DEFAULT_FPS * 3,
+  left: 0,
+  top: 0,
+  width: params.width,
+  height: params.height,
+  position: params.position ?? 'bottom',
+  scale: params.scale ?? 'medium',
+  bgColor: params.bgColor ?? '#000000',
+  bgOpacity: params.bgOpacity ?? 0.44,
+  textColor: params.textColor ?? '#ffffff',
+  address: params.address ?? '',
+  price: params.price ?? '',
+  details: params.details ?? '',
+});
+
+// 封面复合块:满幅盒,渲染器画居中标题卡(见 CoverItemRenderer)
+export const createCoverItem = (params: {
+  trackId: string;
+  from: number;
+  width: number;
+  height: number;
+  scale?: OverlayScale;
+  bgColor?: string;
+  eyebrow?: string;
+  title?: string;
+  price?: string;
+  subtitle?: string;
+}): CoverItem => ({
+  ...baseItemDefaults,
+  id: newId(),
+  type: 'cover',
+  trackId: params.trackId,
+  from: params.from,
+  durationInFrames: DEFAULT_FPS * 3,
+  left: 0,
+  top: 0,
+  width: params.width,
+  height: params.height,
+  scale: params.scale ?? 'medium',
+  bgColor: params.bgColor ?? '#151515',
+  eyebrow: params.eyebrow ?? '',
+  title: params.title ?? '',
+  price: params.price ?? '',
+  subtitle: params.subtitle ?? '',
 });
 
 export const createTrack = (name: string): Track => ({

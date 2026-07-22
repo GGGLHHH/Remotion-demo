@@ -114,6 +114,32 @@ export type CaptionsItem = BaseItem & {
   maxLines: number;
 } & Omit<TextStyle, 'backgroundColor' | 'backgroundPadding' | 'backgroundBorderRadius'>;
 
+// 房产叠加复合块:各是「时间线上一个块」,内部多元素由专用渲染器画(几何见 overlay-design.ts)。
+// 满幅盒(left/top=0,width/height=画布)——渲染器按令牌在盒内定位卡片,故 position/尺寸不占额外块。
+export type OverlayScale = 'small' | 'medium' | 'large';
+
+export type LowerThirdItem = BaseItem & {
+  type: 'lowerThird';
+  position: 'top' | 'middle' | 'bottom';
+  scale: OverlayScale; // 字号/卡高倍率
+  bgColor: string; // 底卡色(hex)
+  bgOpacity: number; // 0-1,仅作用于底卡,文字不透明
+  textColor: string; // 价格行色;地址/明细为固定柔色
+  address: string;
+  price: string;
+  details: string;
+};
+
+export type CoverItem = BaseItem & {
+  type: 'cover';
+  scale: OverlayScale; // 字号倍率
+  bgColor: string; // 满幅底色(hex)
+  eyebrow: string; // 眉标(FOR SALE / THANK YOU)
+  title: string;
+  price: string; // 空串则不显示价格行
+  subtitle: string;
+};
+
 export type EditorStarterItem =
   | ImageItem
   | VideoItem
@@ -121,7 +147,9 @@ export type EditorStarterItem =
   | TextItem
   | SolidItem
   | AudioItem
-  | CaptionsItem;
+  | CaptionsItem
+  | LowerThirdItem
+  | CoverItem;
 
 // ---- 轨道 ----
 
