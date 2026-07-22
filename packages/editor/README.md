@@ -100,7 +100,9 @@ type EditorDeps = {
   transport: EditorTransport; // 服务端 I/O（默认 createHttpTransport 打同源 /api）
   storage: EditorStorage;     // 持久化 + 素材缓存（默认 createBrowserStorage）
   notify: NotifyFn;           // 用户提示（默认 sonner；(msg, level) => void）
-  t?: EditorT;                // 文本解析器（可选）：不传用库内置 zh 默认，见下
+  t?: EditorT;                // 文本解析器（可选）：不传用库内置 en 默认，见下
+  exportFileName?: (codec: 'mp4' | 'webm') => string | undefined; // 导出下载名（策略在宿主；不传则渲染服务用默认名）
+  customItemPanels?: Record<string, ComponentType<{ item: CustomItem }>>; // custom item 的检查器面板，按 kind，见「扩展点」
 };
 ```
 
@@ -110,18 +112,33 @@ type EditorDeps = {
 ### i18n：库不做 i18n，只留注入缝
 
 库本身不切语言、不带多语言、不引 i18n 依赖——把「文本」当作又一个 app 关注点外包：库文案写成
-`t('key')`，内置一套 **zh 默认字典**（`zhMessages`，也是完整 key 目录）。消费方注入自己的
-`deps.t`（如接了 react-i18next 的宿主）即可让编辑器跟随宿主语言，**库一行不用改**：
+`t('key')`，内置一套 **en 默认字典**（`enMessages`，对齐官方英文 UI，也是完整 key 目录）。消费方注入
+自己的 `deps.t`（如接了 react-i18next 的宿主）即可让编辑器跟随宿主语言，**库一行不用改**：
 
 ```ts
-import { zhMessages, type EditorT } from "@gedatou/editor";
-// zhMessages 是完整 key 清单 + zh 源文案，拿它当翻译基线。
+import { enMessages, type EditorT } from "@gedatou/editor";
+// enMessages 是完整 key 清单 + en 源文案，拿它当翻译基线。
 const t: EditorT = (key, params) => myI18n.exists(`editor.${key}`)
   ? myI18n.t(`editor.${key}`, params)   // 命中你的翻译
-  : key;                                 // 未命中 → 返回 key → 库回落内置 zh 默认
+  : key;                                 // 未命中 → 返回 key → 库回落内置 en 默认
 ```
 
-不注入 `t` 时全部走内置 zh 默认（standalone / demo 即中文）。
+不注入 `t` 时全部走内置 en 默认（standalone / demo 即英文，与官方一致）。
+
+## 扩展点（机制，不用即无感）
+
+功能面严格对齐官方 editor-starter；宿主定制走以下机制，全部「不用时零 UI 零行为」：
+
+- **自定义素材类型**（`@gedatou/shared`）：`CustomItem = { type:'custom', kind, label, data }` +
+  `registerCustomItem(kind, Renderer)` 渲染器注册表。注册是副作用：**预览端**（app 入口）和
+  **服务端渲染 bundle 入口**都要 import 注册模块——渲染入口自建：
+  `registerRoot(CompositionRoot)`（`CompositionRoot`/`FontGate` 从 `@gedatou/shared/composition` 导出）。
+- **custom item 检查器面板**：`deps.customItemPanels[kind]`——选中该 kind 的条目时渲染在通用分区之前。
+  与渲染器分开注入是刻意的：面板是纯编辑器 UI，不应进服务端渲染 bundle。
+- **检查器画布区槽**：`<Inspector canvasExtra={...} />`，渲染在「画布」区宽高输入行之后。
+- **检查器积木**：`InspectorSections.*`（Composition/Item/Source/Layout/Fill/Crop/Fade/Captions/Export）
+  + `useItemPatch(itemId)` + 字段原语（`Section`/`Row`/`ColorField`/`SliderField`/`FadeSliders`/`NumberField`），
+  宿主可绕开成品 `Inspector` 自拼面板；成品 Inspector = 官方默认拼法。
 
 ## 可选：batteries-included 外壳（EditorRoot / Editor.*）
 
@@ -167,10 +184,12 @@ import { EditorProvider, EditorContainer, Editor, Canvas, Inspector, Timeline, P
   `Editor.*` 命名空间（`Toolbar`/`Title` + 各工具栏按钮 + 徽章，仅 chrome）
 - **命令式操作**：`importFiles`、`startRender`、`generateCaptions`、`cleanupDeletedAssets`、
   `saveState`、`loadStateFromFile`、`downloadStateFile`、`restoreLocalUrls`、`serializeState`、`deserializeState`
-- **i18n**：`zhMessages`（zh 默认 + key 目录）
+- **检查器积木**：`InspectorSections`、`useItemPatch`、`Section`、`Row`、`ColorField`、`SliderField`、
+  `FadeSliders`、`NumberField`
+- **i18n**：`enMessages`（en 默认 + key 目录）
 - **类型**：`EditorCommands`、`EditorTransport`、`EditorStorage`、`NotifyFn`、`EditorDeps`、`EditorT`、
   `EditorStore`、`EditorStoreApi`、`EditorInitialState`、`EditorInstanceRefs`、`RenderProgress`、
-  `EditorRootProps`、`CanvasTool`
+  `EditorRootProps`、`CanvasTool`、`PatchFn`
 
 ## 已知限制
 

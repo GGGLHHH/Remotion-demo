@@ -17,6 +17,10 @@ import { Inspector } from './inspector/Inspector';
 import { TimelinePanel } from './timeline/TimelinePanel';
 import { PlaybackBar } from './playback/PlaybackBar';
 export { CanvasView as Canvas, Inspector, TimelinePanel as Timeline, PlaybackBar };
+// 检查器积木:section 命名空间 + 补丁 hook + 字段原语,供宿主自拼面板
+export { InspectorSections, useItemPatch, type PatchFn } from './inspector/Inspector';
+export { Section, Row, ColorField, SliderField, FadeSliders } from './inspector/fields';
+export { NumberField } from './inspector/NumberField';
 export type { CanvasTool } from './state/store';
 
 // 外壳行为（自绘外壳用）：容器 + 快捷键/拦刷新钩子 + tooltip provider。

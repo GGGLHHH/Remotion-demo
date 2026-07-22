@@ -46,7 +46,7 @@ import { BackgroundSection, StrokeSection, TypographySection } from './TextPanel
 import { MediaPanel } from './MediaPanel';
 import { CaptionsPanel } from './CaptionsPanel';
 
-type PatchFn = (partial: Partial<EditorStarterItem>, commit?: boolean) => void;
+export type PatchFn = (partial: Partial<EditorStarterItem>, commit?: boolean) => void;
 
 /** 生成字幕入口：audio 或含音轨的 video（官方 Captions 区，默认折叠） */
 const CaptionsSection: React.FC<{ itemId: string }> = ({ itemId }) => {
@@ -626,22 +626,31 @@ const FadeSection: React.FC<{ item: EditorStarterItem; patch: PatchFn; defaultOp
   );
 };
 
-const ItemPanel: React.FC<{ item: EditorStarterItem }> = ({ item }) => {
+/** 条目补丁函数(ItemPanel 同款,亦供宿主拼装 InspectorSections 用):
+ *  partial 合入 item 顶层字段;commit=false 走高频路径,松手用 store.commitPending 提交。 */
+export const useItemPatch = (itemId: string): PatchFn => {
   const updateUndoable = useEditor((s) => s.updateUndoable);
-  const asset = useEditor((s) =>
-    'assetId' in item ? s.undoable.assets[item.assetId] : undefined,
-  );
-
-  const patch: PatchFn = (partial, commit = true) => {
+  return (partial, commit = true) => {
     updateUndoable(
       (s) => {
-        const cur = s.items[item.id];
+        const cur = s.items[itemId];
         if (!cur) return s;
-        return { ...s, items: { ...s.items, [item.id]: { ...cur, ...partial } as EditorStarterItem } };
+        return { ...s, items: { ...s.items, [itemId]: { ...cur, ...partial } as EditorStarterItem } };
       },
       { commit },
     );
   };
+};
+
+const ItemPanel: React.FC<{ item: EditorStarterItem }> = ({ item }) => {
+  const deps = useEditorDeps();
+  const asset = useEditor((s) =>
+    'assetId' in item ? s.undoable.assets[item.assetId] : undefined,
+  );
+  const patch = useItemPatch(item.id);
+
+  // custom item 的领域面板:宿主经 deps.customItemPanels 按 kind 提供,渲染在通用分区之前
+  const CustomPanel = item.type === 'custom' ? deps.customItemPanels?.[item.kind] : undefined;
 
   const isVisual = item.type !== 'audio';
   const isMedia = item.type === 'image' || item.type === 'video' || item.type === 'gif';
@@ -652,6 +661,7 @@ const ItemPanel: React.FC<{ item: EditorStarterItem }> = ({ item }) => {
 
   return (
     <>
+      {CustomPanel && item.type === 'custom' ? <CustomPanel item={item} /> : null}
       {asset && asset.type !== 'caption' ? <SourceSection asset={asset} /> : null}
       {isVisual ? (
         <LayoutSection
@@ -719,3 +729,17 @@ export const Inspector: React.FC<{ className?: string; canvasExtra?: React.React
   // 传 className（自拼布局的宿主）→ 包一层带样式的容器，空/多选时也保持列宽。
   return className ? <div className={className}>{content}</div> : content;
 };
+
+/** 检查器 section 积木:宿主可绕开成品 Inspector,自行拼装面板(配合 useItemPatch)。
+ *  成品 Inspector = 官方默认拼法,这些导出不改变其行为。 */
+export const InspectorSections = {
+  Composition: CompositionPanel,
+  Item: ItemPanel,
+  Source: SourceSection,
+  Layout: LayoutSection,
+  Fill: FillSection,
+  Crop: CropSection,
+  Fade: FadeSection,
+  Captions: CaptionsSection,
+  Export: ExportSection,
+} as const;

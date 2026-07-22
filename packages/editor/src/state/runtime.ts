@@ -1,4 +1,5 @@
-import type { Caption, UndoableState } from '@gedatou/shared';
+import type { ComponentType } from 'react';
+import type { Caption, CustomItem, UndoableState } from '@gedatou/shared';
 
 /** 渲染进度快照（transport.renderProgress 返回 / 与 store RenderingTask 对齐） */
 export type RenderProgress = {
@@ -72,4 +73,10 @@ export type EditorDeps = {
    * （如任务 id）。用函数而非常量：消费方切换当前项目时无需重建 editor。
    */
   exportFileName?: (codec: 'mp4' | 'webm') => string | undefined;
+  /**
+   * custom item 的检查器面板,按 kind 提供:选中该 kind 的条目时,渲染在通用分区
+   * (布局/淡变等)之前;未提供的 kind 只有通用分区。与 registerCustomItem(渲染器,
+   * 进渲染 bundle)分开注入 —— 面板是纯编辑器 UI,不应进服务端渲染 bundle。
+   */
+  customItemPanels?: Record<string, ComponentType<{ item: CustomItem }>>;
 };
