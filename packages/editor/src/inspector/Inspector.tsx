@@ -50,6 +50,7 @@ import { MediaPanel } from './MediaPanel';
 import { CaptionsPanel } from './CaptionsPanel';
 import { KeyframeToggle } from './KeyframeToggle';
 import { useItemKeyframes } from './use-item-keyframes';
+import { AnimatableNumberField, useAnimatedValue } from './AnimatableField';
 
 export type PatchFn = (partial: Partial<EditorStarterItem>, commit?: boolean) => void;
 
@@ -319,6 +320,9 @@ const LayoutSection: React.FC<{
   const refs = useEditorRefs();
   // ItemPanel 以 item.id 为 key 重挂，锁比例默认值随类型生效（图片/视频默认开）
   const [locked, setLocked] = useState(lockDefault);
+  // W/H 的 onChange 走 setW/setH（联动锁），不套 AnimatableNumberField 壳，只在此换 value 的读数来源
+  const wValue = useAnimatedValue(item, 'width', kf);
+  const hValue = useAnimatedValue(item, 'height', kf);
   /** 有关键帧的属性写关键帧（在播放头处 upsert），否则走原静态 patch —— 无关键帧条目行为不变。
    *  播放头帧号在提交时刻读取（imperative），不订阅，播放中不拖累整个面板重渲。 */
   const animPatch = (prop: AnimatableProp, v: number, commit?: boolean) => {
@@ -389,12 +393,10 @@ const LayoutSection: React.FC<{
         <span className="text-xs text-muted-foreground">{t('inspector.position')}</span>
         <div className="grid grid-cols-2 gap-2">
           <div className="flex items-center gap-1">
-            <NumberField inline label="X" className="flex-1" value={item.left} onChange={(v, c) => animPatch('left', v, c)} />
-            <KeyframeToggle item={item} prop="left" kf={kf} />
+            <AnimatableNumberField item={item} prop="left" kf={kf} inline label="X" className="flex-1" onChange={(v, c) => animPatch('left', v, c)} />
           </div>
           <div className="flex items-center gap-1">
-            <NumberField inline label="Y" className="flex-1" value={item.top} onChange={(v, c) => animPatch('top', v, c)} />
-            <KeyframeToggle item={item} prop="top" kf={kf} />
+            <AnimatableNumberField item={item} prop="top" kf={kf} inline label="Y" className="flex-1" onChange={(v, c) => animPatch('top', v, c)} />
           </div>
         </div>
       </div>
@@ -402,11 +404,11 @@ const LayoutSection: React.FC<{
         <span className="text-xs text-muted-foreground">{t('inspector.size')}</span>
         <div className="flex items-center gap-2">
           <div className="flex flex-1 items-center gap-1">
-            <NumberField inline label="W" className="flex-1" value={item.width} min={1} onChange={setW} />
+            <NumberField inline label="W" className="flex-1" value={wValue} min={1} onChange={setW} />
             <KeyframeToggle item={item} prop="width" kf={kf} />
           </div>
           <div className="flex flex-1 items-center gap-1">
-            <NumberField inline label="H" className="flex-1" value={item.height} min={1} onChange={setH} />
+            <NumberField inline label="H" className="flex-1" value={hValue} min={1} onChange={setH} />
             <KeyframeToggle item={item} prop="height" kf={kf} />
           </div>
           {showLock ? (
@@ -431,14 +433,15 @@ const LayoutSection: React.FC<{
       </div>
       <div className="flex items-end gap-2">
         <div className="flex flex-1 items-end gap-1">
-          <NumberField
+          <AnimatableNumberField
+            item={item}
+            prop="rotation"
+            kf={kf}
             label={t('inspector.rotation')}
             icon={RotateCwIcon}
             className="flex-1"
-            value={item.rotation}
             onChange={(v, c) => animPatch('rotation', v, c)}
           />
-          <KeyframeToggle item={item} prop="rotation" kf={kf} />
         </div>
         <div className="flex flex-col">
           <Tooltip>
@@ -503,7 +506,7 @@ const FillSection: React.FC<{
   const t = useT();
   const kf = useItemKeyframes(item.id);
   const refs = useEditorRefs();
-  const pct = Math.round(item.opacity * 100);
+  const pct = Math.round(useAnimatedValue(item, 'opacity', kf) * 100);
   const animPatch = (prop: AnimatableProp, v: number, commit?: boolean) => {
     if (kf.has(prop)) {
       const f = Math.max(0, Math.min(item.durationInFrames, refs.getPlayerFrame() - item.from));
