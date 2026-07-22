@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createSolidItem } from '@gedatou/shared';
 import { createEditorStore } from '../state/store';
-import { addTransition, applyTransitionDuration, removeTransition } from './transition-ops';
+import { addTransition, applyTransitionDuration, applyTransitionPreset, removeTransition } from './transition-ops';
 
 const mk = () => {
   const store = createEditorStore();
@@ -37,6 +37,21 @@ describe('transition-ops', () => {
     expect(get().transitions[id]).toBeUndefined();
     expect(get().items.B.from).toBe(bFrom);
   });
+  it('applyPreset:写 type+direction、切回 fade 删 direction 键、no-op 守卫返回原引用', () => {
+    const { store, get } = mk();
+    const id = addTransition(store, 'A', 'B');
+    applyTransitionPreset(store, id, 'slide-left');
+    expect(get().transitions[id]).toMatchObject({ type: 'slide', direction: 'left' });
+    applyTransitionPreset(store, id, 'fade');
+    expect(get().transitions[id].type).toBe('fade');
+    expect('direction' in get().transitions[id]).toBe(false); // 键删除,不是设 undefined
+    const before = get();
+    applyTransitionPreset(store, id, 'fade'); // 相同 preset → no-op
+    expect(get()).toBe(before);
+    applyTransitionPreset(store, id, 'nope'); // 未知 preset → no-op
+    expect(get()).toBe(before);
+  });
+
   it('删 item 连带删转场(孤儿清理)', () => {
     const { store, get } = mk();
     const id = addTransition(store, 'A', 'B');

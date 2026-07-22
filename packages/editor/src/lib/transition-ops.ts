@@ -1,4 +1,5 @@
 import { newId, type Transition } from '@gedatou/shared';
+import { TRANSITION_PRESETS } from '@gedatou/shared/composition';
 import type { EditorStoreApi } from '../state/store';
 
 const DEFAULT_TRANSITION_FRAMES = 12;
@@ -41,6 +42,21 @@ export const applyTransitionDuration = (store: EditorStoreApi, id: string, dur: 
       transitions: { ...s.transitions, [id]: { ...t, durationInFrames: clamped } },
     };
   }, { commit });
+};
+
+/** 换转场预设:写 type + direction(fade 无 direction 则删键),no-op 守卫,单 undo */
+export const applyTransitionPreset = (store: EditorStoreApi, id: string, presetId: string): void => {
+  const preset = TRANSITION_PRESETS.find((p) => p.id === presetId);
+  if (!preset) return;
+  store.getState().updateUndoable((s) => {
+    const t = s.transitions[id];
+    if (!t) return s;
+    if (t.type === preset.type && t.direction === preset.direction) return s; // no-op 守卫
+    const next: Transition = { ...t, type: preset.type };
+    if (preset.direction) next.direction = preset.direction;
+    else delete next.direction;
+    return { ...s, transitions: { ...s.transitions, [id]: next } };
+  }, { commit: true });
 };
 
 /** 删转场:B 不动(变硬切) */
