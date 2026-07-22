@@ -75,6 +75,9 @@ export type EditorStore = {
   /** 裁剪模式中的项 */
   itemSelectedForCrop: string | null;
   setItemSelectedForCrop: (id: string | null) => void;
+  /** 选中的转场（瞬时 UI 态，与 selectedItemIds 互斥） */
+  selectedTransitionId: string | null;
+  setSelectedTransition: (id: string | null) => void;
   /** 字体悬停预览 */
   fontHoverPreview: { itemId: string; fontFamily: string } | null;
   setFontHoverPreview: (v: { itemId: string; fontFamily: string } | null) => void;
@@ -128,6 +131,7 @@ export function createEditorStore(init?: EditorInitialState): EditorStoreApi {
   past: [],
   future: [],
   selectedItemIds: [],
+  selectedTransitionId: null,
 
   updateUndoable: (updater, opts) => {
     const { undoable, past } = get();
@@ -166,7 +170,7 @@ export function createEditorStore(init?: EditorInitialState): EditorStoreApi {
     set({ undoable: next, future: future.slice(0, -1), past: pushPast(past, undoable) });
   },
 
-  setSelected: (ids) => set({ selectedItemIds: ids }),
+  setSelected: (ids) => set({ selectedItemIds: ids, selectedTransitionId: null }),
 
   canvasZoom: 'fit',
   setCanvasZoom: (zoom) =>
@@ -199,6 +203,7 @@ export function createEditorStore(init?: EditorInitialState): EditorStoreApi {
   setTextItemEditing: (id) => set({ textItemEditing: id }),
   itemSelectedForCrop: null,
   setItemSelectedForCrop: (id) => set({ itemSelectedForCrop: id }),
+  setSelectedTransition: (id) => set({ selectedTransitionId: id, selectedItemIds: [] }),
   fontHoverPreview: null,
   setFontHoverPreview: (v) => set({ fontHoverPreview: v }),
   previewItemStyle: (itemId, partial) =>
@@ -261,7 +266,13 @@ export function createEditorStore(init?: EditorInitialState): EditorStoreApi {
           deletedAssets.push({ assetId, deletedAt: Date.now() });
         }
       }
-      return { ...s, items, deletedAssets };
+      // 孤儿清理：引用了被删 item 的转场一并删除（渲染端不容忍 dangling id）
+      const transitions = Object.fromEntries(
+        Object.entries(s.transitions).filter(
+          ([, t]) => !selectedItemIds.includes(t.fromItemId) && !selectedItemIds.includes(t.toItemId),
+        ),
+      );
+      return { ...s, items, deletedAssets, transitions };
     });
     set({ selectedItemIds: [] });
   },
