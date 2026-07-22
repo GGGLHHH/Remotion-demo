@@ -6,6 +6,7 @@ import { resolveProp } from './keyframes';
 import { CaptionsItemRenderer } from './items/CaptionsItemRenderer';
 import { SolidItemRenderer } from './items/SolidItemRenderer';
 import { TextItemRenderer } from './items/TextItemRenderer';
+import { getTransitionRenderProps } from './transitions';
 import {
   AudioItemRenderer,
   GifItemRenderer,
@@ -113,7 +114,7 @@ const ItemPositioner: React.FC<{ item: EditorStarterItem; ctx: RenderContext; tr
         width,
         height,
         rotate: `${rotation}deg`,
-        opacity: baseOpacity * fadeIn * fadeOut,
+        opacity: baseOpacity * fadeIn * fadeOut * getTransitionRenderProps(ctx.state, item, item.from + frame).opacity,
         borderRadius: item.borderRadius,
         overflow: item.borderRadius > 0 ? 'hidden' : undefined,
       }}
