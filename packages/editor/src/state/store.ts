@@ -122,12 +122,13 @@ export function createEditorStore(init?: EditorInitialState): EditorStoreApi {
   let pendingBase: UndoableState | null = null;
 
   return createStore<EditorStore>((set, get) => ({
-  undoable:
-    init?.undoable ??
-    createEmptyState({
-      width: DEFAULT_COMPOSITION_WIDTH,
-      height: DEFAULT_COMPOSITION_HEIGHT,
-    }),
+  // 宿主注入的初始态可能早于加法字段(如 transitions)→ 回填,保证 store 内 state 恒有该键
+  undoable: init?.undoable
+    ? { ...init.undoable, transitions: init.undoable.transitions ?? {} }
+    : createEmptyState({
+        width: DEFAULT_COMPOSITION_WIDTH,
+        height: DEFAULT_COMPOSITION_HEIGHT,
+      }),
   past: [],
   future: [],
   selectedItemIds: [],
