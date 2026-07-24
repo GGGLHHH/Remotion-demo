@@ -1,20 +1,9 @@
 import { createStore, type StoreApi } from 'zustand/vanilla';
-import {
-  DEFAULT_COMPOSITION_HEIGHT,
-  DEFAULT_COMPOSITION_WIDTH,
-  MAX_UNDO_STACK_SIZE,
-  createEmptyState,
-  expandSelectionWithGroups,
-  groupFromSelection,
-  newId,
-  pruneGroups,
-  reorderGroup,
-  ungroupBySelection,
-  type AssetStatus,
-  type EditorStarterItem,
-  type UndoableState,
-} from '@gedatou/shared';
-import { removeEmptyTracks } from '../timeline/ops';
+import type { AssetStatus, EditorStarterItem, UndoableState } from '@gedatou/shared';
+import { createHistorySlice } from './slices/history-slice';
+import { createSelectionSlice } from './slices/selection-slice';
+import { createViewSlice } from './slices/view-slice';
+import { createIoSlice } from './slices/io-slice';
 
 /** 画布工具模式：绘制色块 / 点击放置文本。原 EditorShell 本地 state，移入 store
  *  供拆分后的工具栏按钮与画布各自订阅（context-connected，无需 prop 对传）。 */
@@ -114,204 +103,26 @@ export type EditorStore = {
   togglePlayerMuted: () => void;
 };
 
-const pushPast = (past: UndoableState[], snapshot: UndoableState): UndoableState[] => {
-  const next = [...past, snapshot];
-  return next.length > MAX_UNDO_STACK_SIZE ? next.slice(next.length - MAX_UNDO_STACK_SIZE) : next;
-};
-
 /** vanilla store 句柄类型：非 React 模块收此参、组件经 useEditorApi() 取得 */
 export type EditorStoreApi = StoreApi<EditorStore>;
+
+/** slice 工厂的 set/get 类型（各 slice 文件从此 type-only import,避免与本文件的值依赖成环） */
+export type EditorSet = EditorStoreApi['setState'];
+export type EditorGet = EditorStoreApi['getState'];
 
 /** 建 store 时的可选初始态（demo / 宿主播种） */
 export type EditorInitialState = { undoable?: UndoableState };
 
 /**
- * 每实例 store 工厂：替代原全局单例。pendingBase（拖拽撤销基线）移入闭包随实例隔离——
+ * 每实例 store 工厂：替代原全局单例。按域拆成 4 个 slice 工厂组合（history/selection/view/io）——
  * 一页多个编辑器互不串台，宿主可注入初始态、SSR 不在 import 期建 store。
+ * pendingBase（拖拽撤销基线）随实例隔离在 history slice 的闭包里（见 history-slice）。
  */
 export function createEditorStore(init?: EditorInitialState): EditorStoreApi {
-  // 拖拽类高频操作的撤销基线：首次 commit:false 更新前的快照（每实例私有，不触发渲染）
-  let pendingBase: UndoableState | null = null;
-
   return createStore<EditorStore>((set, get) => ({
-  // 宿主注入的初始态可能早于加法字段(如 transitions)→ 回填,保证 store 内 state 恒有该键
-  undoable: init?.undoable
-    ? { ...init.undoable, transitions: init.undoable.transitions ?? {}, groups: init.undoable.groups ?? {} }
-    : createEmptyState({
-        width: DEFAULT_COMPOSITION_WIDTH,
-        height: DEFAULT_COMPOSITION_HEIGHT,
-      }),
-  past: [],
-  future: [],
-  selectedItemIds: [],
-  selectedTransitionId: null,
-
-  updateUndoable: (updater, opts) => {
-    const { undoable, past } = get();
-    // 官方行为：空轨道随任意变更自动移除（必经之路统一兜底，删除/剪切等路径不再单独处理）
-    const next = removeEmptyTracks(updater(undoable));
-    if (next === undoable) return;
-    if (opts?.commit === false) {
-      if (pendingBase === null) pendingBase = undoable;
-      set({ undoable: next });
-      return;
-    }
-    set({ undoable: next, past: pushPast(past, undoable), future: [] });
-  },
-
-  commitPending: () => {
-    if (pendingBase === null) return;
-    const base = pendingBase;
-    pendingBase = null;
-    const { past, undoable } = get();
-    if (base === undoable) return; // 拖了个寂寞
-    set({ past: pushPast(past, base), future: [] });
-  },
-
-  undo: () => {
-    pendingBase = null;
-    const { past, future, undoable } = get();
-    const prev = past[past.length - 1];
-    if (!prev) return;
-    set({ undoable: prev, past: past.slice(0, -1), future: [...future, undoable] });
-  },
-
-  redo: () => {
-    const { past, future, undoable } = get();
-    const next = future[future.length - 1];
-    if (!next) return;
-    set({ undoable: next, future: future.slice(0, -1), past: pushPast(past, undoable) });
-  },
-
-  // 单点收口:命中任一组成员 → 展开选整组(所有选择入口自动整组选中)
-  setSelected: (ids) =>
-    set({ selectedItemIds: expandSelectionWithGroups(ids, get().undoable.groups), selectedTransitionId: null }),
-
-  groupSelected: () => {
-    const { selectedItemIds, updateUndoable } = get();
-    updateUndoable((s) => {
-      const res = groupFromSelection(s.groups, selectedItemIds, newId());
-      return res ? { ...s, groups: res.groups } : s;
-    });
-  },
-  ungroupSelected: () => {
-    const { selectedItemIds, updateUndoable } = get();
-    updateUndoable((s) => {
-      const groups = ungroupBySelection(s.groups, selectedItemIds);
-      return groups === s.groups ? s : { ...s, groups };
-    });
-  },
-  reorderGroupItems: (orderedItemIds) =>
-    get().updateUndoable((s) => {
-      const groups = reorderGroup(s.groups, orderedItemIds);
-      return groups === s.groups ? s : { ...s, groups };
-    }),
-
-  canvasZoom: 'fit',
-  setCanvasZoom: (zoom) =>
-    set({ canvasZoom: zoom === 'fit' ? zoom : Math.min(4, Math.max(0.1, zoom)) }),
-  canvasTool: null,
-  setCanvasTool: (tool) => set({ canvasTool: tool }),
-
-  timelineZoom: 'fit',
-  setTimelineZoom: (zoom) =>
-    set({ timelineZoom: zoom === 'fit' ? zoom : Math.min(8, Math.max(0.1, zoom)) }),
-  timelineHeight: 224,
-  setTimelineHeight: (h) => set({ timelineHeight: Math.min(500, Math.max(120, h)) }),
-  snappingEnabled: true,
-  toggleSnapping: () => set((s) => ({ snappingEnabled: !s.snappingEnabled })),
-  assetStatus: {},
-  setAssetStatus: (assetId, status) =>
-    set((s) => ({ assetStatus: { ...s.assetStatus, [assetId]: status } })),
-  uploadProgress: {},
-  setUploadProgress: (assetId, pct) =>
-    set((s) => {
-      if (pct === null) {
-        const { [assetId]: _removed, ...rest } = s.uploadProgress;
-        return { uploadProgress: rest };
-      }
-      return { uploadProgress: { ...s.uploadProgress, [assetId]: pct } };
-    }),
-  localUrls: {},
-  setLocalUrl: (assetId, url) => set((s) => ({ localUrls: { ...s.localUrls, [assetId]: url } })),
-  textItemEditing: null,
-  setTextItemEditing: (id) => set({ textItemEditing: id }),
-  itemSelectedForCrop: null,
-  setItemSelectedForCrop: (id) => set({ itemSelectedForCrop: id }),
-  setSelectedTransition: (id) => set({ selectedTransitionId: id, selectedItemIds: [] }),
-  fontHoverPreview: null,
-  setFontHoverPreview: (v) => set({ fontHoverPreview: v }),
-  previewItemStyle: (itemId, partial) =>
-    get().updateUndoable(
-      (s) => {
-        const cur = s.items[itemId];
-        if (!cur) return s;
-        return { ...s, items: { ...s.items, [itemId]: { ...cur, ...partial } as EditorStarterItem } };
-      },
-      { commit: false },
-    ),
-  cancelItemStylePreview: () => {
-    if (pendingBase === null) return;
-    const base = pendingBase;
-    pendingBase = null;
-    set({ undoable: base });
-  },
-  clipboard: [],
-  setClipboard: (items) => set({ clipboard: items }),
-  lastSavedState: null,
-  renderingTasks: [],
-  upsertRenderingTask: (task) =>
-    set((s) => {
-      const i = s.renderingTasks.findIndex((t) => t.id === task.id);
-      if (i === -1) return { renderingTasks: [...s.renderingTasks, task] };
-      const next = [...s.renderingTasks];
-      next[i] = task;
-      return { renderingTasks: next };
-    }),
-  captioningTasks: [],
-  upsertCaptioningTask: (task) =>
-    set((s) => {
-      const i = s.captioningTasks.findIndex((t) => t.id === task.id);
-      if (i === -1) return { captioningTasks: [...s.captioningTasks, task] };
-      const next = [...s.captioningTasks];
-      next[i] = task;
-      return { captioningTasks: next };
-    }),
-  loop: true,
-  toggleLoop: () => set((s) => ({ loop: !s.loop })),
-  playerMuted: false,
-  togglePlayerMuted: () => set((s) => ({ playerMuted: !s.playerMuted })),
-
-  deleteSelected: () => {
-    const { selectedItemIds, updateUndoable } = get();
-    if (selectedItemIds.length === 0) return;
-    updateUndoable((s) => {
-      const items = { ...s.items };
-      for (const id of selectedItemIds) delete items[id];
-      // 不再被引用的素材进入两阶段删除（清理时才真正删远端/缓存）
-      const referenced = new Set(
-        Object.values(items)
-          .map((i) => ('assetId' in i ? i.assetId : null))
-          .filter(Boolean),
-      );
-      const already = new Set(s.deletedAssets.map((d) => d.assetId));
-      const deletedAssets = [...s.deletedAssets];
-      for (const assetId of Object.keys(s.assets)) {
-        if (!referenced.has(assetId) && !already.has(assetId)) {
-          deletedAssets.push({ assetId, deletedAt: Date.now() });
-        }
-      }
-      // 孤儿清理：引用了被删 item 的转场一并删除（渲染端不容忍 dangling id）
-      const transitions = Object.fromEntries(
-        Object.entries(s.transitions ?? {}).filter(
-          ([, t]) => !selectedItemIds.includes(t.fromItemId) && !selectedItemIds.includes(t.toItemId),
-        ),
-      );
-      // 组孤儿清理:摘除被删成员,成员降到 <2 的组解散
-      const groups = pruneGroups(s.groups, new Set(Object.keys(items)));
-      return { ...s, items, deletedAssets, transitions, groups };
-    });
-    set({ selectedItemIds: [] });
-  },
+    ...createHistorySlice(set, get, init),
+    ...createSelectionSlice(set, get),
+    ...createViewSlice(set),
+    ...createIoSlice(set),
   }));
 }
