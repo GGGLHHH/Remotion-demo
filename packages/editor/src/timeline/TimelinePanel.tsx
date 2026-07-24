@@ -1,8 +1,6 @@
 import type React from 'react';
-import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Eye, EyeOff, Plus, Volume2, VolumeX } from 'lucide-react';
-import type { EditorStarterItem, Track, Transition } from '@gedatou/shared';
-import { Button } from '../components/ui/button';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import type { EditorStarterItem, Transition } from '@gedatou/shared';
 import { cn } from '../lib/utils';
 import {
   ContextMenu,
@@ -11,7 +9,6 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from '../components/ui/context-menu';
-import { Tooltip, TooltipContent, TooltipTrigger } from '../components/ui/tooltip';
 import { useEditor, useEditorApi, useEditorDeps, useEditorRefs } from '../state/context';
 import { usePlayerFrameDerived } from '../canvas/player-ref';
 import { calcDuration } from '@gedatou/shared/composition';
@@ -21,11 +18,12 @@ import {
   SNAP_TOLERANCE_PX,
   TRACK_HEIGHT,
 } from './constants';
-import { ItemBlock } from './ItemBlock';
 import { Playhead } from './Playhead';
 import { Ruler } from './Ruler';
 import { TimelineToolbar } from './TimelineToolbar';
 import { TimelineGhost, TimelineOverlays } from './TimelineOverlays';
+import { TimelineTracks } from './TimelineTracks';
+import { TrackHeader } from './TrackHeader';
 import type { DragState, MoveDrag, MoveVisual, TrackTarget } from './types';
 import {
   addTrack,
@@ -52,61 +50,6 @@ const TRACK_GAP_PX = 4;
 /** 视口左右边缘自动滚动：触发范围与步长 */
 const AUTO_SCROLL_EDGE_PX = 40;
 const AUTO_SCROLL_STEP_PX = 24;
-
-/** 轨道头图标按钮：保留 title + Tooltip 中文说明 */
-const TrackBtn: React.FC<{
-  title: string;
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}> = ({ title, active, onClick, children }) => (
-  <Tooltip>
-    <TooltipTrigger
-      render={
-        <Button
-          variant="ghost"
-          size="icon-xs"
-          className={active ? 'text-red-400 hover:text-red-400' : 'text-muted-foreground'}
-          title={title}
-          onClick={onClick}
-        />
-      }
-    >
-      {children}
-    </TooltipTrigger>
-    <TooltipContent>{title}</TooltipContent>
-  </Tooltip>
-);
-
-/** 轨道头：只显按位置实时计算的编号（自下而上，最底行 = 1），不用存储的 name。
-    memo：props 稳定（track 对象仅真实编辑时换引用），面板重渲时整行跳过 */
-const TrackHeader = memo<{ track: Track; number: number; height: number }>(function TrackHeader({
-  track,
-  number,
-  height,
-}) {
-  const t = useT();
-  const updateUndoable = useEditor((s) => s.updateUndoable);
-  const toggle = (key: 'hidden' | 'muted') =>
-    updateUndoable((s) => ({
-      ...s,
-      tracks: s.tracks.map((t) => (t.id === track.id ? { ...t, [key]: !t[key] } : t)),
-    }));
-  return (
-    <div
-      className="flex items-center gap-1 border-b border-border/50 px-2 text-xs text-muted-foreground"
-      style={{ height }}
-    >
-      <span className="flex-1 truncate tabular-nums">{number}</span>
-      <TrackBtn title={t('timeline.trackHideShow')} active={track.hidden} onClick={() => toggle('hidden')}>
-        {track.hidden ? <EyeOff /> : <Eye />}
-      </TrackBtn>
-      <TrackBtn title={t('timeline.trackMute')} active={track.muted} onClick={() => toggle('muted')}>
-        {track.muted ? <VolumeX /> : <Volume2 />}
-      </TrackBtn>
-    </div>
-  );
-});
 
 export const TimelinePanel: React.FC<{ className?: string }> = ({ className }) => {
   const t = useT();
@@ -640,96 +583,11 @@ export const TimelinePanel: React.FC<{ className?: string }> = ({ className }) =
   const headerRows = undoable.tracks.map((t, i) => (
     <TrackHeader key={t.id} track={t} number={undoable.tracks.length - i} height={rowHeights[i]} />
   ));
-  const laneRows = undoable.tracks.map((track, ti) => {
-    const rowItems = Object.values(undoable.items).filter((i) => i.trackId === track.id);
-    const rowTransitions = Object.values(transitions).filter((tr) => tr.trackId === track.id);
-    return (
-      <div
-        key={track.id}
-        className="relative border-b border-border/50"
-        style={{ height: rowHeights[ti] }}
-      >
-        {rowItems.map((item) => (
-          <ItemBlock
-            key={item.id}
-            item={item}
-            zoom={zoom}
-            hidden={moveVisual?.id === item.id}
-            onPointerDown={onItemPointerDown}
-          />
-        ))}
-        {/* 帧级相邻的两块边界：4px 滚动编辑热区（压在两侧修剪手柄之上）+ 建转场 '+' 徽章。
-            徽章纯装饰（永远 pointer-events-none，仅 group-hover 现身）：真正的点击建转场
-            落在 roll 热区自身——onRollPointerDown 按下、pointerup 时按"是否越过拖拽阈值"
-            区分点击（建转场）与拖拽（roll 编辑），见 onPointerUp */}
-        {rowItems.flatMap((a) => {
-          const b = rowItems.find((o) => o.from === a.from + a.durationInFrames);
-          if (!b) return [];
-          // 一旦存在转场，B 会左移形成重叠，此处的精确相邻不再成立——这里已隐含"无转场"；
-          // 仍显式核对一次（防御性，对齐 op 层的真源判断）
-          const hasTransition = rowTransitions.some(
-            (tr) => tr.fromItemId === a.id && tr.toItemId === b.id,
-          );
-          return [
-            <div
-              key={`roll-${a.id}`}
-              data-roll
-              className="group absolute inset-y-1.5 z-40 w-1 cursor-ew-resize"
-              style={{ left: b.from * zoom - 2 }}
-              title={!hasTransition ? t('timeline.addTransition') : undefined}
-              onPointerDown={(e) => onRollPointerDown(e, a.id, b.id)}
-            >
-              {!hasTransition ? (
-                <div
-                  data-add-transition
-                  aria-hidden="true"
-                  className="pointer-events-none absolute top-1/2 left-1/2 z-40 flex size-3.5 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-white/60 bg-black/90 text-white opacity-0 transition-opacity group-hover:opacity-100"
-                >
-                  <Plus className="size-2.5" />
-                </div>
-              ) : null}
-            </div>,
-          ];
-        })}
-        {/* 已存在的转场：填充 pill 覆盖重叠区（左缘=B.from，右缘=A 出点）；
-            pointerdown 选中 + 启动调时长拖拽（stopPropagation，不触碰块 move / roll 手势） */}
-        {rowTransitions.flatMap((tr) => {
-          const a = undoable.items[tr.fromItemId];
-          const b = undoable.items[tr.toItemId];
-          if (!a || !b) return [];
-          const left = b.from * zoom;
-          const width = Math.max(4, (a.from + a.durationInFrames - b.from) * zoom);
-          return [
-            <div
-              key={`transition-${tr.id}`}
-              data-transition={tr.id}
-              className={cn(
-                'absolute inset-y-1.5 z-40 cursor-ew-resize rounded bg-white/25 ring-1 ring-inset ring-white/50 hover:bg-white/35',
-                selectedTransitionId === tr.id && 'ring-2 ring-[#0B84F3]',
-              )}
-              style={{ left, width }}
-              title={t('timeline.transition')}
-              onPointerDown={(e) => onTransitionPointerDown(e, tr, a)}
-            />,
-          ];
-        })}
-      </div>
-    );
-  });
   if (virtualRowIndex !== null) {
     headerRows.splice(
       virtualRowIndex,
       0,
       <div key="__virtual" className="border-b border-border/50" style={{ height: TRACK_HEIGHT }} />,
-    );
-    laneRows.splice(
-      virtualRowIndex,
-      0,
-      <div
-        key="__virtual"
-        className="relative border-b border-border/50 bg-muted/30"
-        style={{ height: TRACK_HEIGHT }}
-      />,
     );
   }
 
@@ -807,7 +665,19 @@ export const TimelinePanel: React.FC<{ className?: string }> = ({ className }) =
               }
             >
             <Ruler durationInFrames={duration} fps={undoable.fps} zoom={zoom} onSeek={seekTo} />
-            {laneRows}
+            <TimelineTracks
+              tracks={undoable.tracks}
+              items={undoable.items}
+              transitions={transitions}
+              rowHeights={rowHeights}
+              zoom={zoom}
+              moveVisualId={moveVisual?.id ?? null}
+              selectedTransitionId={selectedTransitionId}
+              onItemPointerDown={onItemPointerDown}
+              onRollPointerDown={onRollPointerDown}
+              onTransitionPointerDown={onTransitionPointerDown}
+              virtualRowIndex={virtualRowIndex}
+            />
             <Playhead zoom={zoom} onSeek={seekTo} />
             <TimelineOverlays
               undoable={undoable}
