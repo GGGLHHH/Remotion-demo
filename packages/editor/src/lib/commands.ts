@@ -114,8 +114,8 @@ export function useEditorCommands(): EditorCommands {
       addSolid: (rect, atFrame) => addSolidItem(api, rect, atFrame ?? frame()),
       importAssets: (files) => importFiles(api, deps, files, undefined, undefined, frame()),
 
-      toggleKeyframe: (itemId, prop, frame) =>
-        toggleKeyframe(api, itemId, prop, frame ?? refs.getPlayerFrame() - (api.getState().undoable.items[itemId]?.from ?? 0)),
+      toggleKeyframe: (itemId, prop, atFrame) =>
+        toggleKeyframe(api, itemId, prop, atFrame ?? refs.getPlayerFrame() - (api.getState().undoable.items[itemId]?.from ?? 0)),
       applyAnimationPreset: (itemId, presetId) => applyAnimationPreset(api, itemId, presetId),
 
       bringToFront: forSelected(bringToFront),

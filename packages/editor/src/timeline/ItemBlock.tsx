@@ -6,6 +6,7 @@ import { useT } from '../lib/i18n';
 import { moveKeyframesAtFrame } from '../lib/keyframe-ops';
 import { Filmstrip } from './Filmstrip';
 import { Waveform } from './Waveform';
+import { formatDb, gainToTopFraction, readFadePair, topFractionToGain, wedgePath, writeFade, type FadePairKind } from './item-block-math';
 
 const COLORS: Record<EditorStarterItem['type'], string> = {
   solid: 'bg-blue-600/80',
@@ -25,71 +26,13 @@ export const itemLabel = (item: EditorStarterItem): string => {
   return item.type;
 };
 
-/** 官方格式的 dB 显示：+8.0 dB / 0.0 dB / -∞ dB */
-const formatDb = (gain: number): string => {
-  if (gain <= 0) return '-∞ dB';
-  const d = 20 * Math.log10(gain);
-  return `${d > 0 ? '+' : ''}${d.toFixed(1)} dB`;
-};
-
 /** 音频条带高度（官方 20px）：波形/音量线/淡变楔形都住在这里 */
 const AUDIO_STRIP_H = 20;
-
-/**
- * 音量线纵向位置（官方实测映射，dB 线性）：top% = (20 − dB) / 80，
- * 0dB 在条带 25% 处；顶 = +20dB（10 倍增益）；底 = −∞ 静音。
- */
-const gainToTopFraction = (gain: number): number =>
-  gain <= 0 ? 1 : Math.min(1, Math.max(0, (20 - 20 * Math.log10(gain)) / 80));
-const topFractionToGain = (f: number): number =>
-  f >= 1 ? 0 : 10 ** ((20 - 80 * Math.min(1, Math.max(0, f))) / 20);
-
-/**
- * 淡变对（官方实测）：视频块有两组手柄——块顶角驱动视觉对（基础字段），
- * 音频条带上缘两角驱动独立的音频对；音频块单组（基础对即其音频淡变）。
- */
-type FadePairKind = 'visual' | 'audio';
-
-const readFadePair = (
-  it: EditorStarterItem,
-  kind: FadePairKind,
-): { fadeIn: number; fadeOut: number } =>
-  kind === 'audio' && it.type === 'video'
-    ? { fadeIn: it.audioFadeInDurationInFrames ?? 0, fadeOut: it.audioFadeOutDurationInFrames ?? 0 }
-    : { fadeIn: it.fadeInDurationInFrames, fadeOut: it.fadeOutDurationInFrames };
-
-const writeFade = (
-  it: EditorStarterItem,
-  kind: FadePairKind,
-  side: 'in' | 'out',
-  v: number,
-): EditorStarterItem =>
-  kind === 'audio' && it.type === 'video'
-    ? side === 'in'
-      ? { ...it, audioFadeInDurationInFrames: v }
-      : { ...it, audioFadeOutDurationInFrames: v }
-    : side === 'in'
-      ? { ...it, fadeInDurationInFrames: v }
-      : { ...it, fadeOutDurationInFrames: v };
 
 /** 音频块整块波形高度（官方：音频块 46px 全波形，行高 48） */
 const AUDIO_ITEM_WAVE_H = 44;
 /** 视频块胶片区高度（68 块 − 2 边框 − 20 条带） */
 const VIDEO_FILM_H = 46;
-
-/** 等功率淡变楔形路径（官方：黑色 SVG，覆盖未达全音量的区域） */
-const wedgePath = (w: number, h: number, side: 'in' | 'out'): string => {
-  const N = 12;
-  const pts: string[] = [];
-  for (let i = 0; i <= N; i++) {
-    const t = i / N;
-    const gain = Math.sin((Math.PI / 2) * t); // 等功率曲线
-    const x = side === 'in' ? t * w : w - t * w;
-    pts.push(`L ${x.toFixed(1)} ${(h * (1 - gain)).toFixed(1)}`);
-  }
-  const x0 = side === 'in' ? 0 : w;
-  return `M ${x0} 0 L ${x0} ${h} ${pts.join(' ')} Z`;
-};
 
 /** memo：props 恒定（item 引用仅真实编辑时变化、onPointerDown 引用恒定），
     面板因时间码/剪刀态等重渲时所有块整体跳过（胶片/波形不重建元素树） */
