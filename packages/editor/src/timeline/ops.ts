@@ -90,31 +90,52 @@ export const moveItems = (
 export type MoveTrackRef = { kind: 'existing'; id: string } | { kind: 'insert'; index: number };
 
 /**
- * 解析移动落点（官方行为：永不回弹）：
- * 负帧钳到 0；目标轨道上与其他块重叠时，紧贴占位块之后（循环直到无重叠）。
+ * 移动落点（以光标位置为主，最小扰动）：
+ * - 决策块 pivot = 光标(cursorFrom)点命中的那个块（块互不重叠 ⇒ 至多一个）。
+ * - 光标不在任何块上 ⇒ 自由落位:停在被拖块左缘 leftFrom（保留抓取偏移、留空隙）。
+ * - 光标在 pivot 左半 ⇒ 紧贴其左缘插到前;右半 ⇒ 紧贴其右缘插到后。
+ * - 优先填 pivot 该侧现成空位、pivot 不动;空位不够才把 pivot（及其后）最小量级联右推。
+ * 返回落点 from 与其他块新起帧（shifts，仅含实际移动者）。
  */
-export const resolveMovePlacement = (
+export const resolveInsertPlacement = (
   state: UndoableState,
   itemId: string,
-  desiredFrom: number,
+  cursorFrom: number,
+  leftFrom: number,
   targetTrack: MoveTrackRef,
-): { from: number; trackRef: MoveTrackRef } => {
-  let from = Math.max(0, Math.round(desiredFrom));
+): { from: number; shifts: Record<string, number> } => {
   const item = state.items[itemId];
-  // 新插入的轨道必然为空，只需钳帧
-  if (!item || targetTrack.kind === 'insert') return { from, trackRef: targetTrack };
+  const left = Math.max(0, Math.round(leftFrom));
+  // 新插入的轨道必然为空 ⇒ 无重排,左缘钳帧落位
+  if (!item || targetTrack.kind === 'insert') return { from: left, shifts: {} };
   const dur = item.durationInFrames;
-  for (;;) {
-    const blocker = Object.values(state.items).find(
-      (o) =>
-        o.trackId === targetTrack.id &&
-        o.id !== itemId &&
-        from < o.from + o.durationInFrames &&
-        o.from < from + dur,
-    );
-    if (!blocker) return { from, trackRef: targetTrack };
-    from = blocker.from + blocker.durationInFrames;
+  const cursor = Math.round(cursorFrom);
+  const others = Object.values(state.items)
+    .filter((o) => o.trackId === targetTrack.id && o.id !== itemId)
+    .sort((a, b) => a.from - b.from);
+  const endOf = (o: EditorStarterItem) => o.from + o.durationInFrames;
+  // 决策块 = 光标点命中的块;命中不到 ⇒ 自由落位(停在左缘)
+  const pivot = others.find((o) => o.from <= cursor && cursor < endOf(o));
+  let from: number;
+  if (!pivot) {
+    from = left;
+  } else if (cursor < pivot.from + pivot.durationInFrames / 2) {
+    // 光标在 pivot 左半 ⇒ 紧贴其左缘;左邻居与 pivot 之间空位不够时下面级联会把 pivot 右推
+    const prevEnd = others.reduce((m, o) => (endOf(o) <= pivot.from ? Math.max(m, endOf(o)) : m), 0);
+    from = Math.max(pivot.from - dur, prevEnd);
+  } else {
+    from = endOf(pivot); // 光标在 pivot 右半 ⇒ 紧贴其右缘
   }
+  // 级联右推:被拖块右侧、会与其(或被顶链)重叠的块顺延;空隙够就不动。完全在左侧的块不受影响。
+  const shifts: Record<string, number> = {};
+  let next = from + dur;
+  for (const o of others) {
+    if (endOf(o) <= from) continue;
+    const newFrom = Math.max(o.from, next);
+    if (newFrom !== o.from) shifts[o.id] = newFrom;
+    next = newFrom + o.durationInFrames;
+  }
+  return { from, shifts };
 };
 
 export const trimItem = (

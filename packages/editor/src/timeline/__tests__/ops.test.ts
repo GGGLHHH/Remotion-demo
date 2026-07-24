@@ -16,7 +16,7 @@ import {
   maxItemDurationInFrames,
   moveItems,
   removeEmptyTracks,
-  resolveMovePlacement,
+  resolveInsertPlacement,
   rollEdit,
   snapFrame,
   resolveSplitTargets,
@@ -157,43 +157,90 @@ describe('trimItem', () => {
   });
 });
 
-describe('resolveMovePlacement', () => {
-  test('空轨道：负帧钳到 0，其余原样', () => {
-    const { state, t1, t2 } = build();
-    const a = solidAt(state, t1.id, 0, 30);
-    const ref = { kind: 'existing', id: t2.id } as const;
-    expect(resolveMovePlacement(state, a.id, -10, ref).from).toBe(0);
-    expect(resolveMovePlacement(state, a.id, 40, ref).from).toBe(40);
-  });
-  test('与占位块重叠 ⇒ 紧贴其后（从左/从右进入相同）', () => {
-    const { state, t1, t2 } = build();
-    solidAt(state, t1.id, 50, 30); // 占位 50..80
-    const a = solidAt(state, t2.id, 0, 30);
-    const ref = { kind: 'existing', id: t1.id } as const;
-    expect(resolveMovePlacement(state, a.id, 40, ref).from).toBe(80); // 左侧压入
-    expect(resolveMovePlacement(state, a.id, 70, ref).from).toBe(80); // 右侧压入
-  });
-  test('恰好贴边不算重叠', () => {
-    const { state, t1, t2 } = build();
-    solidAt(state, t1.id, 50, 30);
-    const a = solidAt(state, t2.id, 0, 30);
-    const ref = { kind: 'existing', id: t1.id } as const;
-    expect(resolveMovePlacement(state, a.id, 20, ref).from).toBe(20); // 20..50 贴左边
-    expect(resolveMovePlacement(state, a.id, 80, ref).from).toBe(80); // 贴右边
-  });
-  test('连续占位块 ⇒ 越过直到空位；忽略自身', () => {
+describe('resolveInsertPlacement', () => {
+  // 签名:resolveInsertPlacement(state, itemId, cursorFrom, leftFrom, targetTrack)
+  test('光标在块左半 ⇒ 插到前面并把该块右推(相邻重排)', () => {
     const { state, t1 } = build();
-    const a = solidAt(state, t1.id, 0, 30);
-    solidAt(state, t1.id, 30, 30);
+    const a = solidAt(state, t1.id, 0, 30); // A 0..30
+    const b = solidAt(state, t1.id, 30, 30); // B 30..60(被拖)
     const ref = { kind: 'existing', id: t1.id } as const;
-    // 自身 0..30 忽略；期望 10..40 与 30..60 重叠 ⇒ 顶到 60
-    expect(resolveMovePlacement(state, a.id, 10, ref).from).toBe(60);
+    // 光标 10 落在 A 左半(< A 中线 15)⇒ B 紧贴 A 左缘落 0..30,A 顺延到 30
+    const r = resolveInsertPlacement(state, b.id, 10, 10, ref);
+    expect(r.from).toBe(0);
+    expect(r.shifts[a.id]).toBe(30);
   });
-  test('insert 目标只钳帧', () => {
+  test('光标在块右半 ⇒ 贴到该块之后,不重排', () => {
     const { state, t1 } = build();
-    const a = solidAt(state, t1.id, 0, 30);
-    expect(resolveMovePlacement(state, a.id, -5, { kind: 'insert', index: 0 }).from).toBe(0);
-    expect(resolveMovePlacement(state, a.id, 40, { kind: 'insert', index: 2 }).from).toBe(40);
+    solidAt(state, t1.id, 0, 30); // A 0..30(邻居)
+    const b = solidAt(state, t1.id, 30, 30);
+    const ref = { kind: 'existing', id: t1.id } as const;
+    // 光标 20 ≥ A 中线 15 ⇒ 紧贴 A 右缘落 30,无位移
+    const r = resolveInsertPlacement(state, b.id, 20, 20, ref);
+    expect(r.from).toBe(30);
+    expect(Object.keys(r.shifts)).toHaveLength(0);
+  });
+  test('决策以光标为主:左缘落在别的块上,仍按光标所在块判定', () => {
+    const { state, t1 } = build();
+    const bb = solidAt(state, t1.id, 0, 40); // BB 0..40
+    const a = solidAt(state, t1.id, 100, 100); // A 100..200
+    const w = solidAt(state, t1.id, 300, 90); // W 被拖(宽)
+    const ref = { kind: 'existing', id: t1.id } as const;
+    // 左缘 20 落在 BB 上,但光标 110 在 A 左半 ⇒ 按 A 判定:插到 A 前(前方 40..100 不够放 90 ⇒ 贴 BB 落 40,A 右推)
+    const r = resolveInsertPlacement(state, w.id, 110, 20, ref);
+    expect(r.from).toBe(40);
+    expect(r.shifts[a.id]).toBe(130);
+    expect(r.shifts[bb.id]).toBeUndefined();
+  });
+  test('级联右推只在会重叠时发生,保留更大空隙', () => {
+    const { state, t1 } = build();
+    const a = solidAt(state, t1.id, 0, 20); // A 0..20
+    const c = solidAt(state, t1.id, 100, 20); // C 100..120(远处)
+    const d = solidAt(state, t1.id, 200, 20); // D 被拖
+    const ref = { kind: 'existing', id: t1.id } as const;
+    // 光标 5 在 A 左半 ⇒ D 紧贴 A 左缘落 0,A 被顶到 20;C 处空隙足够,不动
+    const r = resolveInsertPlacement(state, d.id, 5, 5, ref);
+    expect(r.from).toBe(0);
+    expect(r.shifts[a.id]).toBe(20);
+    expect(r.shifts[c.id]).toBeUndefined();
+  });
+  test('insert 目标(新轨道)只钳帧,无重排', () => {
+    const { state, t1 } = build();
+    const a = solidAt(state, t1.id, 30, 30);
+    const r = resolveInsertPlacement(state, a.id, 0, -5, { kind: 'insert', index: 0 });
+    expect(r.from).toBe(0); // 左缘 -5 钳到 0
+    expect(Object.keys(r.shifts)).toHaveLength(0);
+  });
+  test('光标不在任何块上 ⇒ 自由落位(停在左缘,保留空隙)', () => {
+    const { state, t1 } = build();
+    solidAt(state, t1.id, 0, 30); // A 0..30(邻居)
+    const b = solidAt(state, t1.id, 200, 30); // B 被拖
+    const ref = { kind: 'existing', id: t1.id } as const;
+    // 光标 110、左缘 100 都不在 A 上 ⇒ 停在左缘 100(用左缘不用光标),保留 30..100 空隙,A 不动
+    const r = resolveInsertPlacement(state, b.id, 110, 100, ref);
+    expect(r.from).toBe(100);
+    expect(Object.keys(r.shifts)).toHaveLength(0);
+  });
+  test('决策块前方空位够 ⇒ 紧贴其左缘,不推它', () => {
+    const { state, t1 } = build();
+    solidAt(state, t1.id, 100, 100); // A 100..200,前方 0..100 空
+    const b = solidAt(state, t1.id, 300, 50); // B 被拖
+    const ref = { kind: 'existing', id: t1.id } as const;
+    // 光标 110 在 A 左半;前方够放 50 ⇒ B 紧贴 A 左缘落 50..100,A 不动
+    const r = resolveInsertPlacement(state, b.id, 110, 110, ref);
+    expect(r.from).toBe(50);
+    expect(Object.keys(r.shifts)).toHaveLength(0);
+  });
+  test('决策块前方空位不够 ⇒ 把它右推腾位', () => {
+    const { state, t1 } = build();
+    const a0 = solidAt(state, t1.id, 0, 60); // A0 0..60
+    const a = solidAt(state, t1.id, 80, 100); // A 80..180,前方仅 60..80 = 20
+    const b = solidAt(state, t1.id, 300, 50); // B 被拖
+    const ref = { kind: 'existing', id: t1.id } as const;
+    // 光标 90 在 A 左半;前方 20 < 50 放不下 ⇒ B 紧贴 A0 落 60..110,A 右推到 110
+    const r = resolveInsertPlacement(state, b.id, 90, 90, ref);
+    expect(r.from).toBe(60);
+    expect(r.shifts[a.id]).toBe(110);
+    expect(r.shifts[a0.id]).toBeUndefined();
   });
 });
 

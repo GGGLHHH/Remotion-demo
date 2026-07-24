@@ -67,6 +67,13 @@ export const TimelineOverlays: React.FC<{
         style={{ left: guideFrame * zoom }}
       />
     ) : null}
+    {/* 过半阈值线：被拖左缘所压块的中线，越过它插到该块前/后翻转（虚线琥珀，区别于实线落点线） */}
+    {moveVisual && moveVisual.thresholdFrame !== null ? (
+      <div
+        className="pointer-events-none absolute inset-y-0 z-30 border-l border-dashed border-amber-400/80"
+        style={{ left: moveVisual.thresholdFrame * zoom }}
+      />
+    ) : null}
     {/* 修剪拖拽：媒体最大可扩展范围指示（斜纹） */}
     {trimming
       ? (() => {

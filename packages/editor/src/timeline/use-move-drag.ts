@@ -3,7 +3,7 @@ import { useRef, useState } from 'react';
 import type { EditorStarterItem } from '@gedatou/shared';
 import type { EditorStoreApi } from '../state/store';
 import type { EditorInstanceRefs } from '../state/instance-refs';
-import { addTrack, removeEmptyTracks, resolveMovePlacement, snapFrame } from './ops';
+import { addTrack, removeEmptyTracks, resolveInsertPlacement, snapFrame } from './ops';
 import { rowTops, trackIndexAtY } from './geometry';
 import { RULER_HEIGHT, SNAP_TOLERANCE_PX } from './constants';
 import type { MoveDrag, MoveVisual, TrackTarget } from './types';
@@ -41,9 +41,11 @@ export function useMoveDrag(deps: {
     const store = editorApi.getState();
     const item = store.undoable.items[d.id];
     if (!item) return;
-    const { target, from } = d.placement;
-    // 位置没变就不进撤销栈
+    const { target, from, shifts } = d.placement;
+    const hasShifts = shifts && Object.keys(shifts).length > 0;
+    // 位置没变且无重排就不进撤销栈
     if (
+      !hasShifts &&
       target.kind === 'existing' &&
       store.undoable.tracks[target.index]?.id === item.trackId &&
       from === item.from
@@ -60,7 +62,15 @@ export function useMoveDrag(deps: {
       } else {
         trackId = st.tracks[target.index]?.id ?? item.trackId;
       }
-      st = { ...st, items: { ...st.items, [d.id]: { ...st.items[d.id], trackId, from } } };
+      const items = { ...st.items };
+      // 插入模式:先把被顶开的其他块右推,再落被拖块
+      if (shifts) {
+        for (const [id, nf] of Object.entries(shifts)) {
+          if (items[id]) items[id] = { ...items[id], from: nf };
+        }
+      }
+      items[d.id] = { ...items[d.id], trackId, from };
+      st = { ...st, items };
       return removeEmptyTracks(st);
     });
   };
@@ -108,8 +118,9 @@ export function useMoveDrag(deps: {
       else target = { kind: 'existing', index: row };
     }
 
-    // 期望帧 + 吸附（左右端取更近者；吸附成立时显示贯穿竖线）
+    // 被拖块左缘(自由落位用)+ 光标所在帧(决策用,以鼠标位置为主)
     let desired = Math.round((x - d.grabDX) / z);
+    const cursorFrame = Math.round(x / z);
     let guideFrame: number | null = null;
     if (store.snappingEnabled) {
       const tol = Math.max(1, Math.round(SNAP_TOLERANCE_PX / z));
@@ -134,11 +145,25 @@ export function useMoveDrag(deps: {
       target.kind === 'existing'
         ? { kind: 'existing' as const, id: st.tracks[target.index].id }
         : { kind: 'insert' as const, index: target.index };
-    const { from } = resolveMovePlacement(st, d.id, desired, trackRef);
-    // 被占位块顶开/钳制后吸附边不再成立 ⇒ 撤掉吸附线
-    if (from !== desired) guideFrame = null;
+    // 以光标为主的方向感知放置:落点即插入边界 ⇒ 引导线画在落点(覆盖吸附线)
+    const r = resolveInsertPlacement(st, d.id, cursorFrame, desired, trackRef);
+    const from = r.from;
+    guideFrame = from;
+    d.placement = { target, from, shifts: r.shifts };
 
-    d.placement = { target, from };
+    // 过半阈值线:光标点命中某块时,画该块中线——越过它,插到该块前/后翻转;命中不到(空处)不显示。
+    let thresholdFrame: number | null = null;
+    if (trackRef.kind === 'existing') {
+      const pivot = Object.values(st.items).find(
+        (o) =>
+          o.trackId === trackRef.id &&
+          o.id !== d.id &&
+          o.from <= cursorFrame &&
+          cursorFrame < o.from + o.durationInFrames,
+      );
+      if (pivot) thresholdFrame = pivot.from + pivot.durationInFrames / 2;
+    }
+
     const pRect = panelEl.getBoundingClientRect();
     setMoveVisual({
       id: d.id,
@@ -147,6 +172,7 @@ export function useMoveDrag(deps: {
       target,
       slotFrom: from,
       guideFrame,
+      thresholdFrame,
     });
   };
 

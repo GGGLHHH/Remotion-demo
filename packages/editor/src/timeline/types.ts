@@ -33,11 +33,11 @@ export type MoveDrag = {
   moved: boolean;
   lastClientX: number;
   lastClientY: number;
-  /** 最近一次解析出的合法落点(松手时提交) */
-  placement: { target: TrackTarget; from: number } | null;
+  /** 最近一次解析出的合法落点(松手时提交);shifts=插入模式下需右推的其他块新起帧 */
+  placement: { target: TrackTarget; from: number; shifts?: Record<string, number> } | null;
 };
 
-/** 移动拖拽视觉(React state):幽灵块 + 落位槽 + 吸附线 */
+/** 移动拖拽视觉(React state):幽灵块 + 落位槽 + 吸附线 + 过半阈值线 */
 export type MoveVisual = {
   id: string;
   ghostX: number;
@@ -45,4 +45,6 @@ export type MoveVisual = {
   target: TrackTarget;
   slotFrom: number;
   guideFrame: number | null;
+  /** 过半阈值线(帧):被拖左缘当前压住块的中线,越过它插到该块前/后翻转;不压任何块时为 null */
+  thresholdFrame: number | null;
 };
