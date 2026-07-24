@@ -79,3 +79,16 @@ export const resizeRect = (
 
   return { left, top, width, height };
 };
+
+// 画布坐标换算(各 overlay 原各手写一遍 (client - rect)/scale)。取哪个元素做 rect 由调用方决定
+// (SelectionOverlay 取 closest('[data-stage]')、其余取 currentTarget),故 el 作入参,只共享除以 scale 的算术。
+export const toStagePoint = (el: Element, clientX: number, clientY: number, scale: number): { x: number; y: number } => {
+  const rect = el.getBoundingClientRect();
+  return { x: (clientX - rect.left) / scale, y: (clientY - rect.top) / scale };
+};
+
+/** 拖拽增量(合成坐标):(client - start)/scale */
+export const toDelta = (startX: number, startY: number, clientX: number, clientY: number, scale: number): { dx: number; dy: number } => ({
+  dx: (clientX - startX) / scale,
+  dy: (clientY - startY) / scale,
+});
