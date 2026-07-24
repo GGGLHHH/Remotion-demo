@@ -8,7 +8,7 @@ import type { EditorStoreApi } from '../state/store';
 import type { EditorDeps } from '../state/runtime';
 import { addTrack, hasOverlap } from '../timeline/ops';
 import { probeFile, type ProbeResult } from './probe';
-import { tFor } from './i18n';
+import { tFor } from './i18n-core';
 
 const itemBaseDefaults = {
   rotation: 0,

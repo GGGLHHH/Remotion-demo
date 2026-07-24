@@ -1,4 +1,4 @@
-import { tFor } from './i18n';
+import { tFor } from './i18n-core';
 import type { EditorStoreApi } from '../state/store';
 import type { EditorDeps, RenderProgress } from '../state/runtime';
 

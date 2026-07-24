@@ -3,7 +3,7 @@ import type { EditorStoreApi } from '../state/store';
 import type { EditorDeps } from '../state/runtime';
 import { addTrack } from '../timeline/ops';
 import { extractWav } from './extract-audio';
-import { tFor } from './i18n';
+import { tFor } from './i18n-core';
 
 /** 源 item 在素材内的可听片段（素材原速秒）：偏移 trimBefore，长度 = item 时长 × 变速率 */
 export const audibleSegment = (
