@@ -12,24 +12,17 @@ import {
 import { useEditor, useEditorApi, useEditorDeps, useEditorRefs } from '../state/context';
 import { usePlayerFrameDerived } from '../canvas/player-ref';
 import { calcDuration } from '@gedatou/shared/composition';
-import {
-  HEADER_WIDTH,
-  RULER_HEIGHT,
-  SNAP_TOLERANCE_PX,
-  TRACK_HEIGHT,
-} from './constants';
+import { HEADER_WIDTH, RULER_HEIGHT, TRACK_HEIGHT } from './constants';
 import { Playhead } from './Playhead';
 import { Ruler } from './Ruler';
 import { TimelineToolbar } from './TimelineToolbar';
 import { TimelineGhost, TimelineOverlays } from './TimelineOverlays';
 import { TimelineTracks } from './TimelineTracks';
 import { TrackHeader } from './TrackHeader';
-import type { DragState, MoveDrag, MoveVisual, TrackTarget } from './types';
+import { useMoveDrag } from './use-move-drag';
+import type { DragState } from './types';
 import {
-  addTrack,
   bringToFront,
-  removeEmptyTracks,
-  resolveMovePlacement,
   resolveSplitTargets,
   rollEdit,
   sendToBack,
@@ -45,11 +38,6 @@ import { useT } from '../lib/i18n';
 
 /** 修剪吸附阈值（官方约 10px） */
 const TRIM_SNAP_PX = 10;
-/** 行间边界 ±4px ⇒ 插入新轨道 */
-const TRACK_GAP_PX = 4;
-/** 视口左右边缘自动滚动：触发范围与步长 */
-const AUTO_SCROLL_EDGE_PX = 40;
-const AUTO_SCROLL_STEP_PX = 24;
 
 export const TimelinePanel: React.FC<{ className?: string }> = ({ className }) => {
   const t = useT();
@@ -79,11 +67,6 @@ export const TimelinePanel: React.FC<{ className?: string }> = ({ className }) =
   /** OS 文件拖放悬停位置 */
   const [dropHint, setDropHint] = useState<{ frame: number; trackIndex: number } | null>(null);
 
-  // ---- 移动拖拽（官方模型：store 不动，视觉全在本地 state）----
-  const moveRef = useRef<MoveDrag | null>(null);
-  const moveCleanupRef = useRef<(() => void) | null>(null);
-  const [moveVisual, setMoveVisual] = useState<MoveVisual | null>(null);
-
   /** 右键命中的块（菜单动作目标）；菜单开合由 ContextMenu 组件管理 */
   const menuItemId = useRef<string | null>(null);
 
@@ -104,6 +87,8 @@ export const TimelinePanel: React.FC<{ className?: string }> = ({ className }) =
   /** 供拖拽 window 监听/播放跟随读取的最新有效缩放 */
   const zoomRef = useRef(zoom);
   zoomRef.current = zoom;
+  // 移动拖拽状态机(私有 ref + window 监听 + 自动滚动);入口 startMove 由块 pointerdown 的 move 分支调用
+  const { moveVisual, startMove } = useMoveDrag({ editorApi, refs, panelRef, contentRef, scrollRef, zoomRef });
   // fit 模式内容刚好占满（无横向滚动）；数字模式末尾留 240px 拖拽余量
   const contentWidth = Math.max(duration * zoom + (zoomSetting === 'fit' ? 0 : 240), viewW);
   // 剪刀按钮：播放头没有落在任何可分割目标内部时禁用（官方行为）。
@@ -149,163 +134,6 @@ export const TimelinePanel: React.FC<{ className?: string }> = ({ className }) =
     refs.player.current?.seekTo(Math.max(0, f));
   };
 
-  // ---- 移动拖拽 ----
-
-  /** 结束移动拖拽；apply=true 时一次性提交落位（永不回弹），Esc/取消则不动 store */
-  const endMoveDrag = (apply: boolean) => {
-    moveCleanupRef.current?.();
-    moveCleanupRef.current = null;
-    const d = moveRef.current;
-    moveRef.current = null;
-    setMoveVisual(null);
-    if (!apply || !d?.moved || !d.placement) return;
-    const store = editorApi.getState();
-    const item = store.undoable.items[d.id];
-    if (!item) return;
-    const { target, from } = d.placement;
-    // 位置没变就不进撤销栈
-    if (
-      target.kind === 'existing' &&
-      store.undoable.tracks[target.index]?.id === item.trackId &&
-      from === item.from
-    ) {
-      return;
-    }
-    store.updateUndoable((s) => {
-      let st = s;
-      let trackId: string;
-      if (target.kind === 'insert') {
-        const added = addTrack(st, target.index);
-        st = added.state;
-        trackId = added.trackId;
-      } else {
-        trackId = st.tracks[target.index]?.id ?? item.trackId;
-      }
-      st = { ...st, items: { ...st.items, [d.id]: { ...st.items[d.id], trackId, from } } };
-      return removeEmptyTracks(st);
-    });
-  };
-
-  /** 每次指针移动/自动滚动 tick：重算幽灵位置、轨道目标与落位槽（不改 store） */
-  const moveTick = (clientX: number, clientY: number) => {
-    const d = moveRef.current;
-    const contentEl = contentRef.current;
-    const panelEl = panelRef.current;
-    if (!d || !contentEl || !panelEl) return;
-    d.lastClientX = clientX;
-    d.lastClientY = clientY;
-    if (!d.moved) {
-      // 3px 阈值：区分点击与拖拽
-      if (Math.abs(clientX - d.downX) < 3 && Math.abs(clientY - d.downY) < 3) return;
-      d.moved = true;
-    }
-    const store = editorApi.getState();
-    const st = store.undoable;
-    const item = st.items[d.id];
-    if (!item) {
-      endMoveDrag(false);
-      return;
-    }
-    const z = zoomRef.current;
-    const cRect = contentEl.getBoundingClientRect();
-    const x = clientX - cRect.left;
-    const y = clientY - cRect.top;
-
-    // 轨道目标（按原始布局判定；虚拟行只是渲染层的事）：
-    // 标尺及以上 ⇒ 顶部新轨道；底行以下 ⇒ 底部新轨道；行间 ±4px ⇒ 插入条；否则现有行
-    const n = st.tracks.length;
-    const tops = rowTops(st);
-    let target: TrackTarget;
-    if (y < RULER_HEIGHT) {
-      target = { kind: 'insert', index: 0, bar: false };
-    } else if (y >= tops[n]) {
-      target = { kind: 'insert', index: n, bar: false };
-    } else {
-      const row = trackIndexAtY(st, y);
-      const distTop = y - tops[row];
-      const distBottom = tops[row + 1] - y;
-      if (row > 0 && distTop <= TRACK_GAP_PX) target = { kind: 'insert', index: row, bar: true };
-      else if (row < n - 1 && distBottom <= TRACK_GAP_PX)
-        target = { kind: 'insert', index: row + 1, bar: true };
-      else target = { kind: 'existing', index: row };
-    }
-
-    // 期望帧 + 吸附（左右端取更近者；吸附成立时显示贯穿竖线）
-    let desired = Math.round((x - d.grabDX) / z);
-    let guideFrame: number | null = null;
-    if (store.snappingEnabled) {
-      const tol = Math.max(1, Math.round(SNAP_TOLERANCE_PX / z));
-      const opts = {
-        playheadFrame: refs.player.current?.getCurrentFrame() ?? undefined,
-        ignoreIds: [d.id],
-      };
-      const leftSnap = snapFrame(st, desired, tol, opts);
-      const rightSnap = snapFrame(st, desired + item.durationInFrames, tol, opts);
-      const dl = leftSnap - desired;
-      const dr = rightSnap - (desired + item.durationInFrames);
-      if (dl !== 0 && (dr === 0 || Math.abs(dl) <= Math.abs(dr))) {
-        desired += dl;
-        guideFrame = leftSnap;
-      } else if (dr !== 0) {
-        desired += dr;
-        guideFrame = rightSnap;
-      }
-    }
-
-    const trackRef =
-      target.kind === 'existing'
-        ? { kind: 'existing' as const, id: st.tracks[target.index].id }
-        : { kind: 'insert' as const, index: target.index };
-    const { from } = resolveMovePlacement(st, d.id, desired, trackRef);
-    // 被占位块顶开/钳制后吸附边不再成立 ⇒ 撤掉吸附线
-    if (from !== desired) guideFrame = null;
-
-    d.placement = { target, from };
-    const pRect = panelEl.getBoundingClientRect();
-    setMoveVisual({
-      id: d.id,
-      ghostX: clientX - pRect.left - d.grabDX,
-      ghostY: clientY - pRect.top - d.grabDY,
-      target,
-      slotFrom: from,
-      guideFrame,
-    });
-  };
-
-  /** 挂 window 级监听（跨行/出面板不丢事件）+ 边缘自动滚动 + Esc 取消 */
-  const startMoveDrag = () => {
-    const onMove = (ev: PointerEvent) => moveTick(ev.clientX, ev.clientY);
-    const onUp = () => endMoveDrag(true);
-    const onCancel = () => endMoveDrag(false);
-    const onKey = (ev: KeyboardEvent) => {
-      if (ev.key === 'Escape') endMoveDrag(false);
-    };
-    const timer = window.setInterval(() => {
-      const el = scrollRef.current;
-      const d = moveRef.current;
-      if (!el || !d || !d.moved) return;
-      const r = el.getBoundingClientRect();
-      let step = 0;
-      if (d.lastClientX < r.left + AUTO_SCROLL_EDGE_PX) step = -AUTO_SCROLL_STEP_PX;
-      else if (d.lastClientX > r.right - AUTO_SCROLL_EDGE_PX) step = AUTO_SCROLL_STEP_PX;
-      if (step === 0) return;
-      const before = el.scrollLeft;
-      el.scrollLeft = Math.max(0, before + step);
-      if (el.scrollLeft !== before) moveTick(d.lastClientX, d.lastClientY);
-    }, 50);
-    window.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', onUp);
-    window.addEventListener('pointercancel', onCancel);
-    window.addEventListener('keydown', onKey);
-    moveCleanupRef.current = () => {
-      window.clearInterval(timer);
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onUp);
-      window.removeEventListener('pointercancel', onCancel);
-      window.removeEventListener('keydown', onKey);
-    };
-  };
-
   // ---- 修剪/框选拖拽 ----
 
   const onItemPointerDownImpl = (
@@ -344,23 +172,8 @@ export const TimelinePanel: React.FC<{ className?: string }> = ({ className }) =
       return;
     }
     store.setSelected(store.selectedItemIds.includes(item.id) ? store.selectedItemIds : [item.id]);
-    // 官方行为：多选时拖拽也只移动被抓的块
-    const blockEl = e.currentTarget as HTMLElement;
-    const blockRect = blockEl.getBoundingClientRect();
-    // 行顶取块的父级行元素（不写死块的 inset，行高/块内边距变化都不受影响）
-    const rowTop = blockEl.parentElement?.getBoundingClientRect().top ?? blockRect.top;
-    moveRef.current = {
-      id: item.id,
-      downX: e.clientX,
-      downY: e.clientY,
-      grabDX: e.clientX - blockRect.left,
-      grabDY: e.clientY - rowTop,
-      moved: false,
-      lastClientX: e.clientX,
-      lastClientY: e.clientY,
-      placement: null,
-    };
-    startMoveDrag();
+    // 官方行为：多选时拖拽也只移动被抓的块（移动拖拽状态机见 useMoveDrag）
+    startMove(item, e);
   };
 
   /** 引用恒定的块按下回调（useEvent 模式）：配合 memo(ItemBlock) 跳过无关重渲 */
