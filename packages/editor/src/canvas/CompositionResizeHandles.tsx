@@ -1,7 +1,7 @@
 import type React from 'react';
 import { useState } from 'react';
 import { useEditor, useEditorApi, useEditorRefs } from '../state/context';
-import { CORNERS, EDGES, SizeBadge } from './SelectionOverlay';
+import { CORNERS, EDGES, SizeBadge } from './handle-primitives';
 import type { ResizeHandle } from './geometry';
 
 /**

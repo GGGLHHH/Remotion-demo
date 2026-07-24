@@ -2,7 +2,7 @@ import type React from 'react';
 import { useRef, useState } from 'react';
 import { useEditorApi, useEditorRefs } from '../state/context';
 import { addSolidItem } from '../lib/add-items';
-import { CORNERS, SizeBadge } from './SelectionOverlay';
+import { CORNERS, SizeBadge } from './handle-primitives';
 import type { Rect } from './geometry';
 
 /** 无明显拖拽（<5px）视为单击 */
