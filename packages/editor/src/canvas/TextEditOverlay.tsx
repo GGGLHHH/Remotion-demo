@@ -1,7 +1,7 @@
 import type React from 'react';
 import { useEffect, useRef } from 'react';
 import { useEditor, useEditorApi } from '../state/context';
-import { detectDirection } from '../inspector/TextPanel';
+import { detectDirection } from '../inspector/sections/text';
 
 /** 画布行内文本编辑：覆盖一个与文本项同位置同样式的 textarea */
 export const TextEditOverlay: React.FC<{ scale: number }> = ({ scale }) => {

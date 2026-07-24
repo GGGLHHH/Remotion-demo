@@ -1,10 +1,10 @@
 import type React from 'react';
 import type { AudioItem, GifItem, VideoItem } from '@gedatou/shared';
-import { Switch } from '../components/ui/switch';
-import { useEditor } from '../state/context';
-import { maxItemDurationInFrames } from '../timeline/ops';
-import { FadeSliders, Row, Section, SliderField } from './fields';
-import { useT } from '../lib/i18n';
+import { Switch } from '../../components/ui/switch';
+import { useEditor } from '../../state/context';
+import { maxItemDurationInFrames } from '../../timeline/ops';
+import { FadeSliders, Row, Section, SliderField } from '../fields';
+import { useT } from '../../lib/i18n';
 
 type MediaItem = VideoItem | AudioItem | GifItem;
 
@@ -14,7 +14,8 @@ const linearToDb = (v: number) =>
   v <= 0.001 ? -60 : Math.max(-60, Math.min(20, 20 * Math.log10(v)));
 const dbToLinear = (db: number) => (db <= -60 ? 0 : 10 ** (db / 20));
 
-export const MediaPanel: React.FC<{ item: MediaItem }> = ({ item }) => {
+/** 媒体分区（官方 Video / Audio 区）：速度 / 音量 / 静音 / 淡入淡出，按 video/audio/gif 组装 */
+export const MediaSection: React.FC<{ item: MediaItem }> = ({ item }) => {
   const t = useT();
   const updateUndoable = useEditor((s) => s.updateUndoable);
   const fps = useEditor((s) => s.undoable.fps);

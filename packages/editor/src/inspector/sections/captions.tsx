@@ -1,13 +1,14 @@
 import type React from 'react';
 import type { Caption, CaptionsItem } from '@gedatou/shared';
-import { Input } from '../components/ui/input';
-import { useEditor } from '../state/context';
-import { NumberField } from './NumberField';
-import { ColorField, Row, Section } from './fields';
-import { FontPicker } from './FontPicker';
-import { useT } from '../lib/i18n';
+import { Input } from '../../components/ui/input';
+import { useEditor } from '../../state/context';
+import { NumberField } from '../NumberField';
+import { ColorField, Row, Section } from '../fields';
+import { FontPicker } from '../FontPicker';
+import { useT } from '../../lib/i18n';
 
-export const CaptionsPanel: React.FC<{ item: CaptionsItem }> = ({ item }) => {
+/** 字幕样式 + 逐词修正（官方 Captions 块专属分区） */
+export const CaptionsStyleSection: React.FC<{ item: CaptionsItem }> = ({ item }) => {
   const t = useT();
   const updateUndoable = useEditor((s) => s.updateUndoable);
   const asset = useEditor((s) => s.undoable.assets[item.assetId]);
