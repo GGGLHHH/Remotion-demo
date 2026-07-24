@@ -1,4 +1,4 @@
-import { createTextItem, newId, type EditorStarterAsset, type EditorStarterItem } from '@gedatou/shared';
+import { createTextItem, newId, regroupDuplicated, type EditorStarterAsset, type EditorStarterItem } from '@gedatou/shared';
 import type { EditorStoreApi } from '../state/store';
 import { normalizeLegacyFades } from '../persistence/persistence';
 import { addTrack } from '../timeline/ops';
@@ -78,6 +78,8 @@ const placeItems = (
     let st = s;
     const newItems = { ...s.items };
     const newAssets = { ...s.assets };
+    // 副本分组维护:原 id → 新 id(源 item 属某组时,副本按源组重建新组;跨标签页粘贴源不在组则零新组)
+    const idMap: Record<string, string> = {};
     for (const [id, asset] of Object.entries(opts?.assets ?? {})) {
       if (!newAssets[id]) newAssets[id] = asset;
     }
@@ -86,6 +88,7 @@ const placeItems = (
       st = added.state;
       const id = newId();
       newIds.push(id);
+      idMap[item.id] = id;
       newItems[id] = {
         ...item,
         id,
@@ -95,7 +98,8 @@ const placeItems = (
         top: item.top + offset,
       };
     }
-    return { ...st, items: newItems, assets: newAssets };
+    const groups = regroupDuplicated(st.groups, idMap, () => newId());
+    return { ...st, items: newItems, assets: newAssets, groups };
   });
   state.setSelected(newIds);
   // 跨标签页粘贴的远程素材：标记为已上传

@@ -4,6 +4,12 @@ import {
   DEFAULT_COMPOSITION_WIDTH,
   MAX_UNDO_STACK_SIZE,
   createEmptyState,
+  expandSelectionWithGroups,
+  groupFromSelection,
+  newId,
+  pruneGroups,
+  reorderGroup,
+  ungroupBySelection,
   type AssetStatus,
   type EditorStarterItem,
   type UndoableState,
@@ -46,6 +52,12 @@ export type EditorStore = {
   redo: () => void;
   setSelected: (ids: string[]) => void;
   deleteSelected: () => void;
+  /** 把当前选中(去重后 ≥2)组合成一个持久组;成员从旧组摘出(不嵌套) */
+  groupSelected: () => void;
+  /** 拆分当前选中所涉及的所有组 */
+  ungroupSelected: () => void;
+  /** 把"成员集合 === orderedItemIds"的组的 itemIds 重排为该顺序(序列顺序持久化,进撤销/存档) */
+  reorderGroupItems: (orderedItemIds: string[]) => void;
   /** 画布缩放：'fit' 表示适配容器 */
   canvasZoom: number | 'fit';
   setCanvasZoom: (zoom: number | 'fit') => void;
@@ -124,7 +136,7 @@ export function createEditorStore(init?: EditorInitialState): EditorStoreApi {
   return createStore<EditorStore>((set, get) => ({
   // 宿主注入的初始态可能早于加法字段(如 transitions)→ 回填,保证 store 内 state 恒有该键
   undoable: init?.undoable
-    ? { ...init.undoable, transitions: init.undoable.transitions ?? {} }
+    ? { ...init.undoable, transitions: init.undoable.transitions ?? {}, groups: init.undoable.groups ?? {} }
     : createEmptyState({
         width: DEFAULT_COMPOSITION_WIDTH,
         height: DEFAULT_COMPOSITION_HEIGHT,
@@ -171,7 +183,29 @@ export function createEditorStore(init?: EditorInitialState): EditorStoreApi {
     set({ undoable: next, future: future.slice(0, -1), past: pushPast(past, undoable) });
   },
 
-  setSelected: (ids) => set({ selectedItemIds: ids, selectedTransitionId: null }),
+  // 单点收口:命中任一组成员 → 展开选整组(所有选择入口自动整组选中)
+  setSelected: (ids) =>
+    set({ selectedItemIds: expandSelectionWithGroups(ids, get().undoable.groups), selectedTransitionId: null }),
+
+  groupSelected: () => {
+    const { selectedItemIds, updateUndoable } = get();
+    updateUndoable((s) => {
+      const res = groupFromSelection(s.groups, selectedItemIds, newId());
+      return res ? { ...s, groups: res.groups } : s;
+    });
+  },
+  ungroupSelected: () => {
+    const { selectedItemIds, updateUndoable } = get();
+    updateUndoable((s) => {
+      const groups = ungroupBySelection(s.groups, selectedItemIds);
+      return groups === s.groups ? s : { ...s, groups };
+    });
+  },
+  reorderGroupItems: (orderedItemIds) =>
+    get().updateUndoable((s) => {
+      const groups = reorderGroup(s.groups, orderedItemIds);
+      return groups === s.groups ? s : { ...s, groups };
+    }),
 
   canvasZoom: 'fit',
   setCanvasZoom: (zoom) =>
@@ -273,7 +307,9 @@ export function createEditorStore(init?: EditorInitialState): EditorStoreApi {
           ([, t]) => !selectedItemIds.includes(t.fromItemId) && !selectedItemIds.includes(t.toItemId),
         ),
       );
-      return { ...s, items, deletedAssets, transitions };
+      // 组孤儿清理:摘除被删成员,成员降到 <2 的组解散
+      const groups = pruneGroups(s.groups, new Set(Object.keys(items)));
+      return { ...s, items, deletedAssets, transitions, groups };
     });
     set({ selectedItemIds: [] });
   },

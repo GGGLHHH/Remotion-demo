@@ -1,6 +1,6 @@
 import type React from 'react';
 import { useRef, useState } from 'react';
-import type { EditorStarterItem } from '@gedatou/shared';
+import { findGroupOfItem, type EditorStarterItem } from '@gedatou/shared';
 import {
   ContextMenu,
   ContextMenuContent,
@@ -316,6 +316,29 @@ export const SelectionOverlay: React.FC<{ scale: number }> = ({ scale }) => {
 
   const single = selectedVisible.length === 1 ? selectedVisible[0] : null;
 
+  // 组包围盒:选中可见项按所属组归拢,每个 ≥2 成员的组画一个轴对齐虚线框(仅视觉,无手柄)
+  const groupBoxes: { left: number; top: number; width: number; height: number }[] = [];
+  {
+    const byGroup = new Map<string, EditorStarterItem[]>();
+    for (const it of selectedVisible) {
+      const g = findGroupOfItem(undoable.groups, it.id);
+      if (!g) continue;
+      const arr = byGroup.get(g.id) ?? [];
+      arr.push(it);
+      byGroup.set(g.id, arr);
+    }
+    for (const members of byGroup.values()) {
+      if (members.length < 2) continue;
+      const left = Math.min(...members.map((m) => m.left));
+      const top = Math.min(...members.map((m) => m.top));
+      const right = Math.max(...members.map((m) => m.left + m.width));
+      const bottom = Math.max(...members.map((m) => m.top + m.height));
+      groupBoxes.push({ left, top, width: right - left, height: bottom - top });
+    }
+  }
+  const canGroup = selectedItemIds.length >= 2;
+  const canUngroup = selectedItemIds.some((id) => findGroupOfItem(undoable.groups, id));
+
   const hoverItem =
     hoverId && !selectedItemIds.includes(hoverId) ? (undoable.items[hoverId] ?? null) : null;
   const hoverVisible =
@@ -399,6 +422,18 @@ export const SelectionOverlay: React.FC<{ scale: number }> = ({ scale }) => {
           <SizeBadge width={item.width} height={item.height} />
         </div>
       ))}
+      {groupBoxes.map((b, i) => (
+        <div
+          key={`group-${i}`}
+          className="pointer-events-none absolute rounded-sm border border-dashed border-sky-400/70"
+          style={{
+            left: b.left * scale - 3,
+            top: b.top * scale - 3,
+            width: b.width * scale + 6,
+            height: b.height * scale + 6,
+          }}
+        />
+      ))}
       {guides.map((g, i) => (
         <div
           key={i}
@@ -429,6 +464,17 @@ export const SelectionOverlay: React.FC<{ scale: number }> = ({ scale }) => {
         <ContextMenuSeparator />
         <ContextMenuItem onClick={() => reorder('front')}>{t('selectionOverlay.bringToFront')}</ContextMenuItem>
         <ContextMenuItem onClick={() => reorder('back')}>{t('selectionOverlay.sendToBack')}</ContextMenuItem>
+        {canGroup || canUngroup ? <ContextMenuSeparator /> : null}
+        {canGroup ? (
+          <ContextMenuItem onClick={() => editorApi.getState().groupSelected()}>
+            {t('selectionOverlay.group')}
+          </ContextMenuItem>
+        ) : null}
+        {canUngroup ? (
+          <ContextMenuItem onClick={() => editorApi.getState().ungroupSelected()}>
+            {t('selectionOverlay.ungroup')}
+          </ContextMenuItem>
+        ) : null}
       </ContextMenuContent>
     </ContextMenu>
   );

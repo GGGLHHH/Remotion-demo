@@ -1,4 +1,4 @@
-import { createTrack, type EditorStarterItem, type UndoableState } from '@gedatou/shared';
+import { addItemToItemsGroup, createTrack, type EditorStarterItem, type UndoableState } from '@gedatou/shared';
 
 /** 媒体类 item（有 trimBefore/playbackRate） */
 const isMediaItem = (
@@ -218,6 +218,8 @@ export const splitItemsAtFrame = (
 ): UndoableState => {
   let changed = false;
   const items = { ...state.items };
+  // 分组维护:被分割 item 属某组时,两半都留在原组(src→rightId 记录,循环后一并并入)
+  const splitPairs: [string, string][] = [];
   for (const id of itemIds) {
     const item = items[id];
     if (!item) continue;
@@ -245,9 +247,13 @@ export const splitItemsAtFrame = (
     }
     items[id] = left;
     items[rightId] = right;
+    splitPairs.push([id, rightId]);
     changed = true;
   }
-  return changed ? { ...state, items } : state;
+  if (!changed) return state;
+  let groups = state.groups;
+  for (const [srcId, rightId] of splitPairs) groups = addItemToItemsGroup(groups, srcId, rightId);
+  return { ...state, items, groups };
 };
 
 /** 分割目标：有选中用选中，否则取播放头下的所有条目 */

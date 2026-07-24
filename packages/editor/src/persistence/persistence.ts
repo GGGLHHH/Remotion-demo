@@ -1,4 +1,4 @@
-import type { EditorStarterItem, UndoableState } from '@gedatou/shared';
+import { pruneGroups, type EditorStarterItem, type UndoableState } from '@gedatou/shared';
 import type { EditorStoreApi } from '../state/store';
 import type { EditorDeps } from '../state/runtime';
 import { tFor } from '../lib/i18n';
@@ -21,6 +21,8 @@ export const deserializeState = (raw: string): UndoableState | null => {
     if (!parsed || !Array.isArray(parsed.tracks) || typeof parsed.items !== 'object') return null;
     normalizeLegacyFades(Object.values(parsed.items));
     parsed.transitions ??= {};
+    // 组自愈:清掉指向已不存在 item 的成员、解散降到 <2 的组(覆盖 deleteSelected 之外的移除路径)
+    parsed.groups = pruneGroups(parsed.groups ?? {}, new Set(Object.keys(parsed.items)));
     return parsed;
   } catch {
     return null;

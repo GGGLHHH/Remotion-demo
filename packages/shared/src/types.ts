@@ -166,6 +166,12 @@ export type Transition = {
   durationInFrames: number;
 };
 
+// ---- 分组（画布持久组：成员一起选/一起移，可拆分）----
+
+// 轻量持久组:一个 item 至多属于一个组,成员 ≥2(降到 1 自动解散)。单一真相源——
+// item 上不存 groupId,反查用 findGroupOfItem(见 groups.ts)。无嵌套、无整组缩放/旋转(v1)。
+export type Group = { id: string; itemIds: string[] };
+
 // ---- 可撤销状态（唯一进撤销栈/持久化的部分）----
 
 export type UndoableState = {
@@ -178,4 +184,6 @@ export type UndoableState = {
   compositionHeight: number;
   deletedAssets: DeletedAsset[];
   transitions: Record<string, Transition>;
+  /** 画布分组:groupId → 组。加法字段,旧存档缺失时回填 {}(零迁移)。 */
+  groups: Record<string, Group>;
 };

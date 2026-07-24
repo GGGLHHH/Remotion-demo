@@ -29,6 +29,10 @@ export type EditorCommands = {
   // 选择 & 剪贴板
   selectAll: () => void;
   deleteSelected: () => void;
+  /** 把当前选中(≥2)组合成持久组 */
+  group: () => void;
+  /** 拆分当前选中所涉及的组 */
+  ungroup: () => void;
   copy: () => void;
   cut: () => void;
   paste: (atFrame?: number) => void;
@@ -96,6 +100,8 @@ export function useEditorCommands(): EditorCommands {
         st.setSelected(Object.keys(st.undoable.items));
       },
       deleteSelected: () => api.getState().deleteSelected(),
+      group: () => api.getState().groupSelected(),
+      ungroup: () => api.getState().ungroupSelected(),
       copy: () => copySelection(api),
       cut: () => {
         copySelection(api);

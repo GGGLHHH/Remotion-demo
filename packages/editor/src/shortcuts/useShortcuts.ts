@@ -56,6 +56,13 @@ export const useShortcuts = () => {
         duplicateSelection(editorApi);
         return;
       }
+      // Cmd+G 组合 / Cmd+Shift+G 拆分(画布持久组)
+      if (mod && key === 'g') {
+        e.preventDefault();
+        if (e.shiftKey) store.ungroupSelected();
+        else store.groupSelected();
+        return;
+      }
       if (mod && key === 'a') {
         e.preventDefault();
         store.setSelected(Object.keys(store.undoable.items));
