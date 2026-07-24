@@ -1,7 +1,7 @@
 import type React from 'react';
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Eye, EyeOff, Plus, Volume2, VolumeX } from 'lucide-react';
-import type { EditorStarterItem, Track, Transition, UndoableState } from '@gedatou/shared';
+import type { EditorStarterItem, Track, Transition } from '@gedatou/shared';
 import { Button } from '../components/ui/button';
 import { cn } from '../lib/utils';
 import {
@@ -17,8 +17,6 @@ import { usePlayerFrameDerived } from '../canvas/player-ref';
 import { calcDuration } from '@gedatou/shared/composition';
 import {
   HEADER_WIDTH,
-  AUDIO_TRACK_HEIGHT,
-  MEDIA_TRACK_HEIGHT,
   RULER_HEIGHT,
   SNAP_TOLERANCE_PX,
   TRACK_HEIGHT,
@@ -27,10 +25,11 @@ import { ItemBlock } from './ItemBlock';
 import { Playhead } from './Playhead';
 import { Ruler } from './Ruler';
 import { TimelineToolbar } from './TimelineToolbar';
+import { TimelineGhost, TimelineOverlays } from './TimelineOverlays';
+import type { DragState, MoveDrag, MoveVisual, TrackTarget } from './types';
 import {
   addTrack,
   bringToFront,
-  maxExtendFrames,
   removeEmptyTracks,
   resolveMovePlacement,
   resolveSplitTargets,
@@ -53,51 +52,6 @@ const TRACK_GAP_PX = 4;
 /** 视口左右边缘自动滚动：触发范围与步长 */
 const AUTO_SCROLL_EDGE_PX = 40;
 const AUTO_SCROLL_STEP_PX = 24;
-
-type DragState =
-  | {
-      kind: 'trim';
-      edge: 'start' | 'end';
-      id: string;
-      startX: number;
-      snapshot: UndoableState;
-      /** 滚动编辑（相邻块边界热区）联动的相邻项 */
-      rollingNeighborId: string | null;
-      /** 是否已越过点击阈值（区分 roll 热区的点击建转场 vs 真实拖拽）；普通 trim 不读取 */
-      moved: boolean;
-    }
-  | { kind: 'marquee'; startX: number; startY: number; curX: number; curY: number };
-
-/** 移动拖拽的轨道目标：现有行 / 在 index 处插入（bar=行间细条提示，否则渲染虚拟空行） */
-type TrackTarget =
-  | { kind: 'existing'; index: number }
-  | { kind: 'insert'; index: number; bar: boolean };
-
-/** 移动拖拽簿记（ref，不触发渲染）。官方模型：拖拽中不改 store，松手一次性提交 */
-type MoveDrag = {
-  id: string;
-  downX: number;
-  downY: number;
-  /** 指针距块左缘 px */
-  grabDX: number;
-  /** 指针距行顶 px */
-  grabDY: number;
-  moved: boolean;
-  lastClientX: number;
-  lastClientY: number;
-  /** 最近一次解析出的合法落点（松手时提交） */
-  placement: { target: TrackTarget; from: number } | null;
-};
-
-/** 移动拖拽视觉（React state）：幽灵块 + 落位槽 + 吸附线 */
-type MoveVisual = {
-  id: string;
-  ghostX: number;
-  ghostY: number;
-  target: TrackTarget;
-  slotFrom: number;
-  guideFrame: number | null;
-};
 
 /** 轨道头图标按钮：保留 title + Tooltip 中文说明 */
 const TrackBtn: React.FC<{
@@ -855,109 +809,18 @@ export const TimelinePanel: React.FC<{ className?: string }> = ({ className }) =
             <Ruler durationInFrames={duration} fps={undoable.fps} zoom={zoom} onSeek={seekTo} />
             {laneRows}
             <Playhead zoom={zoom} onSeek={seekTo} />
-            {/* 移动拖拽：落位槽（深灰圆角 = 松手后的合法落点）/ 行间插入条 */}
-            {moveVisual && movingItem
-              ? (() => {
-                  const left = moveVisual.slotFrom * zoom;
-                  const width = movingItem.durationInFrames * zoom;
-                  if (moveVisual.target.kind === 'insert' && moveVisual.target.bar) {
-                    return (
-                      <div
-                        data-move-slot
-                        className="pointer-events-none absolute z-20 rounded bg-muted-foreground"
-                        style={{
-                          left,
-                          width,
-                          top: tops[moveVisual.target.index] - 2,
-                          height: 4,
-                        }}
-                      />
-                    );
-                  }
-                  // 现有行按该行行高；插入目标落在虚拟空行（普通行高）
-                  const slotRowH =
-                    moveVisual.target.kind === 'existing'
-                      ? rowHeights[moveVisual.target.index]
-                      : TRACK_HEIGHT;
-                  return (
-                    <div
-                      data-move-slot
-                      className="pointer-events-none absolute z-10 rounded bg-muted-foreground/70"
-                      style={{
-                        left,
-                        width,
-                        top: tops[moveVisual.target.index] + 6,
-                        height: slotRowH - 12,
-                      }}
-                    />
-                  );
-                })()
-              : null}
-            {/* 吸附线：贯穿整个时间线高度（官方 1px neutral-700） */}
-            {guideFrame !== null ? (
-              <div
-                className="pointer-events-none absolute inset-y-0 z-30 w-px bg-muted-foreground"
-                style={{ left: guideFrame * zoom }}
-              />
-            ) : null}
-            {/* 修剪拖拽：媒体最大可扩展范围指示（斜纹） */}
-            {trimming
-              ? (() => {
-                  const it = undoable.items[trimming.id];
-                  const ext = it ? maxExtendFrames(undoable, trimming.id) : null;
-                  if (!it || !ext) return null;
-                  const frames = trimming.edge === 'start' ? ext.left : ext.right;
-                  if (frames <= 0) return null;
-                  const trackIndex = undoable.tracks.findIndex((t) => t.id === it.trackId);
-                  if (trackIndex < 0) return null;
-                  const left =
-                    trimming.edge === 'start'
-                      ? (it.from - frames) * zoom
-                      : (it.from + it.durationInFrames) * zoom;
-                  return (
-                    <div
-                      className="pointer-events-none absolute z-10 rounded border border-dashed border-white/30"
-                      style={{
-                        left,
-                        width: frames * zoom,
-                        top: tops[trackIndex] + 6,
-                        height: rowHeights[trackIndex] - 12,
-                        background:
-                          'repeating-linear-gradient(45deg, rgba(255,255,255,0.12) 0 6px, transparent 6px 12px)',
-                      }}
-                    />
-                  );
-                })()
-              : null}
-            {/* OS 文件拖放指示：落点竖线 + 悬停轨道高亮 */}
-            {dropHint ? (
-              <>
-                <div
-                  className="pointer-events-none absolute inset-y-0 z-20 w-px bg-blue-400"
-                  style={{ left: dropHint.frame * zoom }}
-                />
-                {dropHint.trackIndex >= 0 && dropHint.trackIndex < undoable.tracks.length ? (
-                  <div
-                    className="pointer-events-none absolute left-0 right-0 z-10 bg-blue-400/10"
-                    style={{
-                      top: tops[dropHint.trackIndex],
-                      height: rowHeights[dropHint.trackIndex],
-                    }}
-                  />
-                ) : null}
-              </>
-            ) : null}
-            {marqueeRect ? (
-              <div
-                className="pointer-events-none absolute z-10 border border-blue-400 bg-blue-400/10"
-                style={{
-                  left: marqueeRect.x,
-                  top: marqueeRect.y,
-                  width: marqueeRect.w,
-                  height: marqueeRect.h,
-                }}
-              />
-            ) : null}
+            <TimelineOverlays
+              undoable={undoable}
+              zoom={zoom}
+              tops={tops}
+              rowHeights={rowHeights}
+              moveVisual={moveVisual}
+              movingItem={movingItem}
+              guideFrame={guideFrame}
+              trimming={trimming}
+              dropHint={dropHint}
+              marqueeRect={marqueeRect}
+            />
             </ContextMenuTrigger>
             <ContextMenuContent>
               <ContextMenuItem onClick={menuCut}>{t('timeline.cut')}</ContextMenuItem>
@@ -970,26 +833,7 @@ export const TimelinePanel: React.FC<{ className?: string }> = ({ className }) =
           </ContextMenu>
         </div>
       </div>
-      {/* 移动拖拽：幽灵块 1:1 跟随光标（最顶层，可越过标尺/轨道头/0 帧）*/}
-      {moveVisual && movingItem ? (
-        <div
-          className="pointer-events-none absolute z-50"
-          style={{
-            left: moveVisual.ghostX - movingItem.from * zoom,
-            top: moveVisual.ghostY,
-            width: (movingItem.from + movingItem.durationInFrames) * zoom,
-            // 幽灵块保持自身类型对应的行高（媒体块拖拽中不缩小）
-            height:
-              movingItem.type === 'video'
-                ? MEDIA_TRACK_HEIGHT
-                : movingItem.type === 'audio'
-                  ? AUDIO_TRACK_HEIGHT
-                  : TRACK_HEIGHT,
-          }}
-        >
-          <ItemBlock item={movingItem} zoom={zoom} />
-        </div>
-      ) : null}
+      <TimelineGhost zoom={zoom} moveVisual={moveVisual} movingItem={movingItem} />
     </div>
   );
 };
