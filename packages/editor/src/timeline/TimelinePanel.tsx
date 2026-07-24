@@ -40,6 +40,7 @@ import {
   splitItemsAtFrame,
   trimItem,
 } from './ops';
+import { rowHeightOf, rowTops, trackIndexAtY } from './geometry';
 import { importFiles } from '../lib/import-assets';
 import { copySelection, duplicateSelection } from '../lib/clipboard';
 import { addTransition, applyTransitionDuration } from '../lib/transition-ops';
@@ -52,34 +53,6 @@ const TRACK_GAP_PX = 4;
 /** 视口左右边缘自动滚动：触发范围与步长 */
 const AUTO_SCROLL_EDGE_PX = 40;
 const AUTO_SCROLL_STEP_PX = 24;
-
-// ---- 变高行几何（官方：含视频/音频的轨道行更高）：所有 y↔行 换算统一走前缀和 ----
-
-/** 单条轨道行高（官方）：含视频 ⇒ 70，纯音频 ⇒ 48，其余 ⇒ 34 */
-const rowHeightOf = (st: UndoableState, trackId: string): number => {
-  let hasAudio = false;
-  for (const i of Object.values(st.items)) {
-    if (i.trackId !== trackId) continue;
-    if (i.type === 'video') return MEDIA_TRACK_HEIGHT;
-    if (i.type === 'audio') hasAudio = true;
-  }
-  return hasAudio ? AUDIO_TRACK_HEIGHT : TRACK_HEIGHT;
-};
-
-/** 前缀和（内容坐标，含标尺）：tops[i] = 第 i 行顶部 y，tops[n] = 所有行底部 */
-const rowTops = (st: UndoableState): number[] => {
-  const tops = [RULER_HEIGHT];
-  for (const t of st.tracks) tops.push(tops[tops.length - 1] + rowHeightOf(st, t.id));
-  return tops;
-};
-
-/** y（内容坐标）→ 行号；标尺内 = -1，底行之下 = 轨道数 n */
-const trackIndexAtY = (st: UndoableState, y: number): number => {
-  if (y < RULER_HEIGHT) return -1;
-  const tops = rowTops(st);
-  for (let i = 0; i < st.tracks.length; i++) if (y < tops[i + 1]) return i;
-  return st.tracks.length;
-};
 
 type DragState =
   | {
