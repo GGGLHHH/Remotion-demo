@@ -71,8 +71,10 @@ export function useSelectionDrag(deps: {
     }
     ids = store.selectedItemIds.includes(hit.id) ? store.selectedItemIds : [hit.id];
     store.setSelected(ids);
+    // setSelected 会把命中项所在组整组纳入选择;startRects 必须按展开后的完整选择建,
+    // 否则「按下未选中的组成员 → 整组选中(蓝框)但本次拖拽只动被抓那个」。
     const startRects = new Map<string, Rect>();
-    for (const id of ids) {
+    for (const id of editorApi.getState().selectedItemIds) {
       const it = store.undoable.items[id];
       if (it) startRects.set(id, { left: it.left, top: it.top, width: it.width, height: it.height });
     }
