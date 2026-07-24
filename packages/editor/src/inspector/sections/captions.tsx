@@ -2,6 +2,7 @@ import type React from 'react';
 import type { Caption, CaptionsItem } from '@gedatou/shared';
 import { Input } from '../../components/ui/input';
 import { useEditor } from '../../state/context';
+import { useItemPatch } from '../patch';
 import { NumberField } from '../NumberField';
 import { ColorField, Row, Section } from '../fields';
 import { FontPicker } from '../FontPicker';
@@ -14,15 +15,7 @@ export const CaptionsStyleSection: React.FC<{ item: CaptionsItem }> = ({ item })
   const asset = useEditor((s) => s.undoable.assets[item.assetId]);
   const captions = asset?.type === 'caption' ? asset.captions : [];
 
-  const patch = (partial: Partial<CaptionsItem>, commit = true) =>
-    updateUndoable(
-      (s) => {
-        const cur = s.items[item.id];
-        if (!cur || cur.type !== 'captions') return s;
-        return { ...s, items: { ...s.items, [item.id]: { ...cur, ...partial } } };
-      },
-      { commit },
-    );
+  const patch = useItemPatch<CaptionsItem>(item.id);
 
   /** 不可变更新 asset.captions 里第 i 条 token */
   const patchCaption = (index: number, partial: Partial<Caption>) =>

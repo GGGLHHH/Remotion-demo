@@ -3,6 +3,7 @@ import type { AudioItem, GifItem, VideoItem } from '@gedatou/shared';
 import { Switch } from '../../components/ui/switch';
 import { useEditor } from '../../state/context';
 import { maxItemDurationInFrames } from '../../timeline/ops';
+import { useItemPatch } from '../patch';
 import { FadeSliders, Row, Section, SliderField } from '../fields';
 import { useT } from '../../lib/i18n';
 
@@ -20,15 +21,7 @@ export const MediaSection: React.FC<{ item: MediaItem }> = ({ item }) => {
   const updateUndoable = useEditor((s) => s.updateUndoable);
   const fps = useEditor((s) => s.undoable.fps);
 
-  const patch = (partial: Partial<MediaItem>, commit = true) =>
-    updateUndoable(
-      (s) => {
-        const cur = s.items[item.id];
-        if (!cur || cur.type !== item.type) return s;
-        return { ...s, items: { ...s.items, [item.id]: { ...cur, ...partial } as typeof cur } };
-      },
-      { commit },
-    );
+  const patch = useItemPatch<MediaItem>(item.id);
 
   /** 变速：同步换算时长（官方行为），一条撤销记录 */
   const setSpeed = (rate: number) => {

@@ -20,6 +20,7 @@ import { Command, CommandItem, CommandList } from '../../components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '../../components/ui/popover';
 import { Textarea } from '../../components/ui/textarea';
 import { useEditor } from '../../state/context';
+import { useItemPatch } from '../patch';
 import { useT } from '../../lib/i18n';
 import { NumberField } from '../NumberField';
 import { ColorField, Row, Section } from '../fields';
@@ -65,28 +66,13 @@ const groupCls = (i: number, len: number) =>
 const ALIGN_ICONS = { left: AlignLeftIcon, center: AlignCenterIcon, right: AlignRightIcon } as const;
 const DIR_ICONS = { ltr: PilcrowLeftIcon, rtl: PilcrowRightIcon } as const;
 
-type PatchFn = (partial: Partial<TextItem>, commit?: boolean) => void;
-
-const usePatch = (itemId: string): PatchFn => {
-  const updateUndoable = useEditor((s) => s.updateUndoable);
-  return (partial, commit = true) =>
-    updateUndoable(
-      (s) => {
-        const cur = s.items[itemId];
-        if (!cur || cur.type !== 'text') return s;
-        return { ...s, items: { ...s.items, [itemId]: { ...cur, ...partial } } };
-      },
-      { commit },
-    );
-};
-
 /** 排版（官方 Typography）：字体/字重/字号/行高/字距/文本/对齐/方向 */
 export const TypographySection: React.FC<{ item: TextItem }> = ({ item }) => {
   const previewItemStyle = useEditor((s) => s.previewItemStyle);
   const cancelItemStylePreview = useEditor((s) => s.cancelItemStylePreview);
   const commitPending = useEditor((s) => s.commitPending);
   const [weightOpen, setWeightOpen] = useState(false);
-  const patch = usePatch(item.id);
+  const patch = useItemPatch<TextItem>(item.id);
   const t = useT();
 
   return (
@@ -225,7 +211,7 @@ export const TypographySection: React.FC<{ item: TextItem }> = ({ item }) => {
 
 /** 描边（官方 Stroke，默认折叠）：宽度 + 颜色始终可见 */
 export const StrokeSection: React.FC<{ item: TextItem }> = ({ item }) => {
-  const patch = usePatch(item.id);
+  const patch = useItemPatch<TextItem>(item.id);
   const t = useT();
   return (
     <Section title={t('textPanel.stroke')} collapsible defaultOpen={false}>
@@ -245,7 +231,7 @@ export const StrokeSection: React.FC<{ item: TextItem }> = ({ item }) => {
 /** 背景（官方 Background）。启用 checkbox 是 e2e 钩子（verify-m4），保留；
  * 启用时写入官方默认值：#808080 / 圆角 20 / 内边距 40 */
 export const BackgroundSection: React.FC<{ item: TextItem }> = ({ item }) => {
-  const patch = usePatch(item.id);
+  const patch = useItemPatch<TextItem>(item.id);
   const t = useT();
   return (
     <Section title={t('textPanel.background')} collapsible defaultOpen>
