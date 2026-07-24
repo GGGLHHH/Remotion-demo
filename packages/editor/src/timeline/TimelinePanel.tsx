@@ -1,6 +1,6 @@
 import type React from 'react';
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Eye, EyeOff, Magnet, Minus, Plus, Scissors, Volume2, VolumeX } from 'lucide-react';
+import { Eye, EyeOff, Plus, Volume2, VolumeX } from 'lucide-react';
 import type { EditorStarterItem, Track, Transition, UndoableState } from '@gedatou/shared';
 import { Button } from '../components/ui/button';
 import { cn } from '../lib/utils';
@@ -11,7 +11,6 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from '../components/ui/context-menu';
-import { Slider } from '../components/ui/slider';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../components/ui/tooltip';
 import { useEditor, useEditorApi, useEditorDeps, useEditorRefs } from '../state/context';
 import { usePlayerFrameDerived } from '../canvas/player-ref';
@@ -26,7 +25,8 @@ import {
 } from './constants';
 import { ItemBlock } from './ItemBlock';
 import { Playhead } from './Playhead';
-import { Ruler, formatTime } from './Ruler';
+import { Ruler } from './Ruler';
+import { TimelineToolbar } from './TimelineToolbar';
 import {
   addTrack,
   bringToFront,
@@ -153,16 +153,6 @@ const TrackHeader = memo<{ track: Track; number: number; height: number }>(funct
     </div>
   );
 });
-
-/** 工具栏时间码（当前/总时长）：秒级读数，仅显示文本变化时才重渲（播放中 ~1 次/秒） */
-const TimecodeReadout: React.FC<{ fps: number; duration: number }> = ({ fps, duration }) => {
-  const cur = usePlayerFrameDerived((f) => formatTime(f, fps));
-  return (
-    <span className="tabular-nums">
-      {cur} / {formatTime(duration, fps)}
-    </span>
-  );
-};
 
 export const TimelinePanel: React.FC<{ className?: string }> = ({ className }) => {
   const t = useT();
@@ -803,107 +793,26 @@ export const TimelinePanel: React.FC<{ className?: string }> = ({ className }) =
         className="absolute -top-1 left-0 right-0 z-30 h-2 cursor-ns-resize"
         onPointerDown={onResizePointerDown}
       />
-      <div className="flex h-8 items-center gap-3 border-b border-border px-3 text-xs text-muted-foreground">
-        <TimecodeReadout fps={undoable.fps} duration={duration} />
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                className={snapping ? 'text-blue-400 hover:text-blue-400' : 'text-muted-foreground hover:text-foreground'}
-                title={t('timeline.snapTitle')}
-                aria-pressed={snapping}
-                onClick={() => editorApi.getState().toggleSnapping()}
-              />
-            }
-          >
-            <Magnet className="size-4" />
-          </TooltipTrigger>
-          <TooltipContent>{t('timeline.snapTooltip')}</TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                className="text-muted-foreground hover:text-foreground"
-                title={t('timeline.split')}
-                disabled={!splittable}
-                onClick={() => {
-                  const store = editorApi.getState();
-                  const f = refs.getPlayerFrame();
-                  store.updateUndoable((s) =>
-                    splitItemsAtFrame(s, f, resolveSplitTargets(s, f, store.selectedItemIds)),
-                  );
-                }}
-              />
-            }
-          >
-            <Scissors className="size-4" />
-          </TooltipTrigger>
-          <TooltipContent>{t('timeline.split')}</TooltipContent>
-        </Tooltip>
-        <div className="flex-1" />
-        {/* 官方缩放模型：滑杆 0..1，0 = 适应（自动跟随内容/面板宽度），>0 在 [fit, 8] 间指数插值 */}
-        <span className="cursor-pointer" title={t('timeline.zoomResetTitle')} onClick={() => setZoom('fit')}>
-          {t('timeline.zoom')}
-        </span>
-        <Button
-          variant="ghost"
-          size="icon-xs"
-          className="text-muted-foreground hover:text-foreground"
-          title={t('timeline.zoomOut')}
-          onClick={() => setZoom(zoom / 2)}
-        >
-          <Minus className="size-3" />
-        </Button>
-        <div className="w-32">
-          <Slider
-            min={0}
-            max={1}
-            step={0.01}
-            value={[
-              zoomSetting === 'fit'
-                ? 0
-                : 8 / fitZoom <= 1
-                  ? 1
-                  : Math.min(1, Math.max(0, Math.log(zoomSetting / fitZoom) / Math.log(8 / fitZoom))),
-            ]}
-            onValueChange={(v) => {
-              const pos = Array.isArray(v) ? v[0] : v;
-              if (pos <= 0) setZoom('fit');
-              else setZoom(8 / fitZoom <= 1 ? 8 : fitZoom * (8 / fitZoom) ** pos);
-            }}
-          />
-        </div>
-        <Button
-          variant="ghost"
-          size="icon-xs"
-          className="text-muted-foreground hover:text-foreground"
-          title={t('timeline.zoomIn')}
-          onClick={() => setZoom(zoom * 2)}
-        >
-          <Plus className="size-3" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="xs"
-          className={
-            zoomSetting === 'fit'
-              ? 'text-blue-400 hover:text-blue-400'
-              : 'text-muted-foreground hover:text-foreground'
-          }
-          title={t('timeline.fitTitle')}
-          onClick={() => {
-            setZoom('fit');
-            if (scrollRef.current) scrollRef.current.scrollLeft = 0;
-          }}
-        >
-          {t('timeline.fit')}
-        </Button>
-      </div>
+      <TimelineToolbar
+        fps={undoable.fps}
+        duration={duration}
+        snapping={snapping}
+        splittable={splittable}
+        zoom={zoom}
+        zoomSetting={zoomSetting}
+        fitZoom={fitZoom}
+        setZoom={setZoom}
+        onToggleSnapping={() => editorApi.getState().toggleSnapping()}
+        onSplit={() => {
+          const store = editorApi.getState();
+          const f = refs.getPlayerFrame();
+          store.updateUndoable((s) => splitItemsAtFrame(s, f, resolveSplitTargets(s, f, store.selectedItemIds)));
+        }}
+        onFit={() => {
+          setZoom('fit');
+          if (scrollRef.current) scrollRef.current.scrollLeft = 0;
+        }}
+      />
       <div className="flex overflow-y-auto" style={{ height: `calc(100% - 2rem)` }}>
         <div className="shrink-0 border-r border-border" style={{ width: HEADER_WIDTH }}>
           <div style={{ height: RULER_HEIGHT }} />
