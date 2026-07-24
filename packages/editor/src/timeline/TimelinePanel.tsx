@@ -20,24 +20,13 @@ import { TimelineGhost, TimelineOverlays } from './TimelineOverlays';
 import { TimelineTracks } from './TimelineTracks';
 import { TrackHeader } from './TrackHeader';
 import { useMoveDrag } from './use-move-drag';
-import type { DragState } from './types';
-import {
-  bringToFront,
-  resolveSplitTargets,
-  rollEdit,
-  sendToBack,
-  snapFrame,
-  splitItemsAtFrame,
-  trimItem,
-} from './ops';
+import { useTrimMarqueeDrag } from './use-trim-marquee-drag';
+import { bringToFront, resolveSplitTargets, sendToBack, splitItemsAtFrame } from './ops';
 import { rowHeightOf, rowTops, trackIndexAtY } from './geometry';
 import { importFiles } from '../lib/import-assets';
 import { copySelection, duplicateSelection } from '../lib/clipboard';
-import { addTransition, applyTransitionDuration } from '../lib/transition-ops';
+import { applyTransitionDuration } from '../lib/transition-ops';
 import { useT } from '../lib/i18n';
-
-/** 修剪吸附阈值（官方约 10px） */
-const TRIM_SNAP_PX = 10;
 
 export const TimelinePanel: React.FC<{ className?: string }> = ({ className }) => {
   const t = useT();
@@ -58,12 +47,6 @@ export const TimelinePanel: React.FC<{ className?: string }> = ({ className }) =
   const panelRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
-  const drag = useRef<DragState | null>(null);
-  const [marqueeRect, setMarqueeRect] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
-  /** 修剪拖拽中的项（用于最大可扩展指示） */
-  const [trimming, setTrimming] = useState<{ id: string; edge: 'start' | 'end' } | null>(null);
-  /** 修剪吸附线（帧） */
-  const [trimGuide, setTrimGuide] = useState<number | null>(null);
   /** OS 文件拖放悬停位置 */
   const [dropHint, setDropHint] = useState<{ frame: number; trackIndex: number } | null>(null);
 
@@ -89,6 +72,9 @@ export const TimelinePanel: React.FC<{ className?: string }> = ({ className }) =
   zoomRef.current = zoom;
   // 移动拖拽状态机(私有 ref + window 监听 + 自动滚动);入口 startMove 由块 pointerdown 的 move 分支调用
   const { moveVisual, startMove } = useMoveDrag({ editorApi, refs, panelRef, contentRef, scrollRef, zoomRef });
+  // 修剪/roll/框选拖拽状态机(共享 drag ref);入口 startTrim/startRoll/startMarquee 分别由手柄/热区/背景调用
+  const { trimming, trimGuide, marqueeRect, startTrim, startRoll, startMarquee, onPointerMove, onPointerUp } =
+    useTrimMarqueeDrag({ editorApi, scrollRef, zoom, snapping });
   // fit 模式内容刚好占满（无横向滚动）；数字模式末尾留 240px 拖拽余量
   const contentWidth = Math.max(duration * zoom + (zoomSetting === 'fit' ? 0 : 240), viewW);
   // 剪刀按钮：播放头没有落在任何可分割目标内部时禁用（官方行为）。
@@ -147,19 +133,7 @@ export const TimelinePanel: React.FC<{ className?: string }> = ({ className }) =
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
 
     if (mode === 'trim-start' || mode === 'trim-end') {
-      const edge = mode === 'trim-start' ? 'start' : 'end';
-      // 官方：按下修剪手柄立即独占选中该项（mousedown 即生效，无需移动）
-      store.setSelected([item.id]);
-      drag.current = {
-        kind: 'trim',
-        edge,
-        id: item.id,
-        startX: e.clientX,
-        snapshot: store.undoable,
-        rollingNeighborId: null,
-        moved: false,
-      };
-      setTrimming({ id: item.id, edge });
+      startTrim(e, item, mode === 'trim-start' ? 'start' : 'end');
       return;
     }
 
@@ -185,22 +159,6 @@ export const TimelinePanel: React.FC<{ className?: string }> = ({ className }) =
     [],
   );
 
-  /** 相邻块边界滚动编辑（官方：4px ew-resize 热区，无需修饰键）：A 出点 + B 入点联动 */
-  const onRollPointerDown = (e: React.PointerEvent, aId: string, bId: string) => {
-    if (e.button !== 0) return;
-    e.stopPropagation();
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    drag.current = {
-      kind: 'trim',
-      edge: 'end',
-      id: aId,
-      startX: e.clientX,
-      snapshot: editorApi.getState().undoable,
-      rollingNeighborId: bId,
-      moved: false,
-    };
-  };
-
   /** 转场 pill 拖拽调时长（手柄小拖拽骨架，同 ItemBlock 的 startHandleDrag）：
       指针 x → 内容坐标帧号，newDur = A 出点 − 该帧（钳制在 op 内做），松手一次性提交 */
   const onTransitionPointerDown = (e: React.PointerEvent, tr: Transition, a: EditorStarterItem) => {
@@ -223,101 +181,6 @@ export const TimelinePanel: React.FC<{ className?: string }> = ({ className }) =
     };
     el.addEventListener('pointermove', onMove);
     el.addEventListener('pointerup', onUp);
-  };
-
-  const onPointerMove = (e: React.PointerEvent) => {
-    const d = drag.current;
-    if (!d) return;
-    const store = editorApi.getState();
-
-    if (d.kind === 'trim') {
-      // 3px 阈值：区分 roll 热区的点击（建转场）与真实拖拽（roll 编辑）
-      if (!d.moved && Math.abs(e.clientX - d.startX) >= 3) d.moved = true;
-      // roll 热区在越过阈值前不写 store：否则 sub-3px 抖动会先 commit:false 一次微 roll，
-      // pointerup 时 addTransition 又读到这个已被污染的状态、commitPending 再补一条——
-      // 一次点击炸出两条乱序 past。普通 trim（rollingNeighborId 为 null）不受影响。
-      if (d.rollingNeighborId && !d.moved) return;
-      // 官方：按住 Shift 完全抑制修剪（边缘回到起拖位置，松开恢复）
-      if (e.shiftKey) {
-        setTrimGuide(null);
-        store.updateUndoable(() => d.snapshot, { commit: false });
-        return;
-      }
-      let delta = Math.round((e.clientX - d.startX) / zoom);
-      const orig = d.snapshot.items[d.id];
-      let guide: number | null = null;
-      if (snapping && orig) {
-        // 修剪吸附（官方约 10px 阈值）：以被拖的边缘为准；播放头不是修剪吸附目标
-        const tol = Math.max(1, Math.round(TRIM_SNAP_PX / zoom));
-        const edgeFrame =
-          d.edge === 'start' ? orig.from + delta : orig.from + orig.durationInFrames + delta;
-        const ignoreIds = d.rollingNeighborId ? [d.id, d.rollingNeighborId] : [d.id];
-        const snapped = snapFrame(d.snapshot, edgeFrame, tol, { ignoreIds });
-        if (snapped !== edgeFrame) {
-          delta += snapped - edgeFrame;
-          guide = snapped;
-        }
-      }
-      setTrimGuide(guide);
-      store.updateUndoable(
-        () =>
-          d.rollingNeighborId
-            ? rollEdit(d.snapshot, d.id, d.rollingNeighborId, delta)
-            : trimItem(d.snapshot, d.id, d.edge, delta),
-        { commit: false },
-      );
-      return;
-    }
-
-    // marquee
-    d.curX = e.clientX;
-    d.curY = e.clientY;
-    const host = scrollRef.current!.getBoundingClientRect();
-    const x1 = Math.min(d.startX, d.curX) - host.left + scrollRef.current!.scrollLeft;
-    const x2 = Math.max(d.startX, d.curX) - host.left + scrollRef.current!.scrollLeft;
-    const y1 = Math.min(d.startY, d.curY) - host.top;
-    const y2 = Math.max(d.startY, d.curY) - host.top;
-    setMarqueeRect({ x: x1, y: y1, w: x2 - x1, h: y2 - y1 });
-    // 命中：帧区间 × 轨道行相交
-    const f1 = x1 / zoom;
-    const f2 = x2 / zoom;
-    const r1 = trackIndexAtY(store.undoable, y1);
-    const r2 = trackIndexAtY(store.undoable, y2);
-    const hit: string[] = [];
-    for (const item of Object.values(store.undoable.items)) {
-      const idx = store.undoable.tracks.findIndex((t) => t.id === item.trackId);
-      if (idx < r1 || idx > r2) continue;
-      if (item.from < f2 && f1 < item.from + item.durationInFrames) hit.push(item.id);
-    }
-    store.setSelected(hit);
-  };
-
-  const onPointerUp = () => {
-    const d = drag.current;
-    drag.current = null;
-    setMarqueeRect(null);
-    setTrimming(null);
-    setTrimGuide(null);
-    if (!d) return;
-    if (d.kind === 'trim') {
-      // roll 热区点击（未越过拖拽阈值）且该切点尚无转场 ⇒ 建转场；真实拖拽（moved）仍按原逻辑提交 roll 编辑
-      const bId = d.rollingNeighborId;
-      if (bId && !d.moved) {
-        const exists = Object.values(editorApi.getState().undoable.transitions ?? {}).some(
-          (tr) => tr.fromItemId === d.id && tr.toItemId === bId,
-        );
-        if (!exists) addTransition(editorApi, d.id, bId);
-      }
-      editorApi.getState().commitPending();
-    }
-  };
-
-  const onBackgroundPointerDown = (e: React.PointerEvent) => {
-    if (e.button !== 0) return;
-    if ((e.target as HTMLElement).closest('[data-item-block]')) return;
-    editorApi.getState().setSelected([]);
-    drag.current = { kind: 'marquee', startX: e.clientX, startY: e.clientY, curX: e.clientX, curY: e.clientY };
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   };
 
   // ---- OS 文件拖放 ----
@@ -468,7 +331,7 @@ export const TimelinePanel: React.FC<{ className?: string }> = ({ className }) =
                   ref={contentRef}
                   className="relative"
                   style={{ width: contentWidth, minHeight: '100%' }}
-                  onPointerDown={onBackgroundPointerDown}
+                  onPointerDown={startMarquee}
                   onPointerMove={onPointerMove}
                   onPointerUp={onPointerUp}
                   onDragOver={onDragOver}
@@ -487,7 +350,7 @@ export const TimelinePanel: React.FC<{ className?: string }> = ({ className }) =
               moveVisualId={moveVisual?.id ?? null}
               selectedTransitionId={selectedTransitionId}
               onItemPointerDown={onItemPointerDown}
-              onRollPointerDown={onRollPointerDown}
+              onRollPointerDown={startRoll}
               onTransitionPointerDown={onTransitionPointerDown}
               virtualRowIndex={virtualRowIndex}
             />
