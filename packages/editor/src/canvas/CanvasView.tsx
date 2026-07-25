@@ -191,7 +191,7 @@ export const CanvasView: React.FC<{ className?: string }> = ({ className }) => {
   };
 
   return (
-    <div className={cn('relative flex min-h-0 min-w-0 flex-1 flex-col bg-background', className)}>
+    <div className={cn('relative flex min-h-0 min-w-0 flex-1 flex-col bg-canvas-void', className)}>
       <div
         ref={containerRef}
         className="relative min-h-0 min-w-0 flex-1 overflow-hidden"
@@ -216,7 +216,7 @@ export const CanvasView: React.FC<{ className?: string }> = ({ className }) => {
           ref={(el) => {
             refs.stageEl.current = el;
           }}
-          className="absolute shadow-2xl"
+          className="absolute shadow-2xl ring-1 ring-border"
           style={{
             left: refs.pan.current.x,
             top: refs.pan.current.y,
