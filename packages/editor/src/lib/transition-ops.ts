@@ -59,13 +59,34 @@ export const applyTransitionPreset = (store: EditorStoreApi, id: string, presetI
   }, { commit: true });
 };
 
-/** 删转场:B 不动(变硬切) */
+/**
+ * 删转场:还原建立时对 B 的左移 —— B 贴回 A 当前尾部,重叠消除变硬切;被顶到的后续块最小级联右推。
+ * 贴「A 当前尾部」而非 from += dur:中途可能改过转场时长或 trim 过 A,直接表达"消除重叠"更稳。
+ * A/B 已被删(孤儿)则只删记录。删记录与移位在同一次 updateUndoable ⇒ 单步撤销。
+ */
 export const removeTransition = (store: EditorStoreApi, id: string): void => {
   store.getState().updateUndoable((s) => {
-    if (!s.transitions[id]) return s;
+    const t = s.transitions[id];
+    if (!t) return s;
     const rest = { ...s.transitions };
     delete rest[id];
-    return { ...s, transitions: rest };
+    const a = s.items[t.fromItemId];
+    const b = s.items[t.toItemId];
+    if (!a || !b) return { ...s, transitions: rest };
+    const bFrom = a.from + a.durationInFrames;
+    if (bFrom === b.from) return { ...s, transitions: rest }; // 本就没重叠(如被手动拖开)
+    const items = { ...s.items, [b.id]: { ...b, from: bFrom } };
+    // 同轨道排在 B 之后的块:会被顶到才推,空隙够就整条链都不动(已按起帧排序 ⇒ 可提前收工)
+    const after = Object.values(s.items)
+      .filter((o) => o.trackId === b.trackId && o.id !== b.id && o.from >= b.from)
+      .sort((x, y) => x.from - y.from);
+    let next = bFrom + b.durationInFrames;
+    for (const o of after) {
+      if (o.from >= next) break;
+      items[o.id] = { ...o, from: next };
+      next += o.durationInFrames;
+    }
+    return { ...s, items, transitions: rest };
   }, { commit: true });
   if (store.getState().selectedTransitionId === id) store.getState().setSelectedTransition(null);
 };

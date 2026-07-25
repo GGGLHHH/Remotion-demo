@@ -29,13 +29,59 @@ describe('transition-ops', () => {
     expect(get().transitions[id].durationInFrames).toBe(60); // clamp 到 min(60,60)
     expect(get().items.B.from).toBe(0); // A.end(60) - 60
   });
-  it('remove:删记录、B 不动(硬切)', () => {
+  it('remove:B 贴回 A 尾部、重叠消除(还原建立时的左移)', () => {
     const { store, get } = mk();
     const id = addTransition(store, 'A', 'B');
-    const bFrom = get().items.B.from;
+    expect(get().items.B.from).toBeLessThan(60); // 建立时确实左移了
     removeTransition(store, id);
     expect(get().transitions[id]).toBeUndefined();
-    expect(get().items.B.from).toBe(bFrom);
+    expect(get().items.B.from).toBe(60); // A.from(0) + A.dur(60)
+  });
+  it('remove:改过时长后仍贴回 A 尾部(不靠 dur 反推)', () => {
+    const { store, get } = mk();
+    const id = addTransition(store, 'A', 'B');
+    applyTransitionDuration(store, id, 40);
+    expect(get().items.B.from).toBe(20);
+    removeTransition(store, id);
+    expect(get().items.B.from).toBe(60);
+  });
+  it('remove:后续块空隙够就不推', () => {
+    const { store, get } = mk();
+    const c = { ...createSolidItem({ trackId: 't', from: 200, width: 10, height: 10 }), id: 'C', durationInFrames: 30 };
+    store.getState().updateUndoable((s) => ({ ...s, items: { ...s.items, C: c } }));
+    const id = addTransition(store, 'A', 'B');
+    removeTransition(store, id);
+    expect(get().items.B.from).toBe(60);
+    expect(get().items.C.from).toBe(200); // B 移回后 end=120 < 200,C 不受影响
+  });
+  it('remove:后续块被顶到则最小级联右推', () => {
+    const { store, get } = mk();
+    const c = { ...createSolidItem({ trackId: 't', from: 110, width: 10, height: 10 }), id: 'C', durationInFrames: 30 };
+    const d = { ...createSolidItem({ trackId: 't', from: 145, width: 10, height: 10 }), id: 'D', durationInFrames: 30 };
+    store.getState().updateUndoable((s) => ({ ...s, items: { ...s.items, C: c, D: d } }));
+    const id = addTransition(store, 'A', 'B'); // B 左移到 48,end=108
+    removeTransition(store, id);
+    expect(get().items.B.from).toBe(60); // end=120,压住 C(110)
+    expect(get().items.C.from).toBe(120); // 顺延,end=150,压住 D(145)
+    expect(get().items.D.from).toBe(150);
+  });
+  it('remove:另一轨道的块不受影响', () => {
+    const { store, get } = mk();
+    const x = { ...createSolidItem({ trackId: 't2', from: 110, width: 10, height: 10 }), id: 'X', durationInFrames: 30 };
+    store.getState().updateUndoable((s) => ({ ...s, items: { ...s.items, X: x } }));
+    const id = addTransition(store, 'A', 'B');
+    removeTransition(store, id);
+    expect(get().items.X.from).toBe(110);
+  });
+  it('remove:移位与删记录同属一次撤销', () => {
+    const { store, get } = mk();
+    const id = addTransition(store, 'A', 'B');
+    const past0 = store.getState().past.length;
+    removeTransition(store, id);
+    expect(store.getState().past.length).toBe(past0 + 1);
+    store.getState().undo();
+    expect(get().transitions[id]).toBeDefined();
+    expect(get().items.B.from).toBe(48); // 位置一并回滚
   });
   it('applyPreset:写 type+direction、切回 fade 删 direction 键、no-op 守卫返回原引用', () => {
     const { store, get } = mk();
