@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { useCurrentFrame, useVideoConfig } from 'remotion';
 import { createTikTokStyleCaptions } from '@remotion/captions';
 import type { Caption } from '../../captions-types';
+import { mergeCaptionPunctuation } from '../../captions-ops';
 import type { CaptionsItem } from '../../types';
 import { FontGate } from './TextItemRenderer';
 
@@ -18,7 +19,9 @@ export const CaptionsItemRenderer: React.FC<{ item: CaptionsItem; captions: Capt
   const { pages } = useMemo(
     () =>
       createTikTokStyleCaptions({
-        captions,
+        // 单独成条的标点先并回所属的词，否则会被分页切成「.,.,From here」这种页首垃圾。
+        // 放渲染侧是为了连已经存过盘的旧字幕一起救（见 mergeCaptionPunctuation 注释）。
+        captions: mergeCaptionPunctuation(captions),
         combineTokensWithinMilliseconds: item.pageDurationInMs,
       }),
     [captions, item.pageDurationInMs],

@@ -1,5 +1,6 @@
 export * from './types';
 export * from './captions-types';
+export * from './captions-ops';
 export * from './constants';
 export * from './download-name';
 export * from './factories';

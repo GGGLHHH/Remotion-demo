@@ -119,6 +119,9 @@ export type TextItem = BaseItem & { type: 'text'; text: string } & TextStyle;
 export type CaptionsItem = BaseItem & {
   type: 'captions';
   assetId: string; // 指向 CaptionAsset
+  // 派生出这条字幕的源 video/audio(FCP connected clip 式绑定):源块移动时字幕跟着走、源块删了字幕一起删。
+  // 可选:手动建的空块没有源;老数据也没有这个字段 —— 缺失即「不绑定」,行为退回独立块。
+  sourceItemId?: string;
   highlightColor: string;
   pageDurationInMs: number;
   maxLines: number;
