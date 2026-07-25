@@ -130,11 +130,18 @@ const ItemPositioner: React.FC<{ item: EditorStarterItem; ctx: RenderContext; tr
 
 export const ItemRenderer: React.FC<{ item: EditorStarterItem; ctx: RenderContext }> = ({ item, ctx }) => {
   const trackMuted = ctx.state.tracks.find((t) => t.id === item.trackId)?.muted ?? false;
+  // 媒体块提前 1 秒挂载(隐藏且冻结在首帧,不出声):Sequence 一到点才挂载的话，播放头跨过
+  // 块边界的瞬间要现建 <Video>、seek 到 trimBefore、再从最近关键帧解码 —— 这就是切开一段
+  // 视频后经过切口卡一下的原因。预挂载给它时间缓冲。1 秒 = Remotion v5 起的官方默认值。
+  // 非媒体块(文本/色块/字幕)没有缓冲这回事，不必提前挂。
+  const premountFor =
+    item.type === 'video' || item.type === 'audio' || item.type === 'gif' ? ctx.state.fps : undefined;
   return (
     <Sequence
       name={`${item.type}-${item.id}`}
       from={item.from}
       durationInFrames={item.durationInFrames}
+      premountFor={premountFor}
     >
       <ItemPositioner item={item} ctx={ctx} trackMuted={trackMuted} />
     </Sequence>
