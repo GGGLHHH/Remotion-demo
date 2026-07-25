@@ -1,8 +1,16 @@
-import { newId, type Caption, type CaptionAsset, type CaptionsItem } from '@gedatou/shared';
+import {
+  createCaptionAsset,
+  createCaptionsItem,
+  newId,
+  type Caption,
+  type EditorStarterItem,
+  type UndoableState,
+} from '@gedatou/shared';
 import type { EditorStoreApi } from '../state/store';
 import type { EditorDeps } from '../state/runtime';
 import { addTrack } from '../timeline/ops';
 import { extractWav } from './extract-audio';
+import { parseSubtitles } from './subtitle-io';
 import { tFor } from './i18n-core';
 
 /** 源 item 在素材内的可听片段（素材原速秒）：偏移 trimBefore，长度 = item 时长 × 变速率 */
@@ -22,6 +30,61 @@ export const remapCaptionTimes = (captions: Caption[], playbackRate: number): Ca
     endMs: c.endMs / playbackRate,
     timestampMs: c.timestampMs === null ? null : c.timestampMs / playbackRate,
   }));
+
+/**
+ * 把一组 caption 落成时间轴上的字幕块：新轨、对齐源 item 的起点、时长取「源时长」与「字幕末尾」的较大者。
+ * 取较大者是为导入准备的 —— 外部 .srt 可能比这一段素材长，按源时长裁会把后面的字幕吞掉。
+ * whisper 那条路转的就是本段音频，字幕不会越界，max 对它等同于原来的 src.durationInFrames。
+ */
+const attachCaptions = (
+  s: UndoableState,
+  src: EditorStarterItem,
+  captions: Caption[],
+  filename: string,
+): UndoableState => {
+  const { state: withTrack, trackId } = addTrack(s, 0);
+  const asset = createCaptionAsset({ captions, filename });
+  // captions 为空时 Math.max(...[]) = -Infinity，被外层 max 吃掉，退回源时长
+  const capEnd = Math.ceil((Math.max(...captions.map((c) => c.endMs)) / 1000) * s.fps);
+  const capItem = createCaptionsItem({
+    trackId,
+    assetId: asset.id,
+    from: src.from,
+    sourceItemId: src.id,
+    durationInFrames: Math.max(src.durationInFrames, capEnd),
+    compositionWidth: s.compositionWidth,
+    compositionHeight: s.compositionHeight,
+  });
+  return {
+    ...withTrack,
+    assets: { ...withTrack.assets, [asset.id]: asset },
+    items: { ...withTrack.items, [capItem.id]: capItem },
+  };
+};
+
+/**
+ * 用现成的 .srt/.vtt 为某个 item 建字幕块 —— 与「生成字幕」并列的第二条路。
+ * 适用场景：素材没音轨、whisper 不可用（如容器里没装编译链）、或字幕已在别处定过稿。
+ * 时间按文件原样走，不做 trim/变速重映射：外部字幕是相对成片时间轴写的，不是相对素材原速。
+ */
+export const importCaptionsForItem = async (
+  store: EditorStoreApi,
+  deps: EditorDeps,
+  itemId: string,
+  file: File,
+): Promise<void> => {
+  const t = tFor(deps);
+  const captions = parseSubtitles(await file.text());
+  if (!captions.length) {
+    deps.notify(t('captioning.importEmpty'), 'error');
+    return;
+  }
+  store.getState().updateUndoable((s) => {
+    const src = s.items[itemId];
+    return src ? attachCaptions(s, src, captions, file.name) : s;
+  });
+  deps.notify(t('captioning.imported', { count: captions.length }), 'success');
+};
 
 /** 为 video(hasAudio)/audio item 生成字幕：抽 item 可听片段 → 服务端 whisper 转录 → 建 CaptionAsset + CaptionsItem。
  * 片段截取 + token 时间重映射保证 trim/变速后的字幕仍与 item 时间轴对齐 */
@@ -49,56 +112,10 @@ export const generateCaptions = async (
     const { captions: rawCaptions } = await deps.transport.generateCaptions(wav);
     const captions = remapCaptionTimes(rawCaptions, item.playbackRate);
 
-    store.getState().updateUndoable((s) => {
+    store.getState().updateUndoable((s) =>
       // 源 item 可能在转录期间被改动/删除；时间对齐取当前值，删了就用发起时的快照
-      const src = s.items[itemId] ?? item;
-      const { state: withTrack, trackId } = addTrack(s, 0);
-      const width = Math.round(s.compositionWidth * 0.8);
-      const asset: CaptionAsset = {
-        id: newId(),
-        type: 'caption',
-        url: '', // 字幕数据直接内联在 state，不走对象存储
-        filename: `${srcFilename}.captions.json`,
-        sizeInBytes: 0,
-        captions,
-      };
-      const capItem: CaptionsItem = {
-        id: newId(),
-        type: 'captions',
-        trackId,
-        assetId: asset.id,
-        from: src.from,
-        durationInFrames: src.durationInFrames,
-        left: Math.round((s.compositionWidth - width) / 2),
-        top: s.compositionHeight - 320,
-        width,
-        height: 200,
-        rotation: 0,
-        opacity: 1,
-        borderRadius: 0,
-        fadeInDurationInFrames: 0,
-        fadeOutDurationInFrames: 0,
-        highlightColor: '#facc15',
-        pageDurationInMs: 1200,
-        maxLines: 2,
-        fontFamily: 'Inter',
-        fontWeight: '700',
-        fontStyle: 'normal',
-        fontSize: 64,
-        color: '#ffffff',
-        strokeWidth: 0,
-        strokeColor: '#000000',
-        lineHeight: 1.2,
-        letterSpacing: 0,
-        textAlign: 'center',
-        direction: 'ltr',
-      };
-      return {
-        ...withTrack,
-        assets: { ...withTrack.assets, [asset.id]: asset },
-        items: { ...withTrack.items, [capItem.id]: capItem },
-      };
-    });
+      attachCaptions(s, s.items[itemId] ?? item, captions, `${srcFilename}.captions.json`),
+    );
     upsert('done');
     deps.notify(t('captioning.generated'), 'success');
   } catch (err) {

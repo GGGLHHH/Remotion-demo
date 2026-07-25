@@ -58,6 +58,12 @@ export const createSelectionSlice = (
     updateUndoable((s) => {
       const items = { ...s.items };
       for (const id of selectedItemIds) delete items[id];
+      // 绑定被删块的字幕一并删掉:留着就是一段没有音画可对的孤儿字幕。
+      // 与删除同在一次 updateUndoable ⇒ 一步撤销即可同时恢复。字幕自己被选中删时不触发(它没有 sourceItemId 指向自己)。
+      const gone = new Set(selectedItemIds);
+      for (const o of Object.values(items)) {
+        if (o.type === 'captions' && o.sourceItemId && gone.has(o.sourceItemId)) delete items[o.id];
+      }
       // 不再被引用的素材进入两阶段删除(清理时才真正删远端/缓存)
       const referenced = new Set(
         Object.values(items)

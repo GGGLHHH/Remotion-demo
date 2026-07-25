@@ -1,4 +1,4 @@
-import { createSolidItem, createTextItem } from '@gedatou/shared';
+import { createCaptionAsset, createCaptionsItem, createSolidItem, createTextItem } from '@gedatou/shared';
 import type { EditorStoreApi } from '../state/store';
 import { addTrack } from '../timeline/ops';
 
@@ -36,6 +36,33 @@ export const addTextItem = (
     item.top = Math.round(at.y - item.height / 2);
     id = item.id;
     return { ...st, items: { ...st.items, [item.id]: item } };
+  });
+  state.setSelected([id]);
+};
+
+/** 手动建字幕块：在播放头处放一个带占位词的字幕，之后在检查器逐词区增删行或导入 SRT/VTT。
+ * whisper 之外的第二条创建路径 —— 没有音轨、或转录不可用时也能做字幕。 */
+export const addCaptionsItem = (store: EditorStoreApi, atFrame: number): void => {
+  const state = store.getState();
+  let id = '';
+  state.updateUndoable((s) => {
+    const { state: st, trackId } = addTrack(s, 0);
+    const asset = createCaptionAsset({
+      captions: [{ text: '字幕', startMs: 0, endMs: 1000, timestampMs: 0, confidence: null }],
+    });
+    const item = createCaptionsItem({
+      trackId,
+      assetId: asset.id,
+      from: atFrame,
+      compositionWidth: s.compositionWidth,
+      compositionHeight: s.compositionHeight,
+    });
+    id = item.id;
+    return {
+      ...st,
+      assets: { ...st.assets, [asset.id]: asset },
+      items: { ...st.items, [item.id]: item },
+    };
   });
   state.setSelected([id]);
 };

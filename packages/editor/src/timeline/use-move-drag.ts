@@ -77,7 +77,15 @@ export function useMoveDrag(deps: {
           if (items[id]) items[id] = { ...items[id], from: nf };
         }
       }
+      const delta = from - items[d.id].from;
       items[d.id] = { ...items[d.id], trackId, from };
+      // 绑定本块的字幕跟着平移(FCP connected clip 式):只挪 from，不换轨 —— 字幕有自己的轨道层次。
+      // 保持相对偏移而非贴回源起点:用户可能特意把字幕往前挪过一点，跟随不该把那点调整抹掉。
+      if (delta !== 0) {
+        for (const o of Object.values(items)) {
+          if (o.type === 'captions' && o.sourceItemId === d.id) items[o.id] = { ...o, from: o.from + delta };
+        }
+      }
       // 块被移动 ⇒ 它参与的转场断开(Premiere 式);位置没变的情况上面已提前 return,不会走到这
       st = { ...st, items, transitions: detachTransitionsOf(st.transitions, d.id) };
       return removeEmptyTracks(st);

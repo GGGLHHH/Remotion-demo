@@ -1,6 +1,9 @@
 import {
   addItemToItemsGroup,
+  createCaptionAsset,
   createTrack,
+  shiftCaptions,
+  type CaptionsItem,
   type EditorStarterItem,
   type Transition,
   type UndoableState,
@@ -161,6 +164,44 @@ export const resolveInsertPlacement = (
   return { from, shifts };
 };
 
+/**
+ * 源块被 trim ⇒ 绑定它的字幕跟着裁。delta 已被 trimItem 钳制过，语义与源块一致：
+ * start 边 `from += delta / 时长 -= delta`，end 边 `时长 += delta`。
+ *
+ * 左侧多一步：块头右移了，内容得整体前移同样多，否则字幕比画面晚一拍。
+ * 被移到负时间的条目**不删** —— 渲染器只取 startMs <= 当前时间且未过期的页，负的自然不出现；
+ * 留着它，边缘拉回来时字幕原样回来，trim 因此是无损的。
+ */
+const trimBoundCaptions = (
+  state: UndoableState,
+  srcId: string,
+  edge: 'start' | 'end',
+  delta: number,
+): UndoableState => {
+  const bound = Object.values(state.items).filter(
+    (o): o is CaptionsItem => o.type === 'captions' && o.sourceItemId === srcId,
+  );
+  if (!bound.length) return state;
+  const items = { ...state.items };
+  const assets = { ...state.assets };
+  const shiftMs = (delta / state.fps) * 1000;
+  for (const cap of bound) {
+    if (edge === 'end') {
+      items[cap.id] = { ...cap, durationInFrames: Math.max(1, cap.durationInFrames + delta) };
+      continue;
+    }
+    items[cap.id] = {
+      ...cap,
+      from: cap.from + delta,
+      durationInFrames: Math.max(1, cap.durationInFrames - delta),
+    };
+    const asset = assets[cap.assetId];
+    if (asset?.type !== 'caption') continue;
+    assets[cap.assetId] = { ...asset, captions: shiftCaptions(asset.captions, shiftMs) };
+  }
+  return { ...state, items, assets };
+};
+
 export const trimItem = (
   state: UndoableState,
   id: string,
@@ -197,7 +238,7 @@ export const trimItem = (
     if (isMediaItem(next) && isMediaItem(item)) {
       next.trimBefore = Math.max(0, item.trimBefore + Math.round(delta * item.playbackRate));
     }
-    return { ...state, items: { ...state.items, [id]: next } };
+    return trimBoundCaptions({ ...state, items: { ...state.items, [id]: next } }, id, 'start', delta);
   }
 
   // end
@@ -217,13 +258,18 @@ export const trimItem = (
   }
   delta = Math.min(delta, rightBound - item.from - item.durationInFrames);
   if (delta === 0) return state;
-  return {
-    ...state,
-    items: {
-      ...state.items,
-      [id]: { ...item, durationInFrames: item.durationInFrames + delta },
+  return trimBoundCaptions(
+    {
+      ...state,
+      items: {
+        ...state.items,
+        [id]: { ...item, durationInFrames: item.durationInFrames + delta },
+      },
     },
-  };
+    id,
+    'end',
+    delta,
+  );
 };
 
 /**
@@ -262,9 +308,22 @@ export const splitItemsAtFrame = (
 ): UndoableState => {
   let changed = false;
   const items = { ...state.items };
+  const assets = { ...state.assets };
+  // 切源块 ⇒ 绑定它的字幕也要在同一处切开，否则右半素材没字幕、而左半字幕横跨切口。
+  // 加进待切列表即可：下面的循环会给右半字幕改 sourceItemId 指向右半源。
+  // 非字幕块排前面：右半字幕要绑右半源，得等源先切出来。
+  const targets = [
+    ...itemIds.filter((id) => items[id]?.type !== 'captions'),
+    ...itemIds.filter((id) => items[id]?.type === 'captions'),
+  ];
+  for (const id of itemIds) {
+    for (const o of Object.values(items)) {
+      if (o.type === 'captions' && o.sourceItemId === id && !targets.includes(o.id)) targets.push(o.id);
+    }
+  }
   // 分组维护:被分割 item 属某组时,两半都留在原组(src→rightId 记录,循环后一并并入)
   const splitPairs: [string, string][] = [];
-  for (const id of itemIds) {
+  for (const id of targets) {
     const item = items[id];
     if (!item) continue;
     if (frame <= item.from || frame >= item.from + item.durationInFrames) continue;
@@ -289,6 +348,22 @@ export const splitItemsAtFrame = (
     if (isMediaItem(right) && isMediaItem(item)) {
       right.trimBefore = item.trimBefore + Math.round(leftDur * item.playbackRate);
     }
+    if (right.type === 'captions' && item.type === 'captions') {
+      // 字幕的 asset 装的是「这个块的内容」，不像视频素材那样可以两半共用 —— 共用的话右半会
+      // 相对自己的起点从头重播左半的字幕。给右半一份独立的 asset，内容按切点平移。
+      const srcAsset = assets[item.assetId];
+      if (srcAsset?.type === 'caption') {
+        const copy = createCaptionAsset({
+          captions: shiftCaptions(srcAsset.captions, (leftDur / state.fps) * 1000),
+          filename: srcAsset.filename,
+        });
+        assets[copy.id] = copy;
+        right.assetId = copy.id;
+      }
+      // 源块也被切时（切视频连带切字幕），右半字幕改绑右半源；只切字幕则原绑定不动
+      const srcRightId = right.sourceItemId ? `${right.sourceItemId}-r${frame}` : null;
+      if (srcRightId && items[srcRightId]) right.sourceItemId = srcRightId;
+    }
     items[id] = left;
     items[rightId] = right;
     splitPairs.push([id, rightId]);
@@ -297,7 +372,7 @@ export const splitItemsAtFrame = (
   if (!changed) return state;
   let groups = state.groups;
   for (const [srcId, rightId] of splitPairs) groups = addItemToItemsGroup(groups, srcId, rightId);
-  return { ...state, items, groups };
+  return { ...state, items, assets, groups };
 };
 
 /** 分割目标：有选中用选中，否则取播放头下的所有条目 */

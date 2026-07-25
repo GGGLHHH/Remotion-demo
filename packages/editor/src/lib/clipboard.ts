@@ -1,4 +1,11 @@
-import { createTextItem, newId, regroupDuplicated, type EditorStarterAsset, type EditorStarterItem } from '@gedatou/shared';
+import {
+  createCaptionAsset,
+  createTextItem,
+  newId,
+  regroupDuplicated,
+  type EditorStarterAsset,
+  type EditorStarterItem,
+} from '@gedatou/shared';
 import type { EditorStoreApi } from '../state/store';
 import { normalizeLegacyFades } from '../persistence/persistence';
 import { addTrack } from '../timeline/ops';
@@ -97,6 +104,23 @@ const placeItems = (
         left: item.left + offset,
         top: item.top + offset,
       };
+    }
+    // 字幕副本的两处修正（都因为字幕块不是普通素材块）：
+    // 1) sourceItemId 原样带过去的话，副本仍绑**原**视频 —— 删原视频会把副本一起删掉。
+    //    源块一起复制了就改绑副本，没有就解绑（副本成为独立字幕）。
+    // 2) caption asset 装的是这个块的内容，不是可共享的素材；不深拷贝的话改副本会改到原块。
+    for (const id of newIds) {
+      const it = newItems[id];
+      if (it.type !== 'captions') continue;
+      const next = { ...it };
+      next.sourceItemId = next.sourceItemId ? idMap[next.sourceItemId] : undefined;
+      const asset = newAssets[next.assetId];
+      if (asset?.type === 'caption') {
+        const copy = createCaptionAsset({ captions: asset.captions, filename: asset.filename });
+        newAssets[copy.id] = copy;
+        next.assetId = copy.id;
+      }
+      newItems[id] = next;
     }
     const groups = regroupDuplicated(st.groups, idMap, () => newId());
     return { ...st, items: newItems, assets: newAssets, groups };

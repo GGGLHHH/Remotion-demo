@@ -8,6 +8,8 @@ import {
   type UndoableState,
   type VideoAsset,
   type VideoItem,
+  createCaptionAsset,
+  createCaptionsItem,
 } from '@gedatou/shared';
 import {
   addTrack,
@@ -445,5 +447,70 @@ describe('detachTransitionsOf', () => {
   });
   test('与转场无关的块 ⇒ 返回原引用(不触发无谓写)', () => {
     expect(detachTransitionsOf(table, 'Z')).toBe(table);
+  });
+});
+
+// 字幕绑定源块后，trim 源块时字幕跟着裁（sourceItemId）
+describe('trimItem 联动绑定的字幕', () => {
+  const buildBound = () => {
+    const { state, t1, t2 } = build();
+    const { item: video } = addVideo(state, t1.id); // from 0, 60 帧
+    const asset = createCaptionAsset({
+      captions: [
+        { text: 'a', startMs: 0, endMs: 500, timestampMs: 0, confidence: null },
+        { text: ' b', startMs: 1000, endMs: 1500, timestampMs: 1000, confidence: null },
+      ],
+    });
+    state.assets[asset.id] = asset;
+    const cap = createCaptionsItem({
+      trackId: t2.id,
+      from: 0,
+      assetId: asset.id,
+      durationInFrames: 60,
+      sourceItemId: video.id,
+      compositionWidth: 1080,
+      compositionHeight: 1920,
+    });
+    state.items[cap.id] = cap;
+    return { state, videoId: video.id, capId: cap.id, assetId: asset.id };
+  };
+
+  test('右侧裁短 ⇒ 字幕块同步缩短，内容不动', () => {
+    const { state, videoId, capId, assetId } = buildBound();
+    const next = trimItem(state, videoId, 'end', -20);
+    expect(next.items[videoId].durationInFrames).toBe(40);
+    expect(next.items[capId].durationInFrames).toBe(40);
+    expect(next.items[capId].from).toBe(0);
+    const a = next.assets[assetId];
+    expect(a.type === 'caption' && a.captions[0].startMs).toBe(0); // 起点没变 ⇒ 内容无需平移
+  });
+
+  test('左侧裁短 ⇒ 字幕块头右移、时长缩短，内容整体前移', () => {
+    const { state, videoId, capId, assetId } = buildBound();
+    const next = trimItem(state, videoId, 'start', 30); // 30 帧 = 1000ms @30fps
+    expect(next.items[capId].from).toBe(30);
+    expect(next.items[capId].durationInFrames).toBe(30);
+    const a = next.assets[assetId];
+    if (a.type !== 'caption') throw new Error('not caption');
+    expect(a.captions[0].startMs).toBe(-1000); // 被裁掉的那条移到负时间，渲染时不出现
+    expect(a.captions[1].startMs).toBe(0); // 原 1000ms 的条目提到块首
+  });
+
+  test('左侧裁掉再拉回 ⇒ 字幕原样回来（无损）', () => {
+    const { state, videoId, capId, assetId } = buildBound();
+    const cut = trimItem(state, videoId, 'start', 30);
+    const back = trimItem(cut, videoId, 'start', -30);
+    expect(back.items[capId].from).toBe(0);
+    expect(back.items[capId].durationInFrames).toBe(60);
+    const a = back.assets[assetId];
+    if (a.type !== 'caption') throw new Error('not caption');
+    expect(a.captions.map((c) => c.startMs)).toEqual([0, 1000]);
+  });
+
+  test('没绑定的字幕不受 trim 影响', () => {
+    const { state, videoId, capId } = buildBound();
+    delete (state.items[capId] as { sourceItemId?: string }).sourceItemId;
+    const next = trimItem(state, videoId, 'end', -20);
+    expect(next.items[capId].durationInFrames).toBe(60);
   });
 });

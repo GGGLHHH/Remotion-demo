@@ -1,6 +1,7 @@
 import type React from 'react';
 import { useRef, useState } from 'react';
 import {
+  Captions,
   Download,
   FolderOpen,
   Maximize,
@@ -33,6 +34,7 @@ import { cn } from '../lib/utils';
 import { useT } from '../lib/i18n';
 import { useEditor, useEditorApi, useEditorDeps, useEditorRefs } from '../state/context';
 import { importFiles } from '../lib/import-assets';
+import { addCaptionsItem } from '../lib/add-items';
 import { cleanupDeletedAssets } from '../lib/cleanup-assets';
 import { downloadStateFile, loadStateFromFile, saveState } from '../persistence/persistence';
 
@@ -173,6 +175,24 @@ export const SolidToolButton: React.FC = () => {
     >
       <Square />
       {t('toolbar.solid')}
+    </Button>
+  );
+};
+
+/** 字幕工具:不像 text/solid 要在画布上定位（字幕位置固定底部居中），点一下直接在播放头处建块 */
+export const CaptionsToolButton: React.FC = () => {
+  const t = useT();
+  const editorApi = useEditorApi();
+  const refs = useEditorRefs();
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={() => addCaptionsItem(editorApi, refs.getPlayerFrame())}
+      title={t('toolbar.captionsTool')}
+    >
+      <Captions />
+      {t('toolbar.captions')}
     </Button>
   );
 };

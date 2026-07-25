@@ -39,6 +39,7 @@ export type { EditorRootProps } from './EditorRoot';
 // 交互面用上方扁平的 Canvas/Timeline/Inspector/PlaybackBar，外壳用 EditorContainer。
 import {
   CaptioningBadge,
+  CaptionsToolButton,
   CleanupAssetsButton,
   DownloadStateButton,
   EditorTitle,
@@ -63,6 +64,7 @@ export const Editor = {
   PlayButton,
   TextToolButton,
   SolidToolButton,
+  CaptionsToolButton,
   ImportAssetButton,
   ZoomControls,
   SaveButton,
@@ -77,6 +79,8 @@ export const Editor = {
 export { importFiles } from './lib/import-assets';
 export { startRender } from './lib/render-client';
 export { generateCaptions } from './lib/captioning';
+export { addCaptionsItem } from './lib/add-items';
+export { parseSubtitles, serializeSubtitles } from './lib/subtitle-io';
 export { cleanupDeletedAssets } from './lib/cleanup-assets';
 export {
   applyAnimationPreset, clearKeyframes, moveKeyframe, moveKeyframesAtFrame,

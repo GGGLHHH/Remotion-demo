@@ -5,6 +5,7 @@ import type { EditorInstanceRefs } from './state/instance-refs';
 import { EditorContainer } from './shell/container';
 import {
   CaptioningBadge,
+  CaptionsToolButton,
   CleanupAssetsButton,
   DownloadStateButton,
   EditorTitle,
@@ -55,6 +56,7 @@ export function EditorRoot({ deps, store, refs, initialState, fill }: EditorRoot
           <PlayButton />
           <TextToolButton />
           <SolidToolButton />
+          <CaptionsToolButton />
           <ImportAssetButton />
           <UploadStatusBadge />
           <CaptioningBadge />
