@@ -37,7 +37,15 @@ export function useMoveDrag(deps: {
     const d = moveRef.current;
     moveRef.current = null;
     setMoveVisual(null);
-    if (!apply || !d?.moved || !d.placement) return;
+    if (!apply || !d) return;
+    if (!d.moved) {
+      // 没越过 3px 阈值 = 纯点击(不是拖拽)⇒ 播放头对齐到块首,点谁就看谁的第一帧。
+      // 放这儿而不是 pointerdown:拖拽中途不该跳播放头;Esc/pointercancel 走 apply=false 也不跳。
+      const it = editorApi.getState().undoable.items[d.id];
+      if (it) refs.player.current?.seekTo(it.from);
+      return;
+    }
+    if (!d.placement) return;
     const store = editorApi.getState();
     const item = store.undoable.items[d.id];
     if (!item) return;
