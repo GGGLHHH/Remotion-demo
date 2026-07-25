@@ -11,6 +11,7 @@ import {
 } from '@gedatou/shared';
 import {
   addTrack,
+  detachTransitionsOf,
   hasOverlap,
   maxExtendFrames,
   maxItemDurationInFrames,
@@ -419,5 +420,30 @@ describe('maxItemDurationInFrames', () => {
     const t = createTextItem({ trackId: t1.id, from: 0 });
     state.items[t.id] = t;
     expect(maxItemDurationInFrames(state, t.id)).toBeNull();
+  });
+});
+
+describe('detachTransitionsOf', () => {
+  const mkT = (id: string, fromItemId: string, toItemId: string) => ({
+    id,
+    trackId: 't',
+    fromItemId,
+    toItemId,
+    type: 'fade' as const,
+    durationInFrames: 12,
+  });
+  const table = { ab: mkT('ab', 'A', 'B'), bc: mkT('bc', 'B', 'C') };
+
+  test('拖 from 侧 ⇒ 该转场断开', () => {
+    expect(Object.keys(detachTransitionsOf(table, 'A'))).toEqual(['bc']);
+  });
+  test('拖 to 侧 ⇒ 该转场断开', () => {
+    expect(Object.keys(detachTransitionsOf(table, 'C'))).toEqual(['ab']);
+  });
+  test('两侧都参与(A-B 与 B-C 的 B)⇒ 两个都断开', () => {
+    expect(detachTransitionsOf(table, 'B')).toEqual({});
+  });
+  test('与转场无关的块 ⇒ 返回原引用(不触发无谓写)', () => {
+    expect(detachTransitionsOf(table, 'Z')).toBe(table);
   });
 });

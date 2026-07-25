@@ -1,4 +1,27 @@
-import { addItemToItemsGroup, createTrack, type EditorStarterItem, type UndoableState } from '@gedatou/shared';
+import {
+  addItemToItemsGroup,
+  createTrack,
+  type EditorStarterItem,
+  type Transition,
+  type UndoableState,
+} from '@gedatou/shared';
+
+/**
+ * 移动块 ⇒ 断开它参与的转场（Premiere 式：转场附着在两块的编辑点上，块一走这个点就不存在了）。
+ * 只删记录，两块位置各归各的 —— 对侧不跟随，被拖块落在光标处。无涉及则返回原引用，免无谓写。
+ */
+export const detachTransitionsOf = (
+  transitions: Record<string, Transition>,
+  itemId: string,
+): Record<string, Transition> => {
+  const ids = Object.keys(transitions).filter(
+    (k) => transitions[k].fromItemId === itemId || transitions[k].toItemId === itemId,
+  );
+  if (!ids.length) return transitions;
+  const next = { ...transitions };
+  for (const id of ids) delete next[id];
+  return next;
+};
 
 /** 媒体类 item（有 trimBefore/playbackRate） */
 const isMediaItem = (

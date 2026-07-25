@@ -3,7 +3,7 @@ import { useRef, useState } from 'react';
 import type { EditorStarterItem } from '@gedatou/shared';
 import type { EditorStoreApi } from '../state/store';
 import type { EditorInstanceRefs } from '../state/instance-refs';
-import { addTrack, removeEmptyTracks, resolveInsertPlacement, snapFrame } from './ops';
+import { addTrack, detachTransitionsOf, removeEmptyTracks, resolveInsertPlacement, snapFrame } from './ops';
 import { rowTops, trackIndexAtY } from './geometry';
 import { RULER_HEIGHT, SNAP_TOLERANCE_PX } from './constants';
 import type { MoveDrag, MoveVisual, TrackTarget } from './types';
@@ -70,7 +70,8 @@ export function useMoveDrag(deps: {
         }
       }
       items[d.id] = { ...items[d.id], trackId, from };
-      st = { ...st, items };
+      // 块被移动 ⇒ 它参与的转场断开(Premiere 式);位置没变的情况上面已提前 return,不会走到这
+      st = { ...st, items, transitions: detachTransitionsOf(st.transitions, d.id) };
       return removeEmptyTracks(st);
     });
   };
