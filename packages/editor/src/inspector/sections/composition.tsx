@@ -1,7 +1,8 @@
 import type React from 'react';
 import { useState } from 'react';
-import { ArrowLeftRightIcon, ClapperboardIcon } from 'lucide-react';
+import { AlertCircleIcon, ArrowLeftRightIcon, CheckIcon, ClapperboardIcon } from 'lucide-react';
 import { Button } from '../../components/ui/button';
+import { Spinner } from '../../components/ui/spinner';
 import {
   Select,
   SelectContent,
@@ -47,42 +48,64 @@ export const ExportSection: React.FC<{ exportExtra?: React.ReactNode }> = ({ exp
         <ClapperboardIcon />
         {t('inspector.render')}
       </Button>
-      {renderingTasks.map((task) => (
-        <div key={task.id} className="rounded-lg border border-border p-2 text-xs">
-          <div className="flex items-center justify-between gap-2">
-            {/* 文件名由前端在发起渲染时就组装好（见 lib/render-client），故全程可显示，
-                且就是实际下载到的名字。codec 已体现在扩展名里，不再另挂徽章。 */}
-            <span className="min-w-0 flex-1 truncate font-medium" title={task.fileName ?? task.codec}>
-              {task.fileName ?? task.codec}
+      {renderingTasks.map((task) => {
+        const pct = Math.round(task.progress * 100);
+        return (
+          // 布局刻意对齐「缩略图 + 标题 + 副行」的媒体卡:这块的正下方就是 exportExtra
+          // （宿主注入的成片列表，通常正是媒体卡列表），渲染完成时这张卡等于被那张接位。
+          // 两者行高/缩略图尺寸不一致的话，完成瞬间整列会跳一下。
+          <div key={task.id} className="flex gap-3 rounded-lg border border-border bg-card p-2.5 text-xs">
+            {/* 缩略图槽:渲染中没有画面可放,给状态图标。size-14 是媒体卡缩略图的尺寸,别改小 */}
+            <span className="flex size-14 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+              {task.status === 'error' ? (
+                <AlertCircleIcon className="size-5 text-destructive" />
+              ) : task.status === 'done' ? (
+                <CheckIcon className="size-5" />
+              ) : (
+                <Spinner className="size-5" />
+              )}
             </span>
-            {task.status === 'done' && task.url ? (
-              /* 产物带 Content-Disposition: attachment（文件名由服务端定；跨源 URL 下
-                 a[download] 的文件名会被浏览器忽略），故不加 target=_blank 免闪空白页 */
-              <a
-                href={task.url}
-                rel="noreferrer"
-                className="text-primary underline-offset-4 hover:underline"
-              >
-                {t('inspector.download')}
-              </a>
-            ) : (
-              <span className="tabular-nums text-muted-foreground">
-                {task.status === 'error' ? t('inspector.failed') : `${Math.round(task.progress * 100)}%`}
+            <div className="flex min-w-0 flex-1 flex-col gap-1">
+              {/* 文件名由前端在发起渲染时就组装好（见 lib/render-client），故全程可显示，
+                  且就是实际下载到的名字。codec 已体现在扩展名里，不再另挂徽章。 */}
+              <span className="truncate text-sm font-semibold" title={task.fileName ?? task.codec}>
+                {task.fileName ?? task.codec}
               </span>
-            )}
-          </div>
-          {task.status === 'error' ? (
-            <div className="mt-1 break-all text-destructive">{task.error?.slice(0, 200)}</div>
-          ) : (
-            <div className="mt-2 h-1 rounded-full bg-muted">
-              <div
-                className="h-1 rounded-full bg-primary transition-[width]"
-                style={{ width: `${Math.round(task.progress * 100)}%` }}
-              />
+              <span className="flex items-center justify-between gap-2 text-muted-foreground">
+                <span>
+                  {task.status === 'error'
+                    ? t('inspector.failed')
+                    : task.status === 'done'
+                      ? t('inspector.renderDone')
+                      : task.status === 'queued'
+                        ? t('inspector.queued')
+                        : t('inspector.rendering')}
+                </span>
+                {task.status === 'done' && task.url ? (
+                  /* 产物带 Content-Disposition: attachment（文件名由服务端定；跨源 URL 下
+                     a[download] 的文件名会被浏览器忽略），故不加 target=_blank 免闪空白页 */
+                  <a href={task.url} rel="noreferrer" className="text-primary underline-offset-4 hover:underline">
+                    {t('inspector.download')}
+                  </a>
+                ) : task.status === 'error' ? null : (
+                  <span className="tabular-nums">{pct}%</span>
+                )}
+              </span>
+              {task.status === 'error' ? (
+                <span className="break-all text-destructive">{task.error?.slice(0, 200)}</span>
+              ) : (
+                <span className="h-1 w-full overflow-hidden rounded-full bg-muted">
+                  {/* overflow-hidden + 显式时长/缓动:没有的话进度是瞬跳的,且满格时内条的圆角会溢出外框 */}
+                  <span
+                    className="block h-full rounded-full bg-primary transition-[width] duration-300 ease-linear"
+                    style={{ width: `${pct}%` }}
+                  />
+                </span>
+              )}
             </div>
-          )}
-        </div>
-      ))}
+          </div>
+        );
+      })}
       {/* 宿主注入槽：渲染产物的持久历史（renderingTasks 是内存态、刷新即失，持久列表由宿主提供） */}
       {exportExtra}
     </Section>
