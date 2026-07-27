@@ -1,13 +1,18 @@
 import type React from 'react';
 import { useState } from 'react';
-import { ChevronDownIcon, ChevronRightIcon } from 'lucide-react';
+import { ChevronRightIcon } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../components/ui/collapsible';
 import { Slider } from '../components/ui/slider';
 import { useEditorApi } from '../state/context';
 import { useT } from '../lib/i18n';
 
 /**
- * 面板分区。collapsible 时标题为整行折叠按钮（官方样式，右侧 ▼/▶ 箭头）；
+ * 面板分区。collapsible 时标题为整行折叠按钮（官方样式，右侧箭头随展开态转 90°）；
  * 否则为静态标题（空状态面板：画布/时长/导出）。
+ *
+ * 折叠走 shadcn 官方写法：Collapsible.Panel + data-open/closed:animate-collapsible-*。
+ * 原来是 `open ? <div> : null` —— 节点直接删掉，没有可动画的对象，展开是硬切。
+ * 动画所需的 keyframes 由本包的 styles.css 提供（那里说明了为什么不能用官方那两个名字）。
  */
 export const Section: React.FC<{
   title: string;
@@ -15,7 +20,6 @@ export const Section: React.FC<{
   defaultOpen?: boolean;
   children: React.ReactNode;
 }> = ({ title, collapsible, defaultOpen = true, children }) => {
-  const [open, setOpen] = useState(defaultOpen);
   if (!collapsible) {
     return (
       <div className="border-b border-border p-4">
@@ -25,21 +29,18 @@ export const Section: React.FC<{
     );
   }
   return (
-    <div className="border-b border-border">
-      <button
-        type="button"
-        className="flex w-full items-center justify-between px-4 py-3 text-sm font-semibold transition-colors hover:bg-accent/50"
-        onClick={() => setOpen((o) => !o)}
-      >
+    <Collapsible defaultOpen={defaultOpen} className="border-b border-border">
+      <CollapsibleTrigger className="group flex w-full items-center justify-between px-4 py-3 text-sm font-semibold transition-colors hover:bg-accent/50">
         {title}
-        {open ? (
-          <ChevronDownIcon className="size-3.5 text-muted-foreground" />
-        ) : (
-          <ChevronRightIcon className="size-3.5 text-muted-foreground" />
-        )}
-      </button>
-      {open ? <div className="flex flex-col gap-2.5 px-4 pb-4">{children}</div> : null}
-    </div>
+        {/* 单个箭头转 90°，起止两态与原来的 ▶/▼ 一致，只是中间有了过渡。
+            注意 Tailwind v4 的 rotate-90 写的是独立的 `rotate` 属性而非 `transform`。 */}
+        <ChevronRightIcon className="size-3.5 text-muted-foreground transition-transform duration-200 group-aria-expanded:rotate-90" />
+      </CollapsibleTrigger>
+      {/* overflow-hidden 必需：动画改的是高度，不裁掉内容会在收起过程中溢出到下一个分区上 */}
+      <CollapsibleContent className="overflow-hidden data-open:animate-gd-collapse-down data-closed:animate-gd-collapse-up">
+        <div className="flex flex-col gap-2.5 px-4 pb-4">{children}</div>
+      </CollapsibleContent>
+    </Collapsible>
   );
 };
 

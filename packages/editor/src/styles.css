@@ -148,3 +148,29 @@
     cursor: not-allowed;
     }
 }
+
+/**
+ * 折叠区展开/收起动画。写法照 shadcn 官方（Collapsible.Panel + data-open/closed:animate-*），
+ * 但 **keyframes 必须自己定义、且不能沿用官方那两个名字**：
+ *
+ * 1) tw-animate-css 提供的 collapsible-down/up 只认 Radix 系变量
+ *    （--radix-/--bits-/--reka-/--kb-collapsible-content-height）。本包的 shadcn 是 base-ui 版，
+ *    导出的是 --collapsible-panel-height —— 变量链落空后回落 height:auto，而 0 → auto 浏览器
+ *    不做补间，收起方向直接瞬跳。
+ * 2) 同名覆盖也不行：Tailwind 会把 tw-animate-css `@theme inline` 里的 keyframes 提到输出末尾，
+ *    排在本文件之后，后定义者胜 —— 实测覆盖不掉（展开侥幸能动，收起必瞬跳）。
+ *
+ * 所以用带前缀的独立名字，彻底避开碰撞。
+ */
+@theme {
+  --animate-gd-collapse-down: gd-collapse-down 200ms ease-out;
+  --animate-gd-collapse-up: gd-collapse-up 200ms ease-out;
+}
+@keyframes gd-collapse-down {
+  from { height: 0; }
+  to { height: var(--collapsible-panel-height); }
+}
+@keyframes gd-collapse-up {
+  from { height: var(--collapsible-panel-height); }
+  to { height: 0; }
+}
