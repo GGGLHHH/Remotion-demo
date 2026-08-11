@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { formatDb, gainToTopFraction, topFractionToGain, wedgePath } from '../item-block-math'
+import { formatDb, gainToTopFraction, topFractionToGain, wedgePath } from '../src/timeline/item-block-math'
 
 describe('item-block-math', () => {
   it('formatDb: 官方格式,静音为 -∞', () => {

@@ -1,6 +1,6 @@
 import type { EditorStarterAsset, EditorStarterItem } from '@gedatou/shared'
-import type { EditorDeps } from '../state/runtime'
-import type { EditorStoreApi } from '../state/store'
+import type { EditorDeps } from '#state/runtime'
+import type { EditorStoreApi } from '#state/store'
 import type { ProbeResult } from './probe'
 import {
 

@@ -2,7 +2,7 @@ import type { Crop, ImageItem, VideoItem } from '@gedatou/shared'
 import type React from 'react'
 import type { ResizeHandle } from './geometry'
 import { useRef } from 'react'
-import { useEditor, useEditorApi } from '../state/context'
+import { useEditor, useEditorApi } from '#state/context'
 
 type CroppableItem = VideoItem | ImageItem
 

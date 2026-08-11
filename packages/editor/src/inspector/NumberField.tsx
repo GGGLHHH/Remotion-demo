@@ -2,8 +2,8 @@ import type { LucideIcon } from 'lucide-react'
 import type { ReactElement } from 'react'
 import type React from 'react'
 import { useEffect, useRef, useState } from 'react'
-import { Input } from '../components/ui/input'
-import { useEditorApi } from '../state/context'
+import { Input } from '#components/ui/input'
+import { useEditorApi } from '#state/context'
 
 /** 按步进取整，消除浮点噪音 */
 const snap = (v: number, step: number): number => Number((Math.round(v / step) * step).toFixed(4))

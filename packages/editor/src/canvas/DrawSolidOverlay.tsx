@@ -1,8 +1,8 @@
 import type React from 'react'
 import type { Rect } from './geometry'
 import { useRef, useState } from 'react'
-import { addSolidItem } from '../lib/add-items'
-import { useEditorApi, useEditorRefs } from '../state/context'
+import { addSolidItem } from '#lib/add-items'
+import { useEditorApi, useEditorRefs } from '#state/context'
 import { CORNERS, SizeBadge } from './handle-primitives'
 
 /** 无明显拖拽（<5px）视为单击 */

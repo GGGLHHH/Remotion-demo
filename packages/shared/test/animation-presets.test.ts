@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { createSolidItem } from '../factories'
-import { buildPreset, PRESET_IDS } from './animation-presets'
+import { buildPreset, PRESET_IDS } from '../src/composition/animation-presets'
+import { createSolidItem } from '../src/factories'
 
 const item = () => ({ ...createSolidItem({ trackId: 't', from: 0, width: 200, height: 100 }), left: 50, top: 30, opacity: 1, durationInFrames: 90 })
 

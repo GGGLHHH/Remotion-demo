@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { contentDisposition, sanitizeFileName } from '../download-name'
+import { contentDisposition, sanitizeFileName } from '../src/download-name'
 
 // 文件名现在由前端提供 → 服务端把它当不可信输入清洗
 describe('sanitizeFileName', () => {

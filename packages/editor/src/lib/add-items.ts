@@ -1,4 +1,4 @@
-import type { EditorStoreApi } from '../state/store'
+import type { EditorStoreApi } from '#state/store'
 import { createCaptionAsset, createCaptionsItem, createSolidItem, createTextItem } from '@gedatou/shared'
 import { addTrack } from '../timeline/ops'
 

@@ -1,4 +1,4 @@
-import { useEditorDeps } from '../state/context'
+import { useEditorDeps } from '#state/context'
 import { resolveMessage } from './i18n-core'
 
 // React 组件用的文案 hook。拉 state/context(含模块级 createContext),故与纯内核分开:非 React 模块

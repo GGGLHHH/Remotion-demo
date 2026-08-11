@@ -2,8 +2,8 @@ import type { EditorStarterItem, ItemDict, Track, Transition, TransitionDict } f
 import type React from 'react'
 import { dictValues } from '@gedatou/shared'
 import { Plus } from 'lucide-react'
-import { useT } from '../lib/i18n'
-import { cn } from '../lib/utils'
+import { useT } from '#lib/i18n'
+import { cn } from '#lib/utils'
 import { TRACK_HEIGHT } from './constants'
 import { ItemBlock } from './ItemBlock'
 

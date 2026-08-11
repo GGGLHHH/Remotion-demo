@@ -1,7 +1,7 @@
-import type { Caption } from '../captions-types'
+import type { Caption } from '../src/captions-types'
 import { createTikTokStyleCaptions } from '@remotion/captions'
 import { describe, expect, it } from 'vitest'
-import { mergeCaptionPunctuation } from '../captions-ops'
+import { mergeCaptionPunctuation } from '../src/captions-ops'
 
 function cap(text: string, startMs: number, endMs: number): Caption {
   return {

@@ -10,8 +10,8 @@ import {
   setKeyframeEasing,
   setKeyframeValue,
   toggleKeyframe,
-} from '../lib/keyframe-ops'
-import { useEditor, useEditorApi, useEditorRefs } from '../state/context'
+} from '#lib/keyframe-ops'
+import { useEditor, useEditorApi, useEditorRefs } from '#state/context'
 
 export interface ItemKeyframesApi {
   has: (prop: AnimatableProp) => boolean

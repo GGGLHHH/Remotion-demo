@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createSolidItem, createTextItem, newId } from '../factories'
+import { createSolidItem, createTextItem, newId } from '../src/factories'
 
 describe('factories', () => {
   it('newId 唯一', () => {

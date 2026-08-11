@@ -1,6 +1,6 @@
 import type { Caption, EditorStarterItem, UndoableState } from '@gedatou/shared'
-import type { EditorDeps } from '../state/runtime'
-import type { EditorStoreApi } from '../state/store'
+import type { EditorDeps } from '#state/runtime'
+import type { EditorStoreApi } from '#state/store'
 import {
 
   createCaptionAsset,

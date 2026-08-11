@@ -1,5 +1,5 @@
 import type { EditorStarterAsset, EditorStarterItem } from '@gedatou/shared'
-import type { EditorStoreApi } from '../state/store'
+import type { EditorStoreApi } from '#state/store'
 import { createCaptionAsset, createTextItem, dictEntries, newId, regroupDuplicated } from '@gedatou/shared'
 import { normalizeLegacyFades } from '../persistence/persistence'
 import { addTrack } from '../timeline/ops'

@@ -392,6 +392,9 @@ importers:
       '@remotion/player':
         specifier: catalog:remotion
         version: 4.0.491(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@types/node':
+        specifier: catalog:types
+        version: 26.2.0
       '@types/react':
         specifier: catalog:types
         version: 19.2.18

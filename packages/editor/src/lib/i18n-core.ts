@@ -1,4 +1,4 @@
-import type { EditorDeps, EditorT } from '../state/runtime'
+import type { EditorDeps, EditorT } from '#state/runtime'
 import { enMessages } from '../locales/en'
 
 // 库内文本解析的**纯**内核:零 React / 零 state/context 依赖,可被非 React 模块(persistence 等,进 /adapters

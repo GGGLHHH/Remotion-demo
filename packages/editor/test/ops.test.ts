@@ -15,7 +15,7 @@ import {
   snapFrame,
   splitItemsAtFrame,
   trimItem,
-} from '../ops'
+} from '../src/timeline/ops'
 
 function solidAt(state: UndoableState, trackId: string, from: number, dur: number) {
   const item = createSolidItem({ trackId, from, width: 100, height: 100 })

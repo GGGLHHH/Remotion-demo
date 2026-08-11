@@ -25,6 +25,12 @@
   "sideEffects": [
     "**/*.css"
   ],
+  "imports": {
+    "#lib/*": "./src/lib/*.ts",
+    "#components/*": "./src/components/*.tsx",
+    "#state/context": "./src/state/context.tsx",
+    "#state/*": "./src/state/*.ts"
+  },
   "publishConfig": {
     "access": "public",
     "exports": {
@@ -84,6 +90,7 @@
     "@remotion/google-fonts": "catalog:remotion",
     "@remotion/media": "catalog:remotion",
     "@remotion/player": "catalog:remotion",
+    "@types/node": "catalog:types",
     "@types/react": "catalog:types",
     "@types/react-dom": "catalog:types",
     "lucide-react": "catalog:ui",

@@ -1,8 +1,8 @@
 import type { UndoableState } from '@gedatou/shared'
 import { describe, expect, it } from 'vitest'
 
-import { AUDIO_TRACK_HEIGHT, MEDIA_TRACK_HEIGHT, RULER_HEIGHT, TRACK_HEIGHT } from '../constants'
-import { rowHeightOf, rowTops, trackIndexAtY } from '../geometry'
+import { AUDIO_TRACK_HEIGHT, MEDIA_TRACK_HEIGHT, RULER_HEIGHT, TRACK_HEIGHT } from '../src/timeline/constants'
+import { rowHeightOf, rowTops, trackIndexAtY } from '../src/timeline/geometry'
 
 // 最小 state:只喂 geometry 读到的字段(tracks[].id、items[].trackId/type)。
 function st(tracks: string[], items: { trackId: string, type: string }[]): UndoableState {

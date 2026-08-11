@@ -1,5 +1,5 @@
 import type { UndoableState } from '@gedatou/shared'
-import type { EditorStorage } from '../../state/runtime'
+import type { EditorStorage } from '#state/runtime'
 import { cacheAsset, deleteCachedAsset, getCachedAsset } from '../../caching/indexeddb'
 import { deserializeState, serializeState } from '../../persistence/persistence'
 

@@ -7,11 +7,11 @@ import {
   pasteClipboard,
   pasteSerialized,
   pasteTextAsTextItem,
-} from '../lib/clipboard'
-import { importFiles } from '../lib/import-assets'
-import { removeTransition } from '../lib/transition-ops'
+} from '#lib/clipboard'
+import { importFiles } from '#lib/import-assets'
+import { removeTransition } from '#lib/transition-ops'
+import { useEditorApi, useEditorDeps, useEditorRefs } from '#state/context'
 import { saveState } from '../persistence/persistence'
-import { useEditorApi, useEditorDeps, useEditorRefs } from '../state/context'
 import { resolveSplitTargets, splitItemsAtFrame } from '../timeline/ops'
 
 function isEditableTarget(target: EventTarget | null): boolean {

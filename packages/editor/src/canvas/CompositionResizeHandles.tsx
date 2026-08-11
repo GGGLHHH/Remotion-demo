@@ -2,7 +2,7 @@ import type React from 'react'
 import type { ResizeHandle } from './geometry'
 import { dictEntries, dictValues } from '@gedatou/shared'
 import { useState } from 'react'
-import { useEditor, useEditorApi, useEditorRefs } from '../state/context'
+import { useEditor, useEditorApi, useEditorRefs } from '#state/context'
 import { CORNERS, EDGES, SizeBadge } from './handle-primitives'
 
 /**

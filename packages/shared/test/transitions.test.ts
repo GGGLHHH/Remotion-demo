@@ -1,7 +1,7 @@
-import type { Transition, UndoableState } from '../types'
+import type { Transition, UndoableState } from '../src/types'
 import { describe, expect, it } from 'vitest'
-import { createEmptyState, createSolidItem } from '../factories'
-import { getTransitionRenderProps, transitionVisual } from './transitions'
+import { getTransitionRenderProps, transitionVisual } from '../src/composition/transitions'
+import { createEmptyState, createSolidItem } from '../src/factories'
 
 // A: from 0 dur 60;B: from 45 dur 60(重叠 15,fade 15)
 function mk(): UndoableState {

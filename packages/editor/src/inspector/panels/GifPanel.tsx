@@ -1,6 +1,6 @@
 import type { GifItem } from '@gedatou/shared'
 import type React from 'react'
-import { useEditor } from '../../state/context'
+import { useEditor } from '#state/context'
 import { useItemPatch } from '../patch'
 import { AnimationSection, FillSection, LayoutSection, MediaSection, SourceSection } from '../sections'
 

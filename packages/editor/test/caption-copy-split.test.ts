@@ -1,9 +1,9 @@
-import type { EditorStoreApi } from '../store'
+import type { EditorStoreApi } from '../src/state/store'
 import { createCaptionAsset, createCaptionsItem, createEmptyState, createSolidItem, createTrack, DEFAULT_COMPOSITION_HEIGHT, DEFAULT_COMPOSITION_WIDTH, dictValues } from '@gedatou/shared'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { duplicateSelection } from '../../lib/clipboard'
-import { splitItemsAtFrame } from '../../timeline/ops'
-import { createEditorStore } from '../store'
+import { duplicateSelection } from '#lib/clipboard'
+import { createEditorStore } from '../src/state/store'
+import { splitItemsAtFrame } from '../src/timeline/ops'
 
 // 字幕块不是普通素材块：它的 asset 装的是「这个块的内容」。复制/切分时若沿用素材块那套
 // （共享 asset、原样带 sourceItemId），就会出现「删原视频副本一起没」「右半从头重播」。

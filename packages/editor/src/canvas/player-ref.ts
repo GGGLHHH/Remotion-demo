@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react'
-import { useEditorRefs } from '../state/context'
+import { useEditorRefs } from '#state/context'
 
 /**
  * 订阅当前播放头帧（frameupdate），每帧触发一次重渲。

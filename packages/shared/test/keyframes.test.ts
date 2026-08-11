@@ -1,7 +1,7 @@
-import type { Keyframe } from '../types'
+import type { Keyframe } from '../src/types'
 import { describe, expect, it } from 'vitest'
-import { createSolidItem } from '../factories'
-import { easingFn, keyframeAt, moveKeyframeInList, removeKeyframeAt, resolveProp, upsertKeyframe, withKeyframeList } from './keyframes'
+import { easingFn, keyframeAt, moveKeyframeInList, removeKeyframeAt, resolveProp, upsertKeyframe, withKeyframeList } from '../src/composition/keyframes'
+import { createSolidItem } from '../src/factories'
 
 const kf = (frame: number, value: number, easing: Keyframe['easing'] = 'linear'): Keyframe => ({ frame, value, easing })
 const item = (kfs?: Record<string, Keyframe[]>) => ({ ...createSolidItem({ trackId: 't', from: 0, width: 100, height: 100 }), left: 10, opacity: 1, ...(kfs ? { keyframes: kfs } : {}) })

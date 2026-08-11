@@ -1,5 +1,5 @@
-import type { EditorDeps } from '../state/runtime'
-import type { EditorStoreApi } from '../state/store'
+import type { EditorDeps } from '#state/runtime'
+import type { EditorStoreApi } from '#state/store'
 import { dictValues } from '@gedatou/shared'
 
 /**

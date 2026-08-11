@@ -1,5 +1,5 @@
 import type { EditorStarterItem } from '@gedatou/shared'
-import { useEditor } from '../state/context'
+import { useEditor } from '#state/context'
 
 export type PatchFn = (partial: Partial<EditorStarterItem>, commit?: boolean) => void
 

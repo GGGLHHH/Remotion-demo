@@ -3,9 +3,9 @@ import { dictValues } from '@gedatou/shared'
 import { calcDuration, MainComposition } from '@gedatou/shared/composition'
 import { Player } from '@remotion/player'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { importFiles } from '../lib/import-assets'
-import { cn } from '../lib/utils'
-import { useEditor, useEditorApi, useEditorDeps, useEditorRefs } from '../state/context'
+import { importFiles } from '#lib/import-assets'
+import { cn } from '#lib/utils'
+import { useEditor, useEditorApi, useEditorDeps, useEditorRefs } from '#state/context'
 import { CompositionResizeHandles } from './CompositionResizeHandles'
 import { CropOverlay } from './CropOverlay'
 import { DrawSolidOverlay } from './DrawSolidOverlay'
@@ -13,7 +13,7 @@ import { SelectionOverlay } from './SelectionOverlay'
 import { TextEditOverlay } from './TextEditOverlay'
 import { TextToolOverlay } from './TextToolOverlay'
 
-export type { CanvasTool } from '../state/store'
+export type { CanvasTool } from '#state/store'
 
 /** 与 store.setCanvasZoom 相同的钳制，光标锚定的平移计算必须用钳制后的值才不漂 */
 const clampZoom = (z: number): number => Math.min(4, Math.max(0.1, z))

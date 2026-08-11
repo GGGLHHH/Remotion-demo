@@ -2,19 +2,19 @@ import type React from 'react'
 import { dictValues } from '@gedatou/shared'
 import { AlertCircleIcon, ArrowLeftRightIcon, CheckIcon, ClapperboardIcon } from 'lucide-react'
 import { useState } from 'react'
-import { Button } from '../../components/ui/button'
+import { Button } from '#components/ui/button'
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '../../components/ui/select'
-import { Spinner } from '../../components/ui/spinner'
-import { Tooltip, TooltipContent, TooltipTrigger } from '../../components/ui/tooltip'
-import { useT } from '../../lib/i18n'
-import { startRender } from '../../lib/render-client'
-import { useEditor, useEditorApi, useEditorDeps } from '../../state/context'
+} from '#components/ui/select'
+import { Spinner } from '#components/ui/spinner'
+import { Tooltip, TooltipContent, TooltipTrigger } from '#components/ui/tooltip'
+import { useT } from '#lib/i18n'
+import { startRender } from '#lib/render-client'
+import { useEditor, useEditorApi, useEditorDeps } from '#state/context'
 import { Section } from '../fields'
 import { NumberField } from '../NumberField'
 

@@ -8,10 +8,10 @@ import {
   ContextMenuItem,
   ContextMenuSeparator,
   ContextMenuTrigger,
-} from '../components/ui/context-menu'
-import { copySelection, duplicateSelection } from '../lib/clipboard'
-import { useT } from '../lib/i18n'
-import { useEditor, useEditorApi, useEditorRefs } from '../state/context'
+} from '#components/ui/context-menu'
+import { copySelection, duplicateSelection } from '#lib/clipboard'
+import { useT } from '#lib/i18n'
+import { useEditor, useEditorApi, useEditorRefs } from '#state/context'
 import { addTrack, moveItems, removeEmptyTracks } from '../timeline/ops'
 import { topmostItemAt, toStagePoint } from './geometry'
 import { CORNERS, EDGES, SizeBadge } from './handle-primitives'

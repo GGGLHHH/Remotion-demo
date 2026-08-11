@@ -4,7 +4,7 @@ import {
   createTrack,
 } from '@gedatou/shared'
 import { describe, expect, it } from 'vitest'
-import { hitTest, resizeRect, topmostItemAt } from '../geometry'
+import { hitTest, resizeRect, topmostItemAt } from '../src/canvas/geometry'
 
 describe('hitTest', () => {
   const rect = { left: 100, top: 100, width: 200, height: 100 }

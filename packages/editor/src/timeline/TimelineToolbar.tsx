@@ -1,10 +1,10 @@
 import type React from 'react'
 import { Magnet, Minus, Plus, Scissors } from 'lucide-react'
+import { Button } from '#components/ui/button'
+import { Slider } from '#components/ui/slider'
+import { Tooltip, TooltipContent, TooltipTrigger } from '#components/ui/tooltip'
+import { useT } from '#lib/i18n'
 import { usePlayerFrameDerived } from '../canvas/player-ref'
-import { Button } from '../components/ui/button'
-import { Slider } from '../components/ui/slider'
-import { Tooltip, TooltipContent, TooltipTrigger } from '../components/ui/tooltip'
-import { useT } from '../lib/i18n'
 import { formatTime } from './Ruler'
 
 /** 工具栏时间码(当前/总时长):秒级读数,仅显示文本变化时才重渲(播放中 ~1 次/秒) */

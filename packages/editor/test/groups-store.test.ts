@@ -1,4 +1,4 @@
-import type { EditorStoreApi } from '../store'
+import type { EditorStoreApi } from '../src/state/store'
 import {
   createEmptyState,
   createSolidItem,
@@ -8,7 +8,7 @@ import {
   findGroupOfItem,
 } from '@gedatou/shared'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { createEditorStore } from '../store'
+import { createEditorStore } from '../src/state/store'
 
 // 三个各自独占轨道的色块(可跨轨道成组)
 function buildState() {

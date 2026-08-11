@@ -1,4 +1,4 @@
-import type { EditorStoreApi } from '../store'
+import type { EditorStoreApi } from '../src/state/store'
 import {
   createCaptionAsset,
   createCaptionsItem,
@@ -9,7 +9,7 @@ import {
   DEFAULT_COMPOSITION_WIDTH,
 } from '@gedatou/shared'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { createEditorStore } from '../store'
+import { createEditorStore } from '../src/state/store'
 
 // 字幕与源块的绑定(sourceItemId):源块删除时字幕跟着删。
 // 移动跟随那半边住在 use-move-drag 的拖拽状态机里，只能端到端验，这里覆盖删除这条。

@@ -1,4 +1,4 @@
-import type { Group } from '../types'
+import type { Group } from '../src/types'
 import { describe, expect, it } from 'vitest'
 import {
   addItemToItemsGroup,
@@ -9,7 +9,7 @@ import {
   regroupDuplicated,
   reorderGroup,
   ungroupBySelection,
-} from '../groups'
+} from '../src/groups'
 
 const g = (id: string, itemIds: string[]): Group => ({ id, itemIds })
 const map = (...groups: Group[]): Record<string, Group> => Object.fromEntries(groups.map(x => [x.id, x]))

@@ -1,10 +1,10 @@
 import type React from 'react'
 import { ChevronRightIcon } from 'lucide-react'
 import { useState } from 'react'
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../components/ui/collapsible'
-import { Slider } from '../components/ui/slider'
-import { useT } from '../lib/i18n'
-import { useEditorApi } from '../state/context'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '#components/ui/collapsible'
+import { Slider } from '#components/ui/slider'
+import { useT } from '#lib/i18n'
+import { useEditorApi } from '#state/context'
 
 /**
  * 面板分区。collapsible 时标题为整行折叠按钮（官方样式，右侧箭头随展开态转 90°）；

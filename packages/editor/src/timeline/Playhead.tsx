@@ -1,6 +1,6 @@
 import type React from 'react'
 import { useEffect, useRef } from 'react'
-import { useEditorRefs } from '../state/context'
+import { useEditorRefs } from '#state/context'
 
 /**
  * 播放头：位置不走 React state——直接订阅 frameupdate 改 style.left，

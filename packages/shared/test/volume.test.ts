@@ -1,6 +1,6 @@
-import type { AudioItem, VideoItem } from '../types'
+import type { AudioItem, VideoItem } from '../src/types'
 import { describe, expect, it } from 'vitest'
-import { volumeWithFades } from '../composition/items/MediaItemRenderers'
+import { volumeWithFades } from '../src/composition/items/MediaItemRenderers'
 
 const base = {
   id: 'i1',

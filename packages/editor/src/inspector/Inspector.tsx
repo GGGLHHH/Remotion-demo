@@ -1,5 +1,5 @@
 import type React from 'react'
-import { useEditor } from '../state/context'
+import { useEditor } from '#state/context'
 import { ItemPanel } from './panels'
 import {
   CompositionPanel,

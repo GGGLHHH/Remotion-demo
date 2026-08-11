@@ -1,4 +1,4 @@
-import type { EditorStoreApi } from '../store'
+import type { EditorStoreApi } from '../src/state/store'
 import {
   createEmptyState,
   createSolidItem,
@@ -8,7 +8,7 @@ import {
   MAX_UNDO_STACK_SIZE,
 } from '@gedatou/shared'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { createEditorStore } from '../store'
+import { createEditorStore } from '../src/state/store'
 
 function buildState() {
   const s = createEmptyState({

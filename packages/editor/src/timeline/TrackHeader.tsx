@@ -2,10 +2,10 @@ import type { Track } from '@gedatou/shared'
 import type React from 'react'
 import { Eye, EyeOff, Volume2, VolumeX } from 'lucide-react'
 import { memo } from 'react'
-import { Button } from '../components/ui/button'
-import { Tooltip, TooltipContent, TooltipTrigger } from '../components/ui/tooltip'
-import { useT } from '../lib/i18n'
-import { useEditor } from '../state/context'
+import { Button } from '#components/ui/button'
+import { Tooltip, TooltipContent, TooltipTrigger } from '#components/ui/tooltip'
+import { useT } from '#lib/i18n'
+import { useEditor } from '#state/context'
 
 /** 轨道头图标按钮：保留 title + Tooltip 中文说明 */
 const TrackBtn: React.FC<{

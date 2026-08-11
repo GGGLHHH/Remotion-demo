@@ -1,6 +1,6 @@
 import type { CustomItem } from '@gedatou/shared'
 import type React from 'react'
-import { useEditorDeps } from '../../state/context'
+import { useEditorDeps } from '#state/context'
 import { useItemPatch } from '../patch'
 import { AnimationSection, FadeSection, LayoutSection } from '../sections'
 

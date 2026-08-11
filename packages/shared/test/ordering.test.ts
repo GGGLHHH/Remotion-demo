@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { getOrderedItems } from '../composition/ordering'
-import { createEmptyState, createSolidItem, createTrack } from '../factories'
+import { getOrderedItems } from '../src/composition/ordering'
+import { createEmptyState, createSolidItem, createTrack } from '../src/factories'
 
 describe('getOrderedItems', () => {
   it('底部轨道的 item 排在前（先画在下层）', () => {

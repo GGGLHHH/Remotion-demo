@@ -1,7 +1,7 @@
 import { createSolidItem } from '@gedatou/shared'
 import { describe, expect, it } from 'vitest'
-import { createEditorStore } from '../state/store'
-import { addTransition, applyTransitionDuration, applyTransitionPreset, removeTransition } from './transition-ops'
+import { createEditorStore } from '#state/store'
+import { addTransition, applyTransitionDuration, applyTransitionPreset, removeTransition } from '../src/lib/transition-ops'
 
 function mk() {
   const store = createEditorStore()

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseSubtitles, serializeSubtitles } from '../subtitle-io'
+import { parseSubtitles, serializeSubtitles } from '../src/lib/subtitle-io'
 
 describe('parseSubtitles', () => {
   it('解析 SRT（逗号毫秒 + 序号行 + CRLF）', () => {

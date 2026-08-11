@@ -1,9 +1,9 @@
 import type React from 'react'
 import { useEffect } from 'react'
-import { TooltipProvider } from '../components/ui/tooltip'
-import { cn } from '../lib/utils'
+import { TooltipProvider } from '#components/ui/tooltip'
+import { cn } from '#lib/utils'
+import { useEditor } from '#state/context'
 import { useShortcuts } from '../shortcuts/useShortcuts'
-import { useEditor } from '../state/context'
 
 /**
  * 外壳行为收口:快捷键 + Escape 退出画布工具 + 上传/渲染/转录未完成时拦刷新。

@@ -1,5 +1,5 @@
 import type { Caption } from '@gedatou/shared'
-import type { EditorTransport, RenderProgress } from '../../state/runtime'
+import type { EditorTransport, RenderProgress } from '#state/runtime'
 
 /** XHR PUT：fetch 拿不到上传进度，用 XHR 的 upload.onprogress */
 function putWithProgress(url: string, file: File, contentType: string, onProgress: (pct: number) => void): Promise<void> {

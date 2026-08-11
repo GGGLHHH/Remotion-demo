@@ -26,17 +26,17 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from '../components/ui/alert-dialog'
-import { Badge } from '../components/ui/badge'
-import { Button } from '../components/ui/button'
-import { Tooltip, TooltipContent, TooltipTrigger } from '../components/ui/tooltip'
-import { addCaptionsItem } from '../lib/add-items'
-import { cleanupDeletedAssets } from '../lib/cleanup-assets'
-import { useT } from '../lib/i18n'
-import { importFiles } from '../lib/import-assets'
-import { cn } from '../lib/utils'
+} from '#components/ui/alert-dialog'
+import { Badge } from '#components/ui/badge'
+import { Button } from '#components/ui/button'
+import { Tooltip, TooltipContent, TooltipTrigger } from '#components/ui/tooltip'
+import { addCaptionsItem } from '#lib/add-items'
+import { cleanupDeletedAssets } from '#lib/cleanup-assets'
+import { useT } from '#lib/i18n'
+import { importFiles } from '#lib/import-assets'
+import { cn } from '#lib/utils'
+import { useEditor, useEditorApi, useEditorDeps, useEditorRefs } from '#state/context'
 import { downloadStateFile, loadStateFromFile, saveState } from '../persistence/persistence'
-import { useEditor, useEditorApi, useEditorDeps, useEditorRefs } from '../state/context'
 
 // 工具栏零件:全部 context-connected（自己从 Provider 取 store/deps/refs），放进 <EditorProvider>
 // 里任意位置即用，无需 prop 对传功能函数。宿主用这些积木自拼工具栏；EditorRoot 也用它们拼默认工具栏。

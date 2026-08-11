@@ -1,8 +1,8 @@
 import type { EditorStarterItem, UndoableState } from '@gedatou/shared'
-import type { EditorDeps } from '../state/runtime'
-import type { EditorStoreApi } from '../state/store'
+import type { EditorDeps } from '#state/runtime'
+import type { EditorStoreApi } from '#state/store'
 import { dictValues, pruneGroups } from '@gedatou/shared'
-import { tFor } from '../lib/i18n-core'
+import { tFor } from '#lib/i18n-core'
 
 /** 旧数据迁移：视频缺 audioFade* 时继承视觉淡变（旧模型单对同时驱动画面与音量），原地修改 */
 export function normalizeLegacyFades(items: Iterable<EditorStarterItem>): void {

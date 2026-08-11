@@ -1,7 +1,7 @@
 import type React from 'react'
-import { addTextItem } from '../lib/add-items'
-import { useT } from '../lib/i18n'
-import { useEditorApi, useEditorRefs } from '../state/context'
+import { addTextItem } from '#lib/add-items'
+import { useT } from '#lib/i18n'
+import { useEditorApi, useEditorRefs } from '#state/context'
 
 /** 文本工具：点击画布放置一个自适应尺寸的文本项（不进入行内编辑），随后退出模式 */
 export const TextToolOverlay: React.FC<{ scale: number, onDone: () => void }> = ({

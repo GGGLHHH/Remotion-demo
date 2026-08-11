@@ -1,5 +1,5 @@
-import type { EditorDeps, RenderProgress } from '../state/runtime'
-import type { EditorStoreApi } from '../state/store'
+import type { EditorDeps, RenderProgress } from '#state/runtime'
+import type { EditorStoreApi } from '#state/store'
 import { tFor } from './i18n-core'
 
 /**

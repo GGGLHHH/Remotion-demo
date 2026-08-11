@@ -2,8 +2,8 @@ import type { AnimatableProp, EditorStarterItem } from '@gedatou/shared'
 import type React from 'react'
 import type { ItemKeyframesApi } from './use-item-keyframes'
 import { Diamond } from 'lucide-react'
+import { cn } from '#lib/utils'
 import { usePlayerFrameDerived } from '../canvas/player-ref'
-import { cn } from '../lib/utils'
 
 const clamp = (n: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, n))
 

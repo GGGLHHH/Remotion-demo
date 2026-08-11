@@ -1,5 +1,5 @@
 import type { Transition } from '@gedatou/shared'
-import type { EditorStoreApi } from '../state/store'
+import type { EditorStoreApi } from '#state/store'
 import { dictValues, newId } from '@gedatou/shared'
 import { TRANSITION_PRESETS } from '@gedatou/shared/composition'
 

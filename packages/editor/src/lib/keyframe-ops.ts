@@ -1,6 +1,6 @@
 import type { AnimatableProp, EditorStarterItem, Keyframe, KeyframeEasing } from '@gedatou/shared'
 import type { PresetId } from '@gedatou/shared/composition'
-import type { EditorStoreApi } from '../state/store'
+import type { EditorStoreApi } from '#state/store'
 import {
   buildPreset,
   keyframeAt,

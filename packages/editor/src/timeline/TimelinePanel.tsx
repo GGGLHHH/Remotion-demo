@@ -2,20 +2,20 @@ import type { EditorStarterItem, Transition } from '@gedatou/shared'
 import type React from 'react'
 import { calcDuration } from '@gedatou/shared/composition'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { usePlayerFrameDerived } from '../canvas/player-ref'
 import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuSeparator,
   ContextMenuTrigger,
-} from '../components/ui/context-menu'
-import { copySelection, duplicateSelection } from '../lib/clipboard'
-import { useT } from '../lib/i18n'
-import { importFiles } from '../lib/import-assets'
-import { applyTransitionDuration } from '../lib/transition-ops'
-import { cn } from '../lib/utils'
-import { useEditor, useEditorApi, useEditorDeps, useEditorRefs } from '../state/context'
+} from '#components/ui/context-menu'
+import { copySelection, duplicateSelection } from '#lib/clipboard'
+import { useT } from '#lib/i18n'
+import { importFiles } from '#lib/import-assets'
+import { applyTransitionDuration } from '#lib/transition-ops'
+import { cn } from '#lib/utils'
+import { useEditor, useEditorApi, useEditorDeps, useEditorRefs } from '#state/context'
+import { usePlayerFrameDerived } from '../canvas/player-ref'
 import { HEADER_WIDTH, RULER_HEIGHT, TRACK_HEIGHT } from './constants'
 import { rowHeightOf, rowTops, trackIndexAtY } from './geometry'
 import { bringToFront, resolveSplitTargets, sendToBack, splitItemsAtFrame } from './ops'

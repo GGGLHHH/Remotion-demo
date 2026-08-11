@@ -1,8 +1,8 @@
 import type { EditorStarterItem } from '@gedatou/shared'
 import type React from 'react'
 import type { PatchFn } from '../patch'
-import { useT } from '../../lib/i18n'
-import { useEditor } from '../../state/context'
+import { useT } from '#lib/i18n'
+import { useEditor } from '#state/context'
 import { FadeSliders, Section } from '../fields'
 
 // ---- 淡入淡出（官方 Fade 区）：非媒体类型的独立分区（媒体类型收在「视频/音频」区内） ----

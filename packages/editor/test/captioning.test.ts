@@ -1,6 +1,6 @@
 import type { Caption } from '@gedatou/shared'
 import { describe, expect, it } from 'vitest'
-import { audibleSegment, remapCaptionTimes } from '../captioning'
+import { audibleSegment, remapCaptionTimes } from '../src/lib/captioning'
 
 function cap(startMs: number, endMs: number): Caption {
   return {

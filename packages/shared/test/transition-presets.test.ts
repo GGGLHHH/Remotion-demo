@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { presetIdOf, TRANSITION_PRESETS } from './transition-presets'
+import { presetIdOf, TRANSITION_PRESETS } from '../src/composition/transition-presets'
 
 describe('tRANSITION_PRESETS', () => {
   it('has unique ids', () => {

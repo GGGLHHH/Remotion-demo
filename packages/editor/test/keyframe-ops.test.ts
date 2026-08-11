@@ -1,6 +1,6 @@
 import { createSolidItem } from '@gedatou/shared'
 import { describe, expect, it } from 'vitest'
-import { createEditorStore } from '../state/store'
+import { createEditorStore } from '#state/store'
 import {
   applyAnimationPreset,
   clearKeyframes,
@@ -9,7 +9,7 @@ import {
   setKeyframeEasing,
   setKeyframeValue,
   toggleKeyframe,
-} from './keyframe-ops'
+} from '../src/lib/keyframe-ops'
 
 function mk() {
   const store = createEditorStore()

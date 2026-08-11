@@ -1,11 +1,11 @@
 import type React from 'react'
 import { CaptionsIcon, Upload } from 'lucide-react'
 import { useRef } from 'react'
-import { Button } from '../../components/ui/button'
-import { Spinner } from '../../components/ui/spinner'
-import { generateCaptions, importCaptionsForItem } from '../../lib/captioning'
-import { useT } from '../../lib/i18n'
-import { useEditor, useEditorApi, useEditorDeps } from '../../state/context'
+import { Button } from '#components/ui/button'
+import { Spinner } from '#components/ui/spinner'
+import { generateCaptions, importCaptionsForItem } from '#lib/captioning'
+import { useT } from '#lib/i18n'
+import { useEditor, useEditorApi, useEditorDeps } from '#state/context'
 import { Section } from '../fields'
 
 /**

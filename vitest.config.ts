@@ -4,6 +4,6 @@ import { defineConfig } from 'vitest/config'
 // 不渲染组件,所以留在默认 node 环境 —— 要测组件了再加 jsdom + @vitejs/plugin-react。
 export default defineConfig({
   test: {
-    include: ['packages/*/src/**/*.test.{ts,tsx}'],
+    include: ['packages/*/test/**/*.test.{ts,tsx}'],
   },
 })

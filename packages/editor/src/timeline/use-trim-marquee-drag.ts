@@ -1,10 +1,10 @@
 import type { EditorStarterItem } from '@gedatou/shared'
 import type React from 'react'
-import type { EditorStoreApi } from '../state/store'
+import type { EditorStoreApi } from '#state/store'
 import type { DragState } from './types'
 import { dictValues } from '@gedatou/shared'
 import { useRef, useState } from 'react'
-import { addTransition } from '../lib/transition-ops'
+import { addTransition } from '#lib/transition-ops'
 import { trackIndexAtY } from './geometry'
 import { rollEdit, snapFrame, trimItem } from './ops'
 

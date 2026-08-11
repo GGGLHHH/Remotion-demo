@@ -1,9 +1,9 @@
 import type { AssetStatus, EditorStarterAsset } from '@gedatou/shared'
 import type React from 'react'
 import { CloudUploadIcon } from 'lucide-react'
-import { Badge } from '../../components/ui/badge'
-import { useT } from '../../lib/i18n'
-import { useEditor } from '../../state/context'
+import { Badge } from '#components/ui/badge'
+import { useT } from '#lib/i18n'
+import { useEditor } from '#state/context'
 import { Section } from '../fields'
 
 // ---- 源信息（官方 Source 区：文件名 / 时长 / 大小 + 云图标） ----
