@@ -25,29 +25,21 @@ export default antfu(
       },
     },
     ignores: [
-      // whisper.cpp 的源码检出(装 @remotion/install-whisper-cpp 时落下的),不是本项目代码
-      'apps/server/.whisper',
+      // 点开头的一概不看:里面全是工具自己管的东西(.superpowers 的 agent 报告、
+      // .serena 的索引、.claude 的会话、apps/server/.whisper 的 whisper.cpp 检出),
+      // 没有一行是我们写的。flat config 不像旧版 eslintrc 那样默认忽略 dotfile,
+      // 得自己写 —— 两条:目录本身,和目录里的内容。
+      '**/.*',
+      '**/.*/**',
       // 一次性验证脚本的产物与截图
       'tools/fixtures',
       // superpowers 工作流生成的归档(plan/spec/任务报告):写下时是什么样就是什么样的快照,
       // 不是持续维护的文档。里面的代码块大多是半截片段和伪代码,连解析都过不去。
-      // 只圈这两个目录 —— docs/ 下手写的 ui-glossary.md、arch-review-*.md 照常受检。
+      // 只圈这一个目录 —— docs/ 下手写的 ui-glossary.md、arch-review-*.md 照常受检。
       'docs/superpowers',
-      '.superpowers',
     ],
   },
 ).append({
-  name: 'remotion-editor/executables',
-  files: ['tools/**/*.mjs', 'apps/server/src/index.ts'],
-  rules: {
-    // 这两条是 type:'lib' 带来的,针对的是「会被 import 的库代码」:顶层 await 会
-    // 逼消费方的 bundler 走 ESM 并阻塞加载,console 会污染宿主输出。
-    // 这里的文件都是入口 —— tools/*.mjs 由 node 直接执行(全仓 0 处 import),
-    // fastify 的 listen 也只有顶层 await 一种写法,stdout 就是脚本的产品。
-    'antfu/no-top-level-await': 'off',
-    'no-console': 'off',
-  },
-}).append({
   name: 'remotion-editor/env-checks',
   files: ['packages/*/src/**'],
   rules: {
