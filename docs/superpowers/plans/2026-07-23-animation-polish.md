@@ -36,51 +36,59 @@ packages/editor/src/inspector/
 - [ ] **Step 1: AnimatableField.tsx** — 每字段级反应式 value 包装:
 
 ```tsx
-import type React from 'react';
-import type { AnimatableProp, EditorStarterItem } from '@gedatou/shared';
-import { resolveProp } from '@gedatou/shared/composition';
-import { usePlayerFrameDerived } from '../canvas/player-ref';
-import { NumberField } from './NumberField';
-import { SliderField } from './fields';
-import { KeyframeToggle } from './KeyframeToggle';
-import type { ItemKeyframesApi } from './use-item-keyframes';
+import type { AnimatableProp, EditorStarterItem } from '@gedatou/shared'
+import type React from 'react'
+import type { ItemKeyframesApi } from './use-item-keyframes'
+import { resolveProp } from '@gedatou/shared/composition'
+import { usePlayerFrameDerived } from '../canvas/player-ref'
+import { SliderField } from './fields'
+import { KeyframeToggle } from './KeyframeToggle'
+import { NumberField } from './NumberField'
 
 // 每字段级:非关键帧属性 derive 返回静态值(常量→不重渲);keyframed 属性随播头插值刷新(仅本字段重渲)
-const useAnimatedValue = (item: EditorStarterItem, prop: AnimatableProp, kf: ItemKeyframesApi): number =>
-  usePlayerFrameDerived((f) =>
+function useAnimatedValue(item: EditorStarterItem, prop: AnimatableProp, kf: ItemKeyframesApi): number {
+  return usePlayerFrameDerived(f =>
     kf.has(prop)
       ? resolveProp(item, prop, Math.max(0, Math.min(item.durationInFrames, f - item.from)))
       : (item[prop] as number),
-  );
+  )
+}
 
 export const AnimatableNumberField: React.FC<{
-  item: EditorStarterItem; prop: AnimatableProp; kf: ItemKeyframesApi;
-  label: string; className?: string; onChange: (v: number, committing: boolean) => void;
+  item: EditorStarterItem
+  prop: AnimatableProp
+  kf: ItemKeyframesApi
+  label: string
+  className?: string
+  onChange: (v: number, committing: boolean) => void
 }> = ({ item, prop, kf, label, className, onChange }) => {
-  const value = useAnimatedValue(item, prop, kf);
+  const value = useAnimatedValue(item, prop, kf)
   return (
     <div className="flex items-center gap-1">
       <NumberField inline label={label} className={className} value={value} onChange={onChange} />
       <KeyframeToggle item={item} prop={prop} kf={kf} />
     </div>
-  );
-};
+  )
+}
 
 // opacity 走 SliderField(UI 0-100),value 传百分比
 export const AnimatableSliderField: React.FC<{
-  item: EditorStarterItem; prop: AnimatableProp; kf: ItemKeyframesApi;
-  toUi: (v: number) => number; onChange: (uiValue: number) => void;
+  item: EditorStarterItem
+  prop: AnimatableProp
+  kf: ItemKeyframesApi
+  toUi: (v: number) => number
+  onChange: (uiValue: number) => void
   // 透传 SliderField 需要的其它 props(label/min/max/...)
-  sliderProps: Record<string, unknown>;
+  sliderProps: Record<string, unknown>
 }> = ({ item, prop, kf, toUi, onChange, sliderProps }) => {
-  const raw = useAnimatedValue(item, prop, kf);
+  const raw = useAnimatedValue(item, prop, kf)
   return (
     <div className="flex items-center gap-1">
       <SliderField {...sliderProps} value={toUi(raw)} onChange={onChange} />
       <KeyframeToggle item={item} prop={prop} kf={kf} />
     </div>
-  );
-};
+  )
+}
 ```
 > 读 `SliderField`/`NumberField` 的实际 props 签名(`./fields`、`./NumberField`),`AnimatableSliderField` 按 opacity 行现有用法适配(现:`value={item.opacity*100}` + `onChange={(v)=>animPatch('opacity',v/100,false)}`)。若 SliderField 透传太别扭,可让 FillSection 直接内联一个 `useAnimatedValue` 局部组件而非通用 wrapper——关键是**每字段级** usePlayerFrameDerived。
 
@@ -121,15 +129,22 @@ EOF
 <Section title={t('inspector.animation') ?? 'Animation'}>
   <Row label={t('inspector.preset') ?? 'Preset'}>
     <DropdownMenu>
-      <DropdownMenuTrigger render={<Button size="sm" variant="ghost">{t('inspector.applyPreset') ?? 'Apply preset'} ▾</Button>} />
+      <DropdownMenuTrigger render={(
+        <Button size="sm" variant="ghost">
+          {t('inspector.applyPreset') ?? 'Apply preset'}
+          {' '}
+          ▾
+        </Button>
+      )}
+      />
       <DropdownMenuContent>
-        {PRESET_IDS.map((id) => <DropdownMenuItem key={id} onClick={() => kf.applyPreset(id)}>{id}</DropdownMenuItem>)}
+        {PRESET_IDS.map(id => <DropdownMenuItem key={id} onClick={() => kf.applyPreset(id)}>{id}</DropdownMenuItem>)}
       </DropdownMenuContent>
     </DropdownMenu>
   </Row>
-  {ANIMATABLE_PROPS.filter((p) => kf.has(p)).map((p) => (
+  {ANIMATABLE_PROPS.filter(p => kf.has(p)).map(p => (
     <Row key={p} label={p}>
-      <Button size="icon-xs" variant="ghost" aria-label={`clear ${p} keyframes`} onClick={() => kf.clear(p)}><X/></Button>
+      <Button size="icon-xs" variant="ghost" aria-label={`clear ${p} keyframes`} onClick={() => kf.clear(p)}><X /></Button>
     </Row>
   ))}
 </Section>

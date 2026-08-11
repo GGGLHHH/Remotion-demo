@@ -1,46 +1,43 @@
-import {
-  createCaptionAsset,
-  createTextItem,
-  newId,
-  regroupDuplicated,
-  type EditorStarterAsset,
-  type EditorStarterItem,
-} from '@gedatou/shared';
-import type { EditorStoreApi } from '../state/store';
-import { normalizeLegacyFades } from '../persistence/persistence';
-import { addTrack } from '../timeline/ops';
+import type { EditorStarterAsset, EditorStarterItem } from '@gedatou/shared'
+import type { EditorStoreApi } from '#state/store'
+import { createCaptionAsset, createTextItem, dictEntries, newId, regroupDuplicated } from '@gedatou/shared'
+import { normalizeLegacyFades } from '../persistence/persistence'
+import { addTrack } from '../timeline/ops'
 
 /** 系统剪贴板 text/html 载荷的标记属性（与官方 editor-starter 同名，格式互通） */
-export const CLIPBOARD_MARKER = 'data-remotion-editor-starter';
+export const CLIPBOARD_MARKER = 'data-remotion-editor-starter'
 
-type ClipboardPayload = { items: EditorStarterItem[]; assets: Record<string, EditorStarterAsset> };
+interface ClipboardPayload { items: EditorStarterItem[], assets: Record<string, EditorStarterAsset> }
 
-const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const escapeHtml = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 
 /** 选中项 + 引用的素材 → 系统剪贴板载荷；无选中返回 null（同时镜像到内部剪贴板供菜单用） */
-export const buildClipboardPayload = (
-  store: EditorStoreApi,
-): { html: string; plain: string } | null => {
-  const state = store.getState();
+export function buildClipboardPayload(store: EditorStoreApi): { html: string, plain: string } | null {
+  const state = store.getState()
   const items = state.selectedItemIds
-    .map((id) => state.undoable.items[id])
-    .filter((i): i is EditorStarterItem => Boolean(i));
-  if (!items.length) return null;
-  state.setClipboard(items);
-  const assets: Record<string, EditorStarterAsset> = {};
+    .map(id => state.undoable.items[id])
+    .filter((i): i is EditorStarterItem => Boolean(i))
+  if (!items.length)
+    return null
+  state.setClipboard(items)
+  const assets: Record<string, EditorStarterAsset> = {}
   for (const it of items) {
-    if ('assetId' in it && state.undoable.assets[it.assetId]) {
-      assets[it.assetId] = state.undoable.assets[it.assetId];
-    }
+    if (!('assetId' in it))
+      continue
+    const asset = state.undoable.assets[it.assetId]
+    if (asset)
+      assets[it.assetId] = asset
   }
-  const json = JSON.stringify({ items, assets } satisfies ClipboardPayload);
-  return { html: `<div ${CLIPBOARD_MARKER}>${escapeHtml(json)}</div>`, plain: json };
-};
+  const json = JSON.stringify({ items, assets } satisfies ClipboardPayload)
+  return { html: `<div ${CLIPBOARD_MARKER}>${escapeHtml(json)}</div>`, plain: json }
+}
 
 /** 菜单用复制：内部剪贴板 + 尽力写系统剪贴板（异步，失败静默） */
-export const copySelection = (store: EditorStoreApi): void => {
-  const payload = buildClipboardPayload(store);
-  if (!payload || typeof ClipboardItem === 'undefined' || !navigator.clipboard?.write) return;
+export function copySelection(store: EditorStoreApi): void {
+  const payload = buildClipboardPayload(store)
+  // 特性检测:类型上 navigator.clipboard 总是在,但非安全上下文/旧浏览器里它是 undefined
+  if (!payload || typeof ClipboardItem === 'undefined' || typeof navigator.clipboard?.write !== 'function')
+    return
   void navigator.clipboard
     .write([
       new ClipboardItem({
@@ -48,54 +45,59 @@ export const copySelection = (store: EditorStoreApi): void => {
         'text/plain': new Blob([payload.plain], { type: 'text/plain' }),
       }),
     ])
-    .catch(() => undefined);
-};
+    .catch(() => undefined)
+}
 
 /** 解析系统剪贴板 html 载荷；不是我们的格式或损坏则 null */
-export const parseClipboardHtml = (html: string): ClipboardPayload | null => {
+export function parseClipboardHtml(html: string): ClipboardPayload | null {
   try {
-    const doc = new DOMParser().parseFromString(html, 'text/html');
-    const holder = doc.querySelector(`[${CLIPBOARD_MARKER}]`);
-    if (!holder?.textContent) return null;
-    const parsed = JSON.parse(holder.textContent) as ClipboardPayload;
-    if (!Array.isArray(parsed.items)) return null;
-    const items = parsed.items.filter((i) => i && typeof i === 'object' && 'type' in i && 'durationInFrames' in i);
-    if (!items.length) return null;
+    const doc = new DOMParser().parseFromString(html, 'text/html')
+    const holder = doc.querySelector(`[${CLIPBOARD_MARKER}]`)
+    if (!(holder?.textContent != null && holder?.textContent !== ''))
+      return null
+    // 系统剪贴板里什么都可能有,逐项过筛而不是照单全收
+    const parsed = JSON.parse(holder.textContent) as Partial<ClipboardPayload> | null
+    if (!parsed || !Array.isArray(parsed.items))
+      return null
+    const items = (parsed.items as unknown[]).filter(
+      (i): i is EditorStarterItem =>
+        i !== null && typeof i === 'object' && 'type' in i && 'durationInFrames' in i,
+    )
+    if (!items.length)
+      return null
     // 旧版本载荷的视频单淡变对同时驱动画面与音量 ⇒ 粘贴时迁移
-    normalizeLegacyFades(items);
-    return { items, assets: parsed.assets ?? {} };
-  } catch {
-    return null;
+    normalizeLegacyFades(items)
+    return { items, assets: parsed.assets ?? {} }
   }
-};
+  catch {
+    return null
+  }
+}
 
 /** 每项落入新建顶部轨道（避免任何重叠冲突） */
-const placeItems = (
-  store: EditorStoreApi,
-  items: EditorStarterItem[],
-  opts?: { atFrame?: number; offsetPx?: number; assets?: Record<string, EditorStarterAsset> },
-): void => {
-  const state = store.getState();
-  const offset = opts?.offsetPx ?? 0;
+function placeItems(store: EditorStoreApi, items: EditorStarterItem[], opts?: { atFrame?: number, offsetPx?: number, assets?: Record<string, EditorStarterAsset> }): void {
+  const state = store.getState()
+  const offset = opts?.offsetPx ?? 0
   // 粘贴到播放头：整体平移，保持多项之间的相对帧距
-  const minFrom = Math.min(...items.map((i) => i.from));
-  const frameShift = opts?.atFrame !== undefined ? opts.atFrame - minFrom : 0;
-  const newIds: string[] = [];
+  const minFrom = Math.min(...items.map(i => i.from))
+  const frameShift = opts?.atFrame !== undefined ? opts.atFrame - minFrom : 0
+  const newIds: string[] = []
   state.updateUndoable((s) => {
-    let st = s;
-    const newItems = { ...s.items };
-    const newAssets = { ...s.assets };
+    let st = s
+    const newItems = { ...s.items }
+    const newAssets = { ...s.assets }
     // 副本分组维护:原 id → 新 id(源 item 属某组时,副本按源组重建新组;跨标签页粘贴源不在组则零新组)
-    const idMap: Record<string, string> = {};
-    for (const [id, asset] of Object.entries(opts?.assets ?? {})) {
-      if (!newAssets[id]) newAssets[id] = asset;
+    const idMap: Record<string, string> = {}
+    for (const [id, asset] of dictEntries(opts?.assets ?? {})) {
+      if (!newAssets[id])
+        newAssets[id] = asset
     }
     for (const item of items) {
-      const added = addTrack(st, 0);
-      st = added.state;
-      const id = newId();
-      newIds.push(id);
-      idMap[item.id] = id;
+      const added = addTrack(st, 0)
+      st = added.state
+      const id = newId()
+      newIds.push(id)
+      idMap[item.id] = id
       newItems[id] = {
         ...item,
         id,
@@ -103,69 +105,65 @@ const placeItems = (
         from: Math.max(0, item.from + frameShift),
         left: item.left + offset,
         top: item.top + offset,
-      };
+      }
     }
     // 字幕副本的两处修正（都因为字幕块不是普通素材块）：
     // 1) sourceItemId 原样带过去的话，副本仍绑**原**视频 —— 删原视频会把副本一起删掉。
     //    源块一起复制了就改绑副本，没有就解绑（副本成为独立字幕）。
     // 2) caption asset 装的是这个块的内容，不是可共享的素材；不深拷贝的话改副本会改到原块。
     for (const id of newIds) {
-      const it = newItems[id];
-      if (it.type !== 'captions') continue;
-      const next = { ...it };
-      next.sourceItemId = next.sourceItemId ? idMap[next.sourceItemId] : undefined;
-      const asset = newAssets[next.assetId];
+      const it = newItems[id]
+      if (it?.type !== 'captions')
+        continue
+      const next = { ...it }
+      next.sourceItemId = (next.sourceItemId != null && next.sourceItemId !== '') ? idMap[next.sourceItemId] : undefined
+      const asset = newAssets[next.assetId]
       if (asset?.type === 'caption') {
-        const copy = createCaptionAsset({ captions: asset.captions, filename: asset.filename });
-        newAssets[copy.id] = copy;
-        next.assetId = copy.id;
+        const copy = createCaptionAsset({ captions: asset.captions, filename: asset.filename })
+        newAssets[copy.id] = copy
+        next.assetId = copy.id
       }
-      newItems[id] = next;
+      newItems[id] = next
     }
-    const groups = regroupDuplicated(st.groups, idMap, () => newId());
-    return { ...st, items: newItems, assets: newAssets, groups };
-  });
-  state.setSelected(newIds);
+    const groups = regroupDuplicated(st.groups, idMap, () => newId())
+    return { ...st, items: newItems, assets: newAssets, groups }
+  })
+  state.setSelected(newIds)
   // 跨标签页粘贴的远程素材：标记为已上传
-  for (const [id, asset] of Object.entries(opts?.assets ?? {})) {
-    if (asset.url.startsWith('http') && !state.assetStatus[id]) state.setAssetStatus(id, 'uploaded');
+  for (const [id, asset] of dictEntries(opts?.assets ?? {})) {
+    if (asset.url.startsWith('http') && !state.assetStatus[id])
+      state.setAssetStatus(id, 'uploaded')
   }
-};
+}
 
 /** 系统剪贴板载荷粘贴：落在播放头帧（官方行为） */
-export const pasteSerialized = (
-  store: EditorStoreApi,
-  payload: ClipboardPayload,
-  atFrame: number,
-): void => {
-  placeItems(store, payload.items, { atFrame, assets: payload.assets });
-};
+export function pasteSerialized(store: EditorStoreApi, payload: ClipboardPayload, atFrame: number): void {
+  placeItems(store, payload.items, { atFrame, assets: payload.assets })
+}
 
 /** 内部剪贴板兜底粘贴（菜单复制后系统剪贴板写入失败时仍可用） */
-export const pasteClipboard = (store: EditorStoreApi, atFrame?: number): void => {
-  const { clipboard } = store.getState();
-  if (clipboard.length) placeItems(store, clipboard, { atFrame });
-};
+export function pasteClipboard(store: EditorStoreApi, atFrame?: number): void {
+  const { clipboard } = store.getState()
+  if (clipboard.length)
+    placeItems(store, clipboard, { atFrame })
+}
 
-export const duplicateSelection = (store: EditorStoreApi): void => {
-  const state = store.getState();
+export function duplicateSelection(store: EditorStoreApi): void {
+  const state = store.getState()
   const items = state.selectedItemIds
-    .map((id) => state.undoable.items[id])
-    .filter((i): i is EditorStarterItem => Boolean(i));
-  if (items.length) placeItems(store, items, { offsetPx: 20 });
-};
+    .map(id => state.undoable.items[id])
+    .filter((i): i is EditorStarterItem => Boolean(i))
+  if (items.length)
+    placeItems(store, items, { offsetPx: 20 })
+}
 
 /** 系统剪贴板文本 → 文本项（放画布中心、当前帧） */
-export const pasteTextAsTextItem = (
-  store: EditorStoreApi,
-  text: string,
-  currentFrame: number,
-): void => {
+export function pasteTextAsTextItem(store: EditorStoreApi, text: string, currentFrame: number): void {
   store.getState().updateUndoable((s) => {
-    const { state: st, trackId } = addTrack(s, 0);
-    const item = createTextItem({ trackId, from: currentFrame, text });
-    item.left = Math.round((st.compositionWidth - item.width) / 2);
-    item.top = Math.round((st.compositionHeight - item.height) / 2);
-    return { ...st, items: { ...st.items, [item.id]: item } };
-  });
-};
+    const { state: st, trackId } = addTrack(s, 0)
+    const item = createTextItem({ trackId, from: currentFrame, text })
+    item.left = Math.round((st.compositionWidth - item.width) / 2)
+    item.top = Math.round((st.compositionHeight - item.height) / 2)
+    return { ...st, items: { ...st.items, [item.id]: item } }
+  })
+}

@@ -26,15 +26,15 @@
 `packages/shared/src/types.ts`:
 
 ```ts
-export type TransitionType = 'fade'; // 单成员联合,v2 加 'slide'|'wipe'… 零迁移
-export type Transition = {
-  id: string;
-  trackId: string;
-  fromItemId: string; // 出场(A)
-  toItemId: string;   // 入场(B)
-  type: TransitionType;
-  durationInFrames: number;
-};
+export type TransitionType = 'fade' // 单成员联合,v2 加 'slide'|'wipe'… 零迁移
+export interface Transition {
+  id: string
+  trackId: string
+  fromItemId: string // 出场(A)
+  toItemId: string // 入场(B)
+  type: TransitionType
+  durationInFrames: number
+}
 ```
 
 `UndoableState` 加顶层键 `transitions: Record<string, Transition>`(与 `items`/`assets` 平行)。
@@ -49,9 +49,7 @@ export type Transition = {
 
 ```ts
 // item 在某帧因转场获得的乘子;无转场提前 return {opacity:1}(零开销)
-export const getTransitionRenderProps = (
-  state: UndoableState, item: EditorStarterItem, frame: number,
-): { opacity: number } => { /* 见下规则 */ };
+export function getTransitionRenderProps(state: UndoableState, item: EditorStarterItem, frame: number): { opacity: number } { /* 见下规则 */ }
 ```
 
 规则(`frame` = `useCurrentFrame()`,即 Sequence 内相对帧,需换算到合成绝对帧或按 item 相对——**注意基准**见 §7):

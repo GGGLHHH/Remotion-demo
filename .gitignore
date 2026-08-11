@@ -1,10 +1,18 @@
-node_modules/
-dist/
-/m*.png
-/frame*.png
+node_modules
+dist
+coverage
+*.tsbuildinfo
 *.local
+*.log
+*.tgz
 .env
 .DS_Store
+.idea
+.serena
+# simple-git-hooks 按 package.json 的 simple-git-hooks 字段生成
+.githooks
+# @remotion/install-whisper-cpp 落下的 whisper.cpp 检出
 apps/server/.whisper/
-packages/editor/dist/
-packages/shared/dist/
+# 一次性验证脚本的截图产物
+/m*.png
+/frame*.png

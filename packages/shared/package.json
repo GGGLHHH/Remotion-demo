@@ -1,71 +1,70 @@
 {
   "name": "@gedatou/shared",
+  "type": "module",
   "version": "0.5.2",
   "description": "Shared data model and Remotion composition for the @gedatou/editor video editor",
-  "keywords": [
-    "remotion",
-    "video-editor",
-    "composition"
-  ],
-  "homepage": "https://github.com/GGGLHHH/Remotion-demo#readme",
-  "bugs": {
-    "url": "https://github.com/GGGLHHH/Remotion-demo/issues"
-  },
-  "license": "MIT",
   "author": "ge Datou (https://github.com/GGGLHHH)",
+  "license": "MIT",
+  "homepage": "https://github.com/GGGLHHH/Remotion-demo#readme",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/GGGLHHH/Remotion-demo.git",
     "directory": "packages/shared"
   },
-  "type": "module",
-  "sideEffects": false,
-  "files": [
-    "dist",
-    "README.md"
-  ],
-  "exports": {
-    ".": "./src/index.ts",
-    "./composition": "./src/composition/index.ts"
+  "bugs": {
+    "url": "https://github.com/GGGLHHH/Remotion-demo/issues"
   },
+  "keywords": [
+    "remotion",
+    "video-editor",
+    "composition"
+  ],
+  "sideEffects": false,
   "publishConfig": {
     "access": "public",
     "exports": {
       ".": {
-        "types": "./dist/index.d.ts",
-        "import": "./dist/index.js",
-        "default": "./dist/index.js"
+        "types": "./dist/index.d.mts",
+        "import": "./dist/index.mjs",
+        "default": "./dist/index.mjs"
       },
       "./composition": {
-        "types": "./dist/composition.d.ts",
-        "import": "./dist/composition.js",
-        "default": "./dist/composition.js"
+        "types": "./dist/composition.d.mts",
+        "import": "./dist/composition.mjs",
+        "default": "./dist/composition.mjs"
       }
     }
   },
+  "exports": {
+    ".": "./src/index.ts",
+    "./composition": "./src/composition/index.ts"
+  },
+  "files": [
+    "README.md",
+    "dist"
+  ],
   "scripts": {
-    "build": "tsup",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "build": "tsdown",
+    "typecheck": "tsc",
+    "prepack": "pnpm run build"
   },
   "peerDependencies": {
-    "react": "^19.0.0",
-    "remotion": "4.0.491",
-    "@remotion/captions": "4.0.491",
-    "@remotion/gif": "4.0.491",
-    "@remotion/google-fonts": "4.0.491",
-    "@remotion/media": "4.0.491"
-  },
-  "devDependencies": {
     "@remotion/captions": "4.0.491",
     "@remotion/gif": "4.0.491",
     "@remotion/google-fonts": "4.0.491",
     "@remotion/media": "4.0.491",
-    "@types/react": "^19.2.0",
-    "react": "^19.2.0",
-    "remotion": "4.0.491",
-    "tsup": "^8.5.0",
-    "typescript": "^5.9.0",
-    "vitest": "^3.2.0"
+    "react": "^19.0.0",
+    "remotion": "4.0.491"
+  },
+  "devDependencies": {
+    "@remotion/captions": "catalog:remotion",
+    "@remotion/gif": "catalog:remotion",
+    "@remotion/google-fonts": "catalog:remotion",
+    "@remotion/media": "catalog:remotion",
+    "@types/react": "catalog:types",
+    "react": "catalog:react",
+    "remotion": "catalog:remotion",
+    "tsdown": "catalog:cli",
+    "typescript": "catalog:cli"
   }
 }

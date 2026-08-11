@@ -1,22 +1,23 @@
-import type { Caption } from './captions-types';
+import type { Caption } from './captions-types'
 
 /**
  * 整体平移字幕时间（左 trim、切分右半都用它）。
  * 移到负时间的条目**保留**：渲染器只取 startMs <= 当前时间且未过期的页，负的自然不出现；
  * 留着它，块头再拉回来时字幕原样回来 —— 裁剪因此是无损的。
  */
-export const shiftCaptions = (captions: Caption[], deltaMs: number): Caption[] =>
-  deltaMs === 0
+export function shiftCaptions(captions: Caption[], deltaMs: number): Caption[] {
+  return deltaMs === 0
     ? captions
-    : captions.map((c) => ({
+    : captions.map(c => ({
         ...c,
         startMs: c.startMs - deltaMs,
         endMs: c.endMs - deltaMs,
         timestampMs: c.timestampMs === null ? null : c.timestampMs - deltaMs,
-      }));
+      }))
+}
 
 /** 整条只有标点(允许前后空白) */
-const PURE_PUNCT = /^[,.!?;:'"()[\]{}…—–、，。！？；：「」『』（）【】-]+$/;
+const PURE_PUNCT = /^[,.!?;:'"()[\]{}…—–、，。！？；：「」『』（）【】-]+$/
 
 /**
  * 把「整条只有标点」的 token 并进前一条。
@@ -30,22 +31,23 @@ const PURE_PUNCT = /^[,.!?;:'"()[\]{}…—–、，。！？；：「」『』�
  * 在渲染前统一过一遍才能一处管全部 —— 包括已经存过盘的旧字幕。
  * 幂等：跑过一遍的数据再跑不会变。无变化时返回原数组引用（渲染器 useMemo 依赖它）。
  */
-export const mergeCaptionPunctuation = (captions: Caption[]): Caption[] => {
-  const out: Caption[] = [];
-  let changed = false;
+export function mergeCaptionPunctuation(captions: Caption[]): Caption[] {
+  const out: Caption[] = []
+  let changed = false
   for (const c of captions) {
-    const prev = out.at(-1);
-    const t = c.text.trim();
+    const prev = out.at(-1)
+    const t = c.text.trim()
     if (prev && t && PURE_PUNCT.test(t)) {
       // 前一条已经以标点收尾 ⇒ 这条是 whisper 在同一处重复吐的噪声（截图里的「.,.,」），丢掉。
       // 只丢「独立成条」的重复：合法的省略号/「?!」whisper 是放在一条里的（"…" / "?!"），不受影响。
-      const tail = prev.text.trim().slice(-1);
-      const add = PURE_PUNCT.test(tail) ? '' : t;
-      out[out.length - 1] = { ...prev, text: prev.text + add, endMs: Math.max(prev.endMs, c.endMs) };
-      changed = true;
-    } else {
-      out.push(c);
+      const tail = prev.text.trim().slice(-1)
+      const add = PURE_PUNCT.test(tail) ? '' : t
+      out[out.length - 1] = { ...prev, text: prev.text + add, endMs: Math.max(prev.endMs, c.endMs) }
+      changed = true
+    }
+    else {
+      out.push(c)
     }
   }
-  return changed ? out : captions;
-};
+  return changed ? out : captions
+}

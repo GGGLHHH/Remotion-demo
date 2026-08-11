@@ -1,8 +1,8 @@
-import type React from 'react';
-import { Composition } from 'remotion';
-import { MainComposition } from './MainComposition';
-import { calcDuration } from './duration';
-import { createEmptyState, createTrack } from '../factories';
+import type React from 'react'
+import { Composition } from 'remotion'
+import { createEmptyState, createTrack } from '../factories'
+import { calcDuration } from './duration'
+import { MainComposition } from './MainComposition'
 
 // 渲染根:元数据(时长/尺寸/fps)完全由 inputProps.state 决定。
 // 库自带入口 entry.tsx 直接 registerRoot 它;注册了 custom item 渲染器的消费端
@@ -10,7 +10,7 @@ import { createEmptyState, createTrack } from '../factories';
 const defaultState = {
   ...createEmptyState({ width: 1280, height: 720 }),
   tracks: [createTrack('轨道 1')],
-};
+}
 
 export const CompositionRoot: React.FC = () => (
   <Composition
@@ -28,4 +28,4 @@ export const CompositionRoot: React.FC = () => (
       height: props.state.compositionHeight,
     })}
   />
-);
+)

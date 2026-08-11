@@ -56,15 +56,15 @@ packages/editor/src/
 - [ ] **Step 1: 加类型** — `types.ts`,在 UndoableState 之前:
 
 ```ts
-export type TransitionType = 'fade'; // 单成员联合;v2 加 'slide'|'wipe'… 零迁移
-export type Transition = {
-  id: string;
-  trackId: string;
-  fromItemId: string; // 出场(A)
-  toItemId: string;   // 入场(B)
-  type: TransitionType;
-  durationInFrames: number;
-};
+export type TransitionType = 'fade' // 单成员联合;v2 加 'slide'|'wipe'… 零迁移
+export interface Transition {
+  id: string
+  trackId: string
+  fromItemId: string // 出场(A)
+  toItemId: string // 入场(B)
+  type: TransitionType
+  durationInFrames: number
+}
 ```
 UndoableState 加字段:`transitions: Record<string, Transition>;`
 
@@ -96,57 +96,57 @@ EOF
 - [ ] **Step 1: 写失败测试** — `transitions.test.ts`(用 `createSolidItem`/`createEmptyState` 手搭状态):
 
 ```ts
-import { describe, expect, it } from 'vitest';
-import { createEmptyState, createSolidItem } from '../factories';
-import type { Transition, UndoableState } from '../types';
-import { getTransitionRenderProps } from './transitions';
+import type { Transition, UndoableState } from '../types'
+import { describe, expect, it } from 'vitest'
+import { createEmptyState, createSolidItem } from '../factories'
+import { getTransitionRenderProps } from './transitions'
 
 // A: from 0 dur 60;B: from 45 dur 60(重叠 15,fade 15)
-const mk = (): UndoableState => {
-  const s = createEmptyState({ width: 100, height: 100 });
-  const a = { ...createSolidItem({ trackId: 't', from: 0, width: 10, height: 10 }), id: 'A', durationInFrames: 60 };
-  const b = { ...createSolidItem({ trackId: 't', from: 45, width: 10, height: 10 }), id: 'B', durationInFrames: 60 };
-  const t: Transition = { id: 'x', trackId: 't', fromItemId: 'A', toItemId: 'B', type: 'fade', durationInFrames: 15 };
-  return { ...s, items: { A: a, B: b }, transitions: { x: t } };
-};
+function mk(): UndoableState {
+  const s = createEmptyState({ width: 100, height: 100 })
+  const a = { ...createSolidItem({ trackId: 't', from: 0, width: 10, height: 10 }), id: 'A', durationInFrames: 60 }
+  const b = { ...createSolidItem({ trackId: 't', from: 45, width: 10, height: 10 }), id: 'B', durationInFrames: 60 }
+  const t: Transition = { id: 'x', trackId: 't', fromItemId: 'A', toItemId: 'B', type: 'fade', durationInFrames: 15 }
+  return { ...s, items: { A: a, B: b }, transitions: { x: t } }
+}
 
 describe('getTransitionRenderProps', () => {
   it('无转场提前返回 1', () => {
-    const s = createEmptyState({ width: 100, height: 100 });
-    const it = createSolidItem({ trackId: 't', from: 0, width: 10, height: 10 });
-    expect(getTransitionRenderProps({ ...s, items: { [it.id]: it } }, it, 0).opacity).toBe(1);
-  });
+    const s = createEmptyState({ width: 100, height: 100 })
+    const it = createSolidItem({ trackId: 't', from: 0, width: 10, height: 10 })
+    expect(getTransitionRenderProps({ ...s, items: { [it.id]: it } }, it, 0).opacity).toBe(1)
+  })
   it('入场 B 在重叠 [45,60] 内 0→1', () => {
-    const s = mk();
-    expect(getTransitionRenderProps(s, s.items.B, 45).opacity).toBeCloseTo(0);
-    expect(getTransitionRenderProps(s, s.items.B, 60).opacity).toBeCloseTo(1);
-    expect(getTransitionRenderProps(s, s.items.B, 52.5).opacity).toBeCloseTo(0.5);
-  });
+    const s = mk()
+    expect(getTransitionRenderProps(s, s.items.B, 45).opacity).toBeCloseTo(0)
+    expect(getTransitionRenderProps(s, s.items.B, 60).opacity).toBeCloseTo(1)
+    expect(getTransitionRenderProps(s, s.items.B, 52.5).opacity).toBeCloseTo(0.5)
+  })
   it('出场 A 在重叠 [45,60] 内 1→0', () => {
-    const s = mk();
-    expect(getTransitionRenderProps(s, s.items.A, 45).opacity).toBeCloseTo(1);
-    expect(getTransitionRenderProps(s, s.items.A, 60).opacity).toBeCloseTo(0);
-  });
+    const s = mk()
+    expect(getTransitionRenderProps(s, s.items.A, 45).opacity).toBeCloseTo(1)
+    expect(getTransitionRenderProps(s, s.items.A, 60).opacity).toBeCloseTo(0)
+  })
   it('重叠区外为 1', () => {
-    const s = mk();
-    expect(getTransitionRenderProps(s, s.items.A, 10).opacity).toBe(1); // A 前段
-    expect(getTransitionRenderProps(s, s.items.B, 100).opacity).toBe(1); // B 后段
-  });
+    const s = mk()
+    expect(getTransitionRenderProps(s, s.items.A, 10).opacity).toBe(1) // A 前段
+    expect(getTransitionRenderProps(s, s.items.B, 100).opacity).toBe(1) // B 后段
+  })
   it('live 自愈:B 右移到无重叠 → no-op(1)', () => {
-    const s = mk();
-    s.items.B = { ...s.items.B, from: 60 }; // 不再重叠
-    expect(getTransitionRenderProps(s, s.items.B, 60).opacity).toBe(1);
-  });
+    const s = mk()
+    s.items.B = { ...s.items.B, from: 60 } // 不再重叠
+    expect(getTransitionRenderProps(s, s.items.B, 60).opacity).toBe(1)
+  })
   it('mid-chain:B 既是某转场 to 又是另一转场 from → 淡入×淡出相乘', () => {
-    const s = mk();
-    const c = { ...createSolidItem({ trackId: 't', from: 105, width: 10, height: 10 }), id: 'C', durationInFrames: 60 };
+    const s = mk()
+    const c = { ...createSolidItem({ trackId: 't', from: 105, width: 10, height: 10 }), id: 'C', durationInFrames: 60 }
     // B(45..105) 与 C 建第二个转场:C.from 左移到 90,重叠 [90,105] 15 帧
-    s.items.C = { ...c, from: 90 };
-    s.transitions.y = { id: 'y', trackId: 't', fromItemId: 'B', toItemId: 'C', type: 'fade', durationInFrames: 15 };
+    s.items.C = { ...c, from: 90 }
+    s.transitions.y = { id: 'y', trackId: 't', fromItemId: 'B', toItemId: 'C', type: 'fade', durationInFrames: 15 }
     // 在 B 的出场窗口中点附近,B 已淡入完成(=1)、正在淡出
-    expect(getTransitionRenderProps(s, s.items.B, 97.5).opacity).toBeCloseTo(0.5);
-  });
-});
+    expect(getTransitionRenderProps(s, s.items.B, 97.5).opacity).toBeCloseTo(0.5)
+  })
+})
 ```
 
 - [ ] **Step 2: 跑测试确认失败** — `pnpm -F @gedatou/shared test src/composition/transitions.test.ts`;FAIL(模块缺失)。
@@ -154,35 +154,37 @@ describe('getTransitionRenderProps', () => {
 - [ ] **Step 3: 写实现** — `transitions.ts`:
 
 ```ts
-import { interpolate } from 'remotion';
-import type { EditorStarterItem, UndoableState } from '../types';
+import type { EditorStarterItem, UndoableState } from '../types'
+import { interpolate } from 'remotion'
 
 /** item 在某帧因转场获得的乘子。absFrame = 合成绝对帧(调用方传 item.from + useCurrentFrame())。 */
-export const getTransitionRenderProps = (
-  state: UndoableState,
-  item: EditorStarterItem,
-  absFrame: number,
-): { opacity: number } => {
-  const transitions = state.transitions;
-  if (!transitions) return { opacity: 1 };
-  let opacity = 1;
+export function getTransitionRenderProps(state: UndoableState, item: EditorStarterItem, absFrame: number): { opacity: number } {
+  const transitions = state.transitions
+  if (!transitions)
+    return { opacity: 1 }
+  let opacity = 1
   for (const t of Object.values(transitions)) {
-    const isFrom = t.fromItemId === item.id;
-    const isTo = t.toItemId === item.id;
-    if (!isFrom && !isTo) continue;
-    const from = state.items[t.fromItemId];
-    const to = state.items[t.toItemId];
-    if (!from || !to) continue; // 孤儿安全
-    const liveOverlap = from.from + from.durationInFrames - to.from;
-    const d = Math.min(t.durationInFrames, liveOverlap);
-    if (d <= 0) continue;
-    const start = to.from; // 绝对帧
-    const end = to.from + d;
-    if (isTo) opacity *= interpolate(absFrame, [start, end], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
-    if (isFrom) opacity *= interpolate(absFrame, [start, end], [1, 0], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
+    const isFrom = t.fromItemId === item.id
+    const isTo = t.toItemId === item.id
+    if (!isFrom && !isTo)
+      continue
+    const from = state.items[t.fromItemId]
+    const to = state.items[t.toItemId]
+    if (!from || !to)
+      continue // 孤儿安全
+    const liveOverlap = from.from + from.durationInFrames - to.from
+    const d = Math.min(t.durationInFrames, liveOverlap)
+    if (d <= 0)
+      continue
+    const start = to.from // 绝对帧
+    const end = to.from + d
+    if (isTo)
+      opacity *= interpolate(absFrame, [start, end], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' })
+    if (isFrom)
+      opacity *= interpolate(absFrame, [start, end], [1, 0], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' })
   }
-  return { opacity };
-};
+  return { opacity }
+}
 ```
 
 - [ ] **Step 4: 跑测试确认通过** — 同 Step 2 命令;PASS。
@@ -222,9 +224,9 @@ EOF
 - [ ] **Step 2: 改 ordering.ts** — 把 :12-14 的 push 循环改为先收集本轨 items 再排序:
 
 ```ts
-    const trackItems = Object.values(state.items).filter((it) => it.trackId === track.id);
-    trackItems.sort((x, y) => x.from - y.from);
-    for (const item of trackItems) result.push(item);
+const trackItems = Object.values(state.items).filter(it => it.trackId === track.id)
+trackItems.sort((x, y) => x.from - y.from)
+for (const item of trackItems) result.push(item)
 ```
 
 - [ ] **Step 3: 验证** — `pnpm -F @gedatou/shared test src/composition/ordering.test.ts`(既有跨轨断言 + 新断言全绿);`pnpm -r --parallel typecheck` 0。
@@ -256,63 +258,63 @@ EOF
 
 - [ ] **Step 2: deleteSelected 孤儿清理** — `store.ts:245-267` 的 updateUndoable updater 里,在 return 前算:
 ```ts
-    const transitions = Object.fromEntries(
-      Object.entries(s.transitions).filter(([, t]) => !selectedItemIds.includes(t.fromItemId) && !selectedItemIds.includes(t.toItemId)),
-    );
-    return { ...s, items, deletedAssets, transitions };
+const transitions = Object.fromEntries(
+  Object.entries(s.transitions).filter(([, t]) => !selectedItemIds.includes(t.fromItemId) && !selectedItemIds.includes(t.toItemId)),
+)
+return { ...s, items, deletedAssets, transitions }
 ```
 
 - [ ] **Step 3: 写失败测试** — `transition-ops.test.ts`:
 
 ```ts
-import { describe, expect, it } from 'vitest';
-import { createSolidItem } from '@gedatou/shared';
-import { createEditorStore } from '../state/store';
-import { addTransition, applyTransitionDuration, removeTransition } from './transition-ops';
+import { createSolidItem } from '@gedatou/shared'
+import { describe, expect, it } from 'vitest'
+import { createEditorStore } from '../state/store'
+import { addTransition, applyTransitionDuration, removeTransition } from './transition-ops'
 
-const mk = () => {
-  const store = createEditorStore();
-  const a = { ...createSolidItem({ trackId: 't', from: 0, width: 10, height: 10 }), id: 'A', durationInFrames: 60 };
-  const b = { ...createSolidItem({ trackId: 't', from: 60, width: 10, height: 10 }), id: 'B', durationInFrames: 60 };
-  store.getState().updateUndoable((s) => ({ ...s, items: { A: a, B: b } }));
-  return { store, get: () => store.getState().undoable };
-};
+function mk() {
+  const store = createEditorStore()
+  const a = { ...createSolidItem({ trackId: 't', from: 0, width: 10, height: 10 }), id: 'A', durationInFrames: 60 }
+  const b = { ...createSolidItem({ trackId: 't', from: 60, width: 10, height: 10 }), id: 'B', durationInFrames: 60 }
+  store.getState().updateUndoable(s => ({ ...s, items: { A: a, B: b } }))
+  return { store, get: () => store.getState().undoable }
+}
 
 describe('transition-ops', () => {
   it('add:B 左移 dur、插记录、单 undo、选中', () => {
-    const { store, get } = mk();
-    const past0 = store.getState().past.length;
-    const id = addTransition(store, 'A', 'B');
-    const t = get().transitions[id];
-    expect(t).toMatchObject({ fromItemId: 'A', toItemId: 'B', type: 'fade' });
-    expect(get().items.B.from).toBe(60 - t.durationInFrames); // 左移
-    expect(store.getState().past.length).toBe(past0 + 1);
-    expect(store.getState().selectedTransitionId).toBe(id);
-  });
+    const { store, get } = mk()
+    const past0 = store.getState().past.length
+    const id = addTransition(store, 'A', 'B')
+    const t = get().transitions[id]
+    expect(t).toMatchObject({ fromItemId: 'A', toItemId: 'B', type: 'fade' })
+    expect(get().items.B.from).toBe(60 - t.durationInFrames) // 左移
+    expect(store.getState().past.length).toBe(past0 + 1)
+    expect(store.getState().selectedTransitionId).toBe(id)
+  })
   it('applyDuration:clamp [1,min(aDur,bDur)] 且重算 B.from', () => {
-    const { store, get } = mk();
-    const id = addTransition(store, 'A', 'B');
-    applyTransitionDuration(store, id, 999);
-    expect(get().transitions[id].durationInFrames).toBe(60); // clamp 到 min(60,60)
-    expect(get().items.B.from).toBe(0); // A.end(60) - 60
-  });
+    const { store, get } = mk()
+    const id = addTransition(store, 'A', 'B')
+    applyTransitionDuration(store, id, 999)
+    expect(get().transitions[id].durationInFrames).toBe(60) // clamp 到 min(60,60)
+    expect(get().items.B.from).toBe(0) // A.end(60) - 60
+  })
   it('remove:删记录、B 不动(硬切)', () => {
-    const { store, get } = mk();
-    const id = addTransition(store, 'A', 'B');
-    const bFrom = get().items.B.from;
-    removeTransition(store, id);
-    expect(get().transitions[id]).toBeUndefined();
-    expect(get().items.B.from).toBe(bFrom);
-  });
+    const { store, get } = mk()
+    const id = addTransition(store, 'A', 'B')
+    const bFrom = get().items.B.from
+    removeTransition(store, id)
+    expect(get().transitions[id]).toBeUndefined()
+    expect(get().items.B.from).toBe(bFrom)
+  })
   it('删 item 连带删转场(孤儿清理)', () => {
-    const { store, get } = mk();
-    const id = addTransition(store, 'A', 'B');
-    store.getState().setSelected(['A']);
-    store.getState().deleteSelected();
-    expect(get().transitions[id]).toBeUndefined();
-    expect(get().items.A).toBeUndefined();
-  });
-});
+    const { store, get } = mk()
+    const id = addTransition(store, 'A', 'B')
+    store.getState().setSelected(['A'])
+    store.getState().deleteSelected()
+    expect(get().transitions[id]).toBeUndefined()
+    expect(get().items.A).toBeUndefined()
+  })
+})
 ```
 
 - [ ] **Step 4: 跑测试确认失败** — `pnpm -F @gedatou/editor test src/lib/transition-ops.test.ts`;FAIL。
@@ -320,63 +322,70 @@ describe('transition-ops', () => {
 - [ ] **Step 5: 写实现** — `transition-ops.ts`:
 
 ```ts
-import type { Transition } from '@gedatou/shared';
-import type { EditorStoreApi } from '../state/store';
+import type { Transition } from '@gedatou/shared'
+import type { EditorStoreApi } from '../state/store'
 
-const DEFAULT_TRANSITION_FRAMES = 12;
+const DEFAULT_TRANSITION_FRAMES = 12
 // 复用仓库现有 id 生成器(grep createSolidItem 看 item.id 怎么来的,用同一个);占位:
-const newId = (): string => `tr-${crypto.randomUUID?.() ?? Math.random().toString(36).slice(2)}`;
+const newId = (): string => `tr-${crypto.randomUUID?.() ?? Math.random().toString(36).slice(2)}`
 
-const clampDur = (dur: number, aDur: number, bDur: number): number =>
-  Math.max(1, Math.min(Math.round(dur), aDur, bDur));
+function clampDur(dur: number, aDur: number, bDur: number): number {
+  return Math.max(1, Math.min(Math.round(dur), aDur, bDur))
+}
 
 /** 建转场:B 左移 dur 形成重叠,插记录,单 undo,选中;返回 id */
-export const addTransition = (store: EditorStoreApi, fromItemId: string, toItemId: string): string => {
-  const id = newId();
+export function addTransition(store: EditorStoreApi, fromItemId: string, toItemId: string): string {
+  const id = newId()
   store.getState().updateUndoable((s) => {
-    const a = s.items[fromItemId];
-    const b = s.items[toItemId];
-    if (!a || !b) return s;
-    const dur = clampDur(DEFAULT_TRANSITION_FRAMES, a.durationInFrames, b.durationInFrames);
-    const t: Transition = { id, trackId: a.trackId, fromItemId, toItemId, type: 'fade', durationInFrames: dur };
+    const a = s.items[fromItemId]
+    const b = s.items[toItemId]
+    if (!a || !b)
+      return s
+    const dur = clampDur(DEFAULT_TRANSITION_FRAMES, a.durationInFrames, b.durationInFrames)
+    const t: Transition = { id, trackId: a.trackId, fromItemId, toItemId, type: 'fade', durationInFrames: dur }
     return {
       ...s,
       items: { ...s.items, [toItemId]: { ...b, from: a.from + a.durationInFrames - dur } },
       transitions: { ...s.transitions, [id]: t },
-    };
-  }, { commit: true });
-  store.getState().setSelectedTransition(id);
-  return id;
-};
+    }
+  }, { commit: true })
+  store.getState().setSelectedTransition(id)
+  return id
+}
 
 /** 调时长:clamp,并据当前 A.end 重算 B.from(维持 overlap=dur) */
-export const applyTransitionDuration = (store: EditorStoreApi, id: string, dur: number, commit = true): void => {
+export function applyTransitionDuration(store: EditorStoreApi, id: string, dur: number, commit = true): void {
   store.getState().updateUndoable((s) => {
-    const t = s.transitions[id];
-    if (!t) return s;
-    const a = s.items[t.fromItemId];
-    const b = s.items[t.toItemId];
-    if (!a || !b) return s;
-    const clamped = clampDur(dur, a.durationInFrames, b.durationInFrames);
-    if (clamped === t.durationInFrames && b.from === a.from + a.durationInFrames - clamped) return s; // no-op 守卫
+    const t = s.transitions[id]
+    if (!t)
+      return s
+    const a = s.items[t.fromItemId]
+    const b = s.items[t.toItemId]
+    if (!a || !b)
+      return s
+    const clamped = clampDur(dur, a.durationInFrames, b.durationInFrames)
+    if (clamped === t.durationInFrames && b.from === a.from + a.durationInFrames - clamped)
+      return s // no-op 守卫
     return {
       ...s,
       items: { ...s.items, [t.toItemId]: { ...b, from: a.from + a.durationInFrames - clamped } },
       transitions: { ...s.transitions, [id]: { ...t, durationInFrames: clamped } },
-    };
-  }, { commit });
-};
+    }
+  }, { commit })
+}
 
 /** 删转场:B 不动(变硬切) */
-export const removeTransition = (store: EditorStoreApi, id: string): void => {
+export function removeTransition(store: EditorStoreApi, id: string): void {
   store.getState().updateUndoable((s) => {
-    if (!s.transitions[id]) return s;
-    const rest = { ...s.transitions };
-    delete rest[id];
-    return { ...s, transitions: rest };
-  }, { commit: true });
-  if (store.getState().selectedTransitionId === id) store.getState().setSelectedTransition(null);
-};
+    if (!s.transitions[id])
+      return s
+    const rest = { ...s.transitions }
+    delete rest[id]
+    return { ...s, transitions: rest }
+  }, { commit: true })
+  if (store.getState().selectedTransitionId === id)
+    store.getState().setSelectedTransition(null)
+}
 ```
 > **id 生成**:把 `newId` 换成仓库实际用的那个(grep `createSolidItem` 看 item.id 的生成来源,统一)。`EditorStoreApi` 从 `../state/store` 导入(公开类型)。
 
@@ -384,8 +393,8 @@ export const removeTransition = (store: EditorStoreApi, id: string): void => {
 
 - [ ] **Step 7: 导出** — `index.ts` 加:
 ```ts
-export { addTransition, applyTransitionDuration, removeTransition } from './lib/transition-ops';
-export type { Transition, TransitionType } from '@gedatou/shared';
+export { addTransition, applyTransitionDuration, removeTransition } from './lib/transition-ops'
+export type { Transition, TransitionType } from '@gedatou/shared'
 ```
 
 - [ ] **Step 8: 验证** — `pnpm -r --parallel typecheck` 0;`pnpm -r --parallel test` 全绿。
@@ -441,20 +450,25 @@ EOF
 - [ ] **Step 1: TransitionPanel** — 在 `Inspector.tsx` 加一个薄组件:
 ```tsx
 const TransitionPanel: React.FC<{ id: string }> = ({ id }) => {
-  const api = useEditorApi();
-  const t = useEditor((s) => s.undoable.transitions[id]);
-  if (!t) return null;
+  const api = useEditorApi()
+  const t = useEditor(s => s.undoable.transitions[id])
+  if (!t)
+    return null
   return (
     <Section title="Transition">
       <Row label="Type"><span className="text-xs text-muted-foreground">Cross Dissolve</span></Row>
       <Row label="Duration">
-        <NumberField inline label="" value={t.durationInFrames}
-          onChange={(v, c) => applyTransitionDuration(api, id, v, c)} />
+        <NumberField
+          inline
+          label=""
+          value={t.durationInFrames}
+          onChange={(v, c) => applyTransitionDuration(api, id, v, c)}
+        />
       </Row>
       <Button size="sm" variant="ghost" onClick={() => removeTransition(api, id)}>Remove</Button>
     </Section>
-  );
-};
+  )
+}
 ```
 > `NumberField` 的 `onChange(v, committing)`:拖 scrub 传 committing=false;字段 onChange 直接调 `applyTransitionDuration`(它内部 clamp + 重算 B.from,与时间线 pill 用同一 op,永不打架)。确认 `Section`/`Row`/`NumberField`/`Button` 的导入路径(`./fields`、`./NumberField`、`../components/ui/button` 或现有)。
 

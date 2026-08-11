@@ -65,12 +65,12 @@ packages/editor/src/
 
 ```ts
 // ---- 关键帧动画 ----
-export type KeyframeEasing = 'linear' | 'easeIn' | 'easeOut' | 'easeInOut' | 'hold';
+export type KeyframeEasing = 'linear' | 'easeIn' | 'easeOut' | 'easeInOut' | 'hold'
 /** frame 相对 item 起点(0 = item.from);同一属性数组按 frame 升序、frame 唯一 */
-export type Keyframe = { frame: number; value: number; easing: KeyframeEasing };
+export interface Keyframe { frame: number, value: number, easing: KeyframeEasing }
 /** v1 白名单:核心 transform(底层机制属性无关,以后可扩) */
-export type AnimatableProp = 'left' | 'top' | 'width' | 'height' | 'rotation' | 'opacity';
-export const ANIMATABLE_PROPS: readonly AnimatableProp[] = ['left', 'top', 'width', 'height', 'rotation', 'opacity'];
+export type AnimatableProp = 'left' | 'top' | 'width' | 'height' | 'rotation' | 'opacity'
+export const ANIMATABLE_PROPS: readonly AnimatableProp[] = ['left', 'top', 'width', 'height', 'rotation', 'opacity']
 ```
 
 - [ ] **Step 2: 给 BaseItem 加字段** — 在 `BaseItem` 类型体内(`fadeOutDurationInFrames: number;` 之后)加:
@@ -110,66 +110,66 @@ EOF
 - [ ] **Step 1: 写失败测试** — `packages/shared/src/composition/keyframes.test.ts`:
 
 ```ts
-import { describe, expect, it } from 'vitest';
-import { createSolidItem } from '../factories';
-import { easingFn, keyframeAt, moveKeyframeInList, removeKeyframeAt, resolveProp, upsertKeyframe, withKeyframeList } from './keyframes';
-import type { Keyframe } from '../types';
+import type { Keyframe } from '../types'
+import { describe, expect, it } from 'vitest'
+import { createSolidItem } from '../factories'
+import { easingFn, keyframeAt, moveKeyframeInList, removeKeyframeAt, resolveProp, upsertKeyframe, withKeyframeList } from './keyframes'
 
-const kf = (frame: number, value: number, easing: Keyframe['easing'] = 'linear'): Keyframe => ({ frame, value, easing });
-const item = (kfs?: Record<string, Keyframe[]>) => ({ ...createSolidItem({ trackId: 't', from: 0, width: 100, height: 100 }), left: 10, opacity: 1, ...(kfs ? { keyframes: kfs } : {}) });
+const kf = (frame: number, value: number, easing: Keyframe['easing'] = 'linear'): Keyframe => ({ frame, value, easing })
+const item = (kfs?: Record<string, Keyframe[]>) => ({ ...createSolidItem({ trackId: 't', from: 0, width: 100, height: 100 }), left: 10, opacity: 1, ...(kfs ? { keyframes: kfs } : {}) })
 
 describe('easingFn', () => {
   it('linear 恒等,hold 为标记', () => {
-    expect(easingFn('linear')(0.5)).toBeCloseTo(0.5);
-    expect(easingFn('hold')).toBe('hold');
-  });
-});
+    expect(easingFn('linear')(0.5)).toBeCloseTo(0.5)
+    expect(easingFn('hold')).toBe('hold')
+  })
+})
 
 describe('resolveProp', () => {
   it('无关键帧回退静态值', () => {
-    expect(resolveProp(item(), 'left', 5)).toBe(10);
-  });
+    expect(resolveProp(item(), 'left', 5)).toBe(10)
+  })
   it('单关键帧返回其值', () => {
-    expect(resolveProp(item({ left: [kf(0, 99)] }), 'left', 3)).toBe(99);
-  });
+    expect(resolveProp(item({ left: [kf(0, 99)] }), 'left', 3)).toBe(99)
+  })
   it('段内线性插值', () => {
-    const it = item({ left: [kf(0, 0), kf(10, 100)] });
-    expect(resolveProp(it, 'left', 5)).toBeCloseTo(50);
-  });
+    const it = item({ left: [kf(0, 0), kf(10, 100)] })
+    expect(resolveProp(it, 'left', 5)).toBeCloseTo(50)
+  })
   it('边界外 clamp 到端点', () => {
-    const it = item({ left: [kf(4, 20), kf(8, 60)] });
-    expect(resolveProp(it, 'left', 0)).toBe(20);
-    expect(resolveProp(it, 'left', 100)).toBe(60);
-  });
+    const it = item({ left: [kf(4, 20), kf(8, 60)] })
+    expect(resolveProp(it, 'left', 0)).toBe(20)
+    expect(resolveProp(it, 'left', 100)).toBe(60)
+  })
   it('hold 出向关键帧到下一帧前阶跃', () => {
-    const it = item({ left: [kf(0, 0, 'hold'), kf(10, 100)] });
-    expect(resolveProp(it, 'left', 9)).toBe(0);
-    expect(resolveProp(it, 'left', 10)).toBe(100);
-  });
-});
+    const it = item({ left: [kf(0, 0, 'hold'), kf(10, 100)] })
+    expect(resolveProp(it, 'left', 9)).toBe(0)
+    expect(resolveProp(it, 'left', 10)).toBe(100)
+  })
+})
 
 describe('list helpers', () => {
   it('upsert 保持升序、同帧覆盖', () => {
-    let l = upsertKeyframe([], kf(10, 1));
-    l = upsertKeyframe(l, kf(0, 2));
-    l = upsertKeyframe(l, kf(10, 9)); // 覆盖 frame 10
-    expect(l.map((k) => k.frame)).toEqual([0, 10]);
-    expect(keyframeAt(l, 10)!.value).toBe(9);
-  });
+    let l = upsertKeyframe([], kf(10, 1))
+    l = upsertKeyframe(l, kf(0, 2))
+    l = upsertKeyframe(l, kf(10, 9)) // 覆盖 frame 10
+    expect(l.map(k => k.frame)).toEqual([0, 10])
+    expect(keyframeAt(l, 10)!.value).toBe(9)
+  })
   it('removeAt 删指定帧', () => {
-    expect(removeKeyframeAt([kf(0, 1), kf(5, 2)], 5).map((k) => k.frame)).toEqual([0]);
-  });
+    expect(removeKeyframeAt([kf(0, 1), kf(5, 2)], 5).map(k => k.frame)).toEqual([0])
+  })
   it('move 改帧并保持升序;撞帧覆盖', () => {
-    const l = moveKeyframeInList([kf(0, 1), kf(5, 2)], 0, 8);
-    expect(l.map((k) => k.frame)).toEqual([5, 8]);
-  });
+    const l = moveKeyframeInList([kf(0, 1), kf(5, 2)], 0, 8)
+    expect(l.map(k => k.frame)).toEqual([5, 8])
+  })
   it('withKeyframeList 空列表删属性、末属性清空则去 keyframes', () => {
-    const withL = withKeyframeList(item(), 'left', [kf(0, 1)]);
-    expect(withL.keyframes!.left).toHaveLength(1);
-    const cleared = withKeyframeList(withL, 'left', []);
-    expect(cleared.keyframes).toBeUndefined();
-  });
-});
+    const withL = withKeyframeList(item(), 'left', [kf(0, 1)])
+    expect(withL.keyframes!.left).toHaveLength(1)
+    const cleared = withKeyframeList(withL, 'left', [])
+    expect(cleared.keyframes).toBeUndefined()
+  })
+})
 ```
 
 - [ ] **Step 2: 跑测试确认失败** — `pnpm -F @gedatou/shared test src/composition/keyframes.test.ts`;期望 FAIL(`Cannot find module './keyframes'`)。
@@ -177,65 +177,71 @@ describe('list helpers', () => {
 - [ ] **Step 3: 写实现** — `packages/shared/src/composition/keyframes.ts`:
 
 ```ts
-import { Easing, interpolate } from 'remotion';
-import type { AnimatableProp, EditorStarterItem, Keyframe, KeyframeEasing } from '../types';
+import type { AnimatableProp, EditorStarterItem, Keyframe, KeyframeEasing } from '../types'
+import { Easing, interpolate } from 'remotion'
 
 const EASE: Record<KeyframeEasing, ((t: number) => number) | 'hold'> = {
-  linear: (t) => t,
+  linear: t => t,
   easeIn: Easing.in(Easing.cubic),
   easeOut: Easing.out(Easing.cubic),
   easeInOut: Easing.inOut(Easing.cubic),
   hold: 'hold',
-};
+}
 
-export const easingFn = (e: KeyframeEasing): ((t: number) => number) | 'hold' => EASE[e];
+export const easingFn = (e: KeyframeEasing): ((t: number) => number) | 'hold' => EASE[e]
 
 /** 某属性在某帧的值;无关键帧提前回退静态值(渲染热路径零额外开销) */
-export const resolveProp = (item: EditorStarterItem, prop: AnimatableProp, frame: number): number => {
-  const kfs = item.keyframes?.[prop];
-  if (!kfs || kfs.length === 0) return item[prop] as number;
-  if (kfs.length === 1) return kfs[0].value;
-  if (frame <= kfs[0].frame) return kfs[0].value;
-  const last = kfs[kfs.length - 1];
-  if (frame >= last.frame) return last.value;
-  let i = 0;
-  while (i < kfs.length - 1 && kfs[i + 1].frame <= frame) i++;
-  const a = kfs[i];
-  const b = kfs[i + 1];
-  const ease = EASE[a.easing];
-  if (ease === 'hold') return a.value;
+export function resolveProp(item: EditorStarterItem, prop: AnimatableProp, frame: number): number {
+  const kfs = item.keyframes?.[prop]
+  if (!kfs || kfs.length === 0)
+    return item[prop] as number
+  if (kfs.length === 1)
+    return kfs[0].value
+  if (frame <= kfs[0].frame)
+    return kfs[0].value
+  const last = kfs[kfs.length - 1]
+  if (frame >= last.frame)
+    return last.value
+  let i = 0
+  while (i < kfs.length - 1 && kfs[i + 1].frame <= frame) i++
+  const a = kfs[i]
+  const b = kfs[i + 1]
+  const ease = EASE[a.easing]
+  if (ease === 'hold')
+    return a.value
   return interpolate(frame, [a.frame, b.frame], [a.value, b.value], {
     easing: ease,
     extrapolateLeft: 'clamp',
     extrapolateRight: 'clamp',
-  });
-};
+  })
+}
 
-const sortKf = (l: Keyframe[]): Keyframe[] => [...l].sort((x, y) => x.frame - y.frame);
-export const keyframeAt = (list: Keyframe[] | undefined, frame: number): Keyframe | undefined =>
-  list?.find((k) => k.frame === frame);
-export const upsertKeyframe = (list: Keyframe[], kf: Keyframe): Keyframe[] =>
-  sortKf([...list.filter((k) => k.frame !== kf.frame), kf]);
-export const removeKeyframeAt = (list: Keyframe[], frame: number): Keyframe[] =>
-  list.filter((k) => k.frame !== frame);
-export const moveKeyframeInList = (list: Keyframe[], from: number, to: number): Keyframe[] => {
-  const k = list.find((x) => x.frame === from);
-  if (!k) return list;
-  return upsertKeyframe(list.filter((x) => x.frame !== from), { ...k, frame: to });
-};
+const sortKf = (l: Keyframe[]): Keyframe[] => [...l].sort((x, y) => x.frame - y.frame)
+export function keyframeAt(list: Keyframe[] | undefined, frame: number): Keyframe | undefined {
+  return list?.find(k => k.frame === frame)
+}
+export function upsertKeyframe(list: Keyframe[], kf: Keyframe): Keyframe[] {
+  return sortKf([...list.filter(k => k.frame !== kf.frame), kf])
+}
+export function removeKeyframeAt(list: Keyframe[], frame: number): Keyframe[] {
+  return list.filter(k => k.frame !== frame)
+}
+export function moveKeyframeInList(list: Keyframe[], from: number, to: number): Keyframe[] {
+  const k = list.find(x => x.frame === from)
+  if (!k)
+    return list
+  return upsertKeyframe(list.filter(x => x.frame !== from), { ...k, frame: to })
+}
 
 /** 不可变写回某属性关键帧;空列表删该属性,keyframes 全空则去掉字段 */
-export const withKeyframeList = (
-  item: EditorStarterItem,
-  prop: AnimatableProp,
-  list: Keyframe[],
-): EditorStarterItem => {
-  const next: Partial<Record<AnimatableProp, Keyframe[]>> = { ...(item.keyframes ?? {}) };
-  if (list.length === 0) delete next[prop];
-  else next[prop] = list;
-  const keyframes = Object.keys(next).length ? next : undefined;
-  return { ...item, keyframes };
-};
+export function withKeyframeList(item: EditorStarterItem, prop: AnimatableProp, list: Keyframe[]): EditorStarterItem {
+  const next: Partial<Record<AnimatableProp, Keyframe[]>> = { ...(item.keyframes ?? {}) }
+  if (list.length === 0)
+    delete next[prop]
+  else next[prop] = list
+  const keyframes = Object.keys(next).length ? next : undefined
+  return { ...item, keyframes }
+}
 ```
 
 - [ ] **Step 4: 跑测试确认通过** — `pnpm -F @gedatou/shared test src/composition/keyframes.test.ts`;期望 PASS。
@@ -243,7 +249,7 @@ export const withKeyframeList = (
 - [ ] **Step 5: 导出** — `packages/shared/src/composition/index.ts` 追加:
 
 ```ts
-export * from './keyframes';
+export * from './keyframes'
 ```
 
 - [ ] **Step 6: 验证**(Recipe:shared typecheck 0、`pnpm -r --parallel test` 全绿)。
@@ -273,31 +279,31 @@ EOF
 - [ ] **Step 1: 改 ItemPositioner** — 在 `ItemRenderer.tsx` 顶部 import 加 `import { resolveProp } from './keyframes';`。把 `ItemPositioner`(:78-117)里读静态属性的部分改为(保留 `frame`/`fadeIn`/`fadeOut` 逻辑不动):
 
 ```tsx
-  const frame = useCurrentFrame(); // Sequence 内:0 = item 开始
-  // fadeIn / fadeOut 保持原样(:84-99)不动
-  const left = resolveProp(item, 'left', frame);
-  const top = resolveProp(item, 'top', frame);
-  const width = resolveProp(item, 'width', frame);
-  const height = resolveProp(item, 'height', frame);
-  const rotation = resolveProp(item, 'rotation', frame);
-  const baseOpacity = resolveProp(item, 'opacity', frame);
-  return (
-    <div
-      style={{
-        position: 'absolute',
-        left,
-        top,
-        width,
-        height,
-        rotate: `${rotation}deg`,
-        opacity: baseOpacity * fadeIn * fadeOut,
-        borderRadius: item.borderRadius,
-        overflow: item.borderRadius > 0 ? 'hidden' : undefined,
-      }}
-    >
-      <ItemContent item={item} ctx={ctx} trackMuted={trackMuted} />
-    </div>
-  );
+const frame = useCurrentFrame() // Sequence 内:0 = item 开始
+// fadeIn / fadeOut 保持原样(:84-99)不动
+const left = resolveProp(item, 'left', frame)
+const top = resolveProp(item, 'top', frame)
+const width = resolveProp(item, 'width', frame)
+const height = resolveProp(item, 'height', frame)
+const rotation = resolveProp(item, 'rotation', frame)
+const baseOpacity = resolveProp(item, 'opacity', frame)
+return (
+  <div
+    style={{
+      position: 'absolute',
+      left,
+      top,
+      width,
+      height,
+      rotate: `${rotation}deg`,
+      opacity: baseOpacity * fadeIn * fadeOut,
+      borderRadius: item.borderRadius,
+      overflow: item.borderRadius > 0 ? 'hidden' : undefined,
+    }}
+  >
+    <ItemContent item={item} ctx={ctx} trackMuted={trackMuted} />
+  </div>
+)
 ```
 
 > 只替换 6 个 transform 读取 + opacity 表达式;`borderRadius`/`overflow`/fade 不动。
@@ -331,38 +337,38 @@ EOF
 - [ ] **Step 1: 写失败测试** — `animation-presets.test.ts`:
 
 ```ts
-import { describe, expect, it } from 'vitest';
-import { createSolidItem } from '../factories';
-import { PRESET_IDS, buildPreset } from './animation-presets';
+import { describe, expect, it } from 'vitest'
+import { createSolidItem } from '../factories'
+import { buildPreset, PRESET_IDS } from './animation-presets'
 
-const item = () => ({ ...createSolidItem({ trackId: 't', from: 0, width: 200, height: 100 }), left: 50, top: 30, opacity: 1, durationInFrames: 90 });
+const item = () => ({ ...createSolidItem({ trackId: 't', from: 0, width: 200, height: 100 }), left: 50, top: 30, opacity: 1, durationInFrames: 90 })
 
 describe('buildPreset', () => {
   it('fadeIn:opacity 从 0 到 1,首帧在 0', () => {
-    const p = buildPreset('fadeIn', item());
-    expect(p.opacity![0]).toMatchObject({ frame: 0, value: 0 });
-    expect(p.opacity![p.opacity!.length - 1].value).toBe(1);
-  });
+    const p = buildPreset('fadeIn', item())
+    expect(p.opacity![0]).toMatchObject({ frame: 0, value: 0 })
+    expect(p.opacity![p.opacity!.length - 1].value).toBe(1)
+  })
   it('fadeOut:末帧 opacity=0、末帧 frame=dur', () => {
-    const p = buildPreset('fadeOut', item());
-    const last = p.opacity![p.opacity!.length - 1];
-    expect(last).toMatchObject({ frame: 90, value: 0 });
-  });
+    const p = buildPreset('fadeOut', item())
+    const last = p.opacity![p.opacity!.length - 1]
+    expect(last).toMatchObject({ frame: 90, value: 0 })
+  })
   it('slideInLeft:left 从屏外(< item.left)回到 item.left', () => {
-    const p = buildPreset('slideInLeft', item());
-    expect(p.left![0].value).toBeLessThan(50);
-    expect(p.left![p.left!.length - 1].value).toBe(50);
-  });
+    const p = buildPreset('slideInLeft', item())
+    expect(p.left![0].value).toBeLessThan(50)
+    expect(p.left![p.left!.length - 1].value).toBe(50)
+  })
   it('zoomIn:width/height 从 0 到原值', () => {
-    const p = buildPreset('zoomIn', item());
-    expect(p.width![0].value).toBe(0);
-    expect(p.width![p.width!.length - 1].value).toBe(200);
-    expect(p.height![p.height!.length - 1].value).toBe(100);
-  });
+    const p = buildPreset('zoomIn', item())
+    expect(p.width![0].value).toBe(0)
+    expect(p.width![p.width!.length - 1].value).toBe(200)
+    expect(p.height![p.height!.length - 1].value).toBe(100)
+  })
   it('每个 PRESET_ID 都能产出至少一个属性', () => {
-    for (const id of PRESET_IDS) expect(Object.keys(buildPreset(id, item())).length).toBeGreaterThan(0);
-  });
-});
+    for (const id of PRESET_IDS) expect(Object.keys(buildPreset(id, item())).length).toBeGreaterThan(0)
+  })
+})
 ```
 
 - [ ] **Step 2: 跑测试确认失败** — `pnpm -F @gedatou/shared test src/composition/animation-presets.test.ts`;期望 FAIL(模块缺失)。
@@ -370,51 +376,58 @@ describe('buildPreset', () => {
 - [ ] **Step 3: 写实现** — `animation-presets.ts`:
 
 ```ts
-import type { AnimatableProp, EditorStarterItem, Keyframe } from '../types';
+import type { AnimatableProp, EditorStarterItem, Keyframe } from '../types'
 
 export const PRESET_IDS = [
-  'fadeIn', 'fadeOut', 'slideInLeft', 'slideInRight', 'slideInTop', 'slideInBottom', 'zoomIn', 'zoomOut',
-] as const;
-export type PresetId = (typeof PRESET_IDS)[number];
+  'fadeIn',
+  'fadeOut',
+  'slideInLeft',
+  'slideInRight',
+  'slideInTop',
+  'slideInBottom',
+  'zoomIn',
+  'zoomOut',
+] as const
+export type PresetId = (typeof PRESET_IDS)[number]
 
-const kf = (frame: number, value: number, easing: Keyframe['easing'] = 'linear'): Keyframe => ({ frame, value, easing });
+const kf = (frame: number, value: number, easing: Keyframe['easing'] = 'linear'): Keyframe => ({ frame, value, easing })
 
 /** 默认动画时长(帧):dur/3,封顶 15,至少 1(无 fps 依赖) */
-const animDur = (dur: number): number => Math.max(1, Math.min(15, Math.round(dur / 3)));
+const animDur = (dur: number): number => Math.max(1, Math.min(15, Math.round(dur / 3)))
 
-const fadeInKf = (D: number): Keyframe[] => [kf(0, 0, 'easeOut'), kf(D, 1)];
-const fadeOutKf = (dur: number, D: number): Keyframe[] => [kf(dur - D, 1, 'easeIn'), kf(dur, 0)];
+const fadeInKf = (D: number): Keyframe[] => [kf(0, 0, 'easeOut'), kf(D, 1)]
+const fadeOutKf = (dur: number, D: number): Keyframe[] => [kf(dur - D, 1, 'easeIn'), kf(dur, 0)]
 
-export const buildPreset = (id: PresetId, item: EditorStarterItem): Partial<Record<AnimatableProp, Keyframe[]>> => {
-  const dur = item.durationInFrames;
-  const D = animDur(dur);
+export function buildPreset(id: PresetId, item: EditorStarterItem): Partial<Record<AnimatableProp, Keyframe[]>> {
+  const dur = item.durationInFrames
+  const D = animDur(dur)
   switch (id) {
     case 'fadeIn':
-      return { opacity: fadeInKf(D) };
+      return { opacity: fadeInKf(D) }
     case 'fadeOut':
-      return { opacity: fadeOutKf(dur, D) };
+      return { opacity: fadeOutKf(dur, D) }
     case 'slideInLeft':
-      return { left: [kf(0, item.left - item.width, 'easeOut'), kf(D, item.left)], opacity: fadeInKf(D) };
+      return { left: [kf(0, item.left - item.width, 'easeOut'), kf(D, item.left)], opacity: fadeInKf(D) }
     case 'slideInRight':
-      return { left: [kf(0, item.left + item.width, 'easeOut'), kf(D, item.left)], opacity: fadeInKf(D) };
+      return { left: [kf(0, item.left + item.width, 'easeOut'), kf(D, item.left)], opacity: fadeInKf(D) }
     case 'slideInTop':
-      return { top: [kf(0, item.top - item.height, 'easeOut'), kf(D, item.top)], opacity: fadeInKf(D) };
+      return { top: [kf(0, item.top - item.height, 'easeOut'), kf(D, item.top)], opacity: fadeInKf(D) }
     case 'slideInBottom':
-      return { top: [kf(0, item.top + item.height, 'easeOut'), kf(D, item.top)], opacity: fadeInKf(D) };
+      return { top: [kf(0, item.top + item.height, 'easeOut'), kf(D, item.top)], opacity: fadeInKf(D) }
     case 'zoomIn':
       return {
         width: [kf(0, 0, 'easeOut'), kf(D, item.width)],
         height: [kf(0, 0, 'easeOut'), kf(D, item.height)],
         opacity: fadeInKf(D),
-      };
+      }
     case 'zoomOut':
       return {
         width: [kf(dur - D, item.width, 'easeIn'), kf(dur, 0)],
         height: [kf(dur - D, item.height, 'easeIn'), kf(dur, 0)],
         opacity: fadeOutKf(dur, D),
-      };
+      }
   }
-};
+}
 ```
 
 - [ ] **Step 4: 跑测试确认通过** — `pnpm -F @gedatou/shared test src/composition/animation-presets.test.ts`;期望 PASS。
@@ -453,58 +466,58 @@ EOF
 - [ ] **Step 1: 写失败测试** — `packages/editor/src/lib/keyframe-ops.test.ts`(对 store 直测,createEditorStore + createSolidItem 注入 item):
 
 ```ts
-import { describe, expect, it } from 'vitest';
-import { createSolidItem } from '@gedatou/shared';
-import { createEditorStore } from '../state/store';
-import { applyAnimationPreset, clearKeyframes, moveKeyframe, setKeyframeValue, toggleKeyframe } from './keyframe-ops';
+import { createSolidItem } from '@gedatou/shared'
+import { describe, expect, it } from 'vitest'
+import { createEditorStore } from '../state/store'
+import { applyAnimationPreset, clearKeyframes, moveKeyframe, setKeyframeValue, toggleKeyframe } from './keyframe-ops'
 
-const mk = () => {
-  const store = createEditorStore();
-  const item = { ...createSolidItem({ trackId: 't', from: 0, width: 100, height: 100 }), left: 10, opacity: 1, durationInFrames: 60 };
-  store.getState().updateUndoable((s) => ({ ...s, items: { ...s.items, [item.id]: item } }));
-  return { store, id: item.id, get: () => store.getState().undoable.items[item.id] };
-};
+function mk() {
+  const store = createEditorStore()
+  const item = { ...createSolidItem({ trackId: 't', from: 0, width: 100, height: 100 }), left: 10, opacity: 1, durationInFrames: 60 }
+  store.getState().updateUndoable(s => ({ ...s, items: { ...s.items, [item.id]: item } }))
+  return { store, id: item.id, get: () => store.getState().undoable.items[item.id] }
+}
 
 describe('keyframe-ops', () => {
   it('toggle 加(值=当前静态)再删', () => {
-    const { store, id, get } = mk();
-    toggleKeyframe(store, id, 'left', 5);
-    expect(get().keyframes!.left).toEqual([{ frame: 5, value: 10, easing: 'easeInOut' }]);
-    toggleKeyframe(store, id, 'left', 5);
-    expect(get().keyframes).toBeUndefined();
-  });
+    const { store, id, get } = mk()
+    toggleKeyframe(store, id, 'left', 5)
+    expect(get().keyframes!.left).toEqual([{ frame: 5, value: 10, easing: 'easeInOut' }])
+    toggleKeyframe(store, id, 'left', 5)
+    expect(get().keyframes).toBeUndefined()
+  })
   it('setKeyframeValue upsert 保持升序', () => {
-    const { store, id, get } = mk();
-    setKeyframeValue(store, id, 'left', 10, 100);
-    setKeyframeValue(store, id, 'left', 0, 0);
-    expect(get().keyframes!.left!.map((k) => k.frame)).toEqual([0, 10]);
-  });
+    const { store, id, get } = mk()
+    setKeyframeValue(store, id, 'left', 10, 100)
+    setKeyframeValue(store, id, 'left', 0, 0)
+    expect(get().keyframes!.left!.map(k => k.frame)).toEqual([0, 10])
+  })
   it('move 改帧;frame clamp 到 [0,dur]', () => {
-    const { store, id, get } = mk();
-    setKeyframeValue(store, id, 'left', 5, 1);
-    moveKeyframe(store, id, 'left', 5, 999);
-    expect(get().keyframes!.left![0].frame).toBe(60);
-  });
+    const { store, id, get } = mk()
+    setKeyframeValue(store, id, 'left', 5, 1)
+    moveKeyframe(store, id, 'left', 5, 999)
+    expect(get().keyframes!.left![0].frame).toBe(60)
+  })
   it('clear 回退静态(去 keyframes)', () => {
-    const { store, id, get } = mk();
-    setKeyframeValue(store, id, 'left', 5, 1);
-    clearKeyframes(store, id, 'left');
-    expect(get().keyframes).toBeUndefined();
-  });
+    const { store, id, get } = mk()
+    setKeyframeValue(store, id, 'left', 5, 1)
+    clearKeyframes(store, id, 'left')
+    expect(get().keyframes).toBeUndefined()
+  })
   it('applyPreset fadeIn 写 opacity 两帧', () => {
-    const { store, id, get } = mk();
-    applyAnimationPreset(store, id, 'fadeIn');
-    expect(get().keyframes!.opacity).toHaveLength(2);
-  });
+    const { store, id, get } = mk()
+    applyAnimationPreset(store, id, 'fadeIn')
+    expect(get().keyframes!.opacity).toHaveLength(2)
+  })
   it('commit:false 不进 undo,commitPending 收 1 条', () => {
-    const { store, id } = mk();
-    const past0 = store.getState().past.length;
-    setKeyframeValue(store, id, 'left', 5, 1, false);
-    expect(store.getState().past.length).toBe(past0); // 未提交
-    store.getState().commitPending();
-    expect(store.getState().past.length).toBe(past0 + 1);
-  });
-});
+    const { store, id } = mk()
+    const past0 = store.getState().past.length
+    setKeyframeValue(store, id, 'left', 5, 1, false)
+    expect(store.getState().past.length).toBe(past0) // 未提交
+    store.getState().commitPending()
+    expect(store.getState().past.length).toBe(past0 + 1)
+  })
+})
 ```
 
 - [ ] **Step 2: 跑测试确认失败** — `pnpm -F @gedatou/editor test src/lib/keyframe-ops.test.ts`;FAIL(模块缺失)。
@@ -512,83 +525,95 @@ describe('keyframe-ops', () => {
 - [ ] **Step 3: 写实现** — `packages/editor/src/lib/keyframe-ops.ts`:
 
 ```ts
-import type { AnimatableProp, EditorStarterItem, KeyframeEasing } from '@gedatou/shared';
+import type { AnimatableProp, EditorStarterItem, KeyframeEasing } from '@gedatou/shared'
+import type { PresetId } from '@gedatou/shared/composition'
+import type { EditorStoreApi } from '../state/store'
 import {
   buildPreset,
   keyframeAt,
   moveKeyframeInList,
+
   removeKeyframeAt,
   resolveProp,
   upsertKeyframe,
-  withKeyframeList,
-  type PresetId,
-} from '@gedatou/shared/composition';
-import type { EditorStoreApi } from '../state/store';
+  withKeyframeList
+} from '@gedatou/shared/composition'
 
-const clampFrame = (item: EditorStarterItem, f: number): number =>
-  Math.max(0, Math.min(item.durationInFrames, Math.round(f)));
+function clampFrame(item: EditorStarterItem, f: number): number {
+  return Math.max(0, Math.min(item.durationInFrames, Math.round(f)))
+}
 
-type ListFn = (list: import('@gedatou/shared').Keyframe[], item: EditorStarterItem) => import('@gedatou/shared').Keyframe[];
+type ListFn = (list: import('@gedatou/shared').Keyframe[], item: EditorStarterItem) => import('@gedatou/shared').Keyframe[]
 
-const patchKf = (store: EditorStoreApi, itemId: string, prop: AnimatableProp, fn: ListFn, commit = true): void => {
+function patchKf(store: EditorStoreApi, itemId: string, prop: AnimatableProp, fn: ListFn, commit = true): void {
   store.getState().updateUndoable((s) => {
-    const it = s.items[itemId];
-    if (!it) return s;
-    const next = withKeyframeList(it, prop, fn(it.keyframes?.[prop] ?? [], it));
-    return { ...s, items: { ...s.items, [itemId]: next } };
-  }, { commit });
-};
+    const it = s.items[itemId]
+    if (!it)
+      return s
+    const next = withKeyframeList(it, prop, fn(it.keyframes?.[prop] ?? [], it))
+    return { ...s, items: { ...s.items, [itemId]: next } }
+  }, { commit })
+}
 
-export const toggleKeyframe = (store: EditorStoreApi, itemId: string, prop: AnimatableProp, frame: number): void =>
-  patchKf(store, itemId, prop, (list, it) => {
-    const f = clampFrame(it, frame);
-    if (keyframeAt(list, f)) return removeKeyframeAt(list, f);
-    return upsertKeyframe(list, { frame: f, value: resolveProp(it, prop, f), easing: 'easeInOut' });
-  });
+export function toggleKeyframe(store: EditorStoreApi, itemId: string, prop: AnimatableProp, frame: number): void {
+  return patchKf(store, itemId, prop, (list, it) => {
+    const f = clampFrame(it, frame)
+    if (keyframeAt(list, f))
+      return removeKeyframeAt(list, f)
+    return upsertKeyframe(list, { frame: f, value: resolveProp(it, prop, f), easing: 'easeInOut' })
+  })
+}
 
-export const setKeyframeValue = (store: EditorStoreApi, itemId: string, prop: AnimatableProp, frame: number, value: number, commit = true): void =>
-  patchKf(store, itemId, prop, (list, it) => {
-    const f = clampFrame(it, frame);
-    return upsertKeyframe(list, { frame: f, value, easing: keyframeAt(list, f)?.easing ?? 'easeInOut' });
-  }, commit);
+export function setKeyframeValue(store: EditorStoreApi, itemId: string, prop: AnimatableProp, frame: number, value: number, commit = true): void {
+  return patchKf(store, itemId, prop, (list, it) => {
+    const f = clampFrame(it, frame)
+    return upsertKeyframe(list, { frame: f, value, easing: keyframeAt(list, f)?.easing ?? 'easeInOut' })
+  }, commit)
+}
 
-export const setKeyframeEasing = (store: EditorStoreApi, itemId: string, prop: AnimatableProp, frame: number, easing: KeyframeEasing): void =>
-  patchKf(store, itemId, prop, (list, it) => {
-    const k = keyframeAt(list, clampFrame(it, frame));
-    return k ? upsertKeyframe(list, { ...k, easing }) : list;
-  });
+export function setKeyframeEasing(store: EditorStoreApi, itemId: string, prop: AnimatableProp, frame: number, easing: KeyframeEasing): void {
+  return patchKf(store, itemId, prop, (list, it) => {
+    const k = keyframeAt(list, clampFrame(it, frame))
+    return k ? upsertKeyframe(list, { ...k, easing }) : list
+  })
+}
 
-export const moveKeyframe = (store: EditorStoreApi, itemId: string, prop: AnimatableProp, from: number, to: number, commit = true): void =>
-  patchKf(store, itemId, prop, (list, it) => moveKeyframeInList(list, from, clampFrame(it, to)), commit);
+export function moveKeyframe(store: EditorStoreApi, itemId: string, prop: AnimatableProp, from: number, to: number, commit = true): void {
+  return patchKf(store, itemId, prop, (list, it) => moveKeyframeInList(list, from, clampFrame(it, to)), commit)
+}
 
-export const clearKeyframes = (store: EditorStoreApi, itemId: string, prop: AnimatableProp): void =>
-  patchKf(store, itemId, prop, () => []);
+export function clearKeyframes(store: EditorStoreApi, itemId: string, prop: AnimatableProp): void {
+  return patchKf(store, itemId, prop, () => [])
+}
 
 /** 把某帧上所有属性的关键帧一起挪(时间线合并轨拖拽) */
-export const moveKeyframesAtFrame = (store: EditorStoreApi, itemId: string, from: number, to: number, commit = true): void => {
+export function moveKeyframesAtFrame(store: EditorStoreApi, itemId: string, from: number, to: number, commit = true): void {
   store.getState().updateUndoable((s) => {
-    const it = s.items[itemId];
-    if (!it?.keyframes) return s;
-    const f = clampFrame(it, to);
-    let next = it;
+    const it = s.items[itemId]
+    if (!it?.keyframes)
+      return s
+    const f = clampFrame(it, to)
+    let next = it
     for (const prop of Object.keys(it.keyframes) as AnimatableProp[]) {
-      const list = it.keyframes[prop];
-      if (list && keyframeAt(list, from)) next = withKeyframeList(next, prop, moveKeyframeInList(list, from, f));
+      const list = it.keyframes[prop]
+      if (list && keyframeAt(list, from))
+        next = withKeyframeList(next, prop, moveKeyframeInList(list, from, f))
     }
-    return { ...s, items: { ...s.items, [itemId]: next } };
-  }, { commit });
-};
+    return { ...s, items: { ...s.items, [itemId]: next } }
+  }, { commit })
+}
 
-export const applyAnimationPreset = (store: EditorStoreApi, itemId: string, presetId: PresetId): void => {
+export function applyAnimationPreset(store: EditorStoreApi, itemId: string, presetId: PresetId): void {
   store.getState().updateUndoable((s) => {
-    const it = s.items[itemId];
-    if (!it) return s;
-    const preset = buildPreset(presetId, it);
-    let next = it;
-    for (const prop of Object.keys(preset) as AnimatableProp[]) next = withKeyframeList(next, prop, preset[prop]!);
-    return { ...s, items: { ...s.items, [itemId]: next } };
-  }, { commit: true });
-};
+    const it = s.items[itemId]
+    if (!it)
+      return s
+    const preset = buildPreset(presetId, it)
+    let next = it
+    for (const prop of Object.keys(preset) as AnimatableProp[]) next = withKeyframeList(next, prop, preset[prop]!)
+    return { ...s, items: { ...s.items, [itemId]: next } }
+  }, { commit: true })
+}
 ```
 
 > 若 `EditorStoreApi` 未从 `../state/store` 导出该名,按 `index.ts:92`(`EditorStoreApi` 已是公开类型)找到其定义处导入。`Keyframe` 类型从 `@gedatou/shared` 顶层导入(避免 `import('...')` 内联,若嫌丑可改成顶部 `import type { Keyframe } from '@gedatou/shared'`)。
@@ -609,11 +634,16 @@ export const applyAnimationPreset = (store: EditorStoreApi, itemId: string, pres
 
 ```ts
 export {
-  applyAnimationPreset, clearKeyframes, moveKeyframe, moveKeyframesAtFrame,
-  setKeyframeEasing, setKeyframeValue, toggleKeyframe,
-} from './lib/keyframe-ops';
-export type { AnimatableProp, Keyframe, KeyframeEasing } from '@gedatou/shared';
-export type { PresetId } from '@gedatou/shared/composition';
+  applyAnimationPreset,
+  clearKeyframes,
+  moveKeyframe,
+  moveKeyframesAtFrame,
+  setKeyframeEasing,
+  setKeyframeValue,
+  toggleKeyframe,
+} from './lib/keyframe-ops'
+export type { AnimatableProp, Keyframe, KeyframeEasing } from '@gedatou/shared'
+export type { PresetId } from '@gedatou/shared/composition'
 ```
 
 - [ ] **Step 7: 验证**(Recipe:editor typecheck 0、`pnpm -r --parallel test` 全绿)。
@@ -647,49 +677,55 @@ EOF
 - [ ] **Step 1: hook** — `inspector/use-item-keyframes.ts`:
 
 ```ts
-import { useMemo } from 'react';
-import type { AnimatableProp, KeyframeEasing } from '@gedatou/shared';
-import { keyframeAt, type PresetId } from '@gedatou/shared/composition';
-import { useEditor, useEditorApi, useEditorRefs } from '../state/context';
+import type { AnimatableProp, KeyframeEasing } from '@gedatou/shared'
+import type { PresetId } from '@gedatou/shared/composition'
+import { keyframeAt } from '@gedatou/shared/composition'
+import { useMemo } from 'react'
 import {
-  applyAnimationPreset, clearKeyframes, moveKeyframe, setKeyframeEasing, setKeyframeValue, toggleKeyframe,
-} from '../lib/keyframe-ops';
+  applyAnimationPreset,
+  clearKeyframes,
+  moveKeyframe,
+  setKeyframeEasing,
+  setKeyframeValue,
+  toggleKeyframe,
+} from '../lib/keyframe-ops'
+import { useEditor, useEditorApi, useEditorRefs } from '../state/context'
 
-export type ItemKeyframesApi = {
-  has: (prop: AnimatableProp) => boolean;
-  at: (prop: AnimatableProp, frameInItem: number) => boolean;
-  toggle: (prop: AnimatableProp, frameInItem: number) => void;
-  setValue: (prop: AnimatableProp, frameInItem: number, value: number, commit?: boolean) => void;
-  setEasing: (prop: AnimatableProp, frameInItem: number, easing: KeyframeEasing) => void;
-  move: (prop: AnimatableProp, from: number, to: number, commit?: boolean) => void;
-  clear: (prop: AnimatableProp) => void;
-  applyPreset: (id: PresetId) => void;
-  nextFrame: (prop: AnimatableProp, frameInItem: number) => number | null;
-  prevFrame: (prop: AnimatableProp, frameInItem: number) => number | null;
-  seekToItemFrame: (frameInItem: number) => void;
-};
+export interface ItemKeyframesApi {
+  has: (prop: AnimatableProp) => boolean
+  at: (prop: AnimatableProp, frameInItem: number) => boolean
+  toggle: (prop: AnimatableProp, frameInItem: number) => void
+  setValue: (prop: AnimatableProp, frameInItem: number, value: number, commit?: boolean) => void
+  setEasing: (prop: AnimatableProp, frameInItem: number, easing: KeyframeEasing) => void
+  move: (prop: AnimatableProp, from: number, to: number, commit?: boolean) => void
+  clear: (prop: AnimatableProp) => void
+  applyPreset: (id: PresetId) => void
+  nextFrame: (prop: AnimatableProp, frameInItem: number) => number | null
+  prevFrame: (prop: AnimatableProp, frameInItem: number) => number | null
+  seekToItemFrame: (frameInItem: number) => void
+}
 
-export const useItemKeyframes = (itemId: string): ItemKeyframesApi => {
-  const api = useEditorApi();
-  const refs = useEditorRefs();
-  const item = useEditor((s) => s.undoable.items[itemId]);
+export function useItemKeyframes(itemId: string): ItemKeyframesApi {
+  const api = useEditorApi()
+  const refs = useEditorRefs()
+  const item = useEditor(s => s.undoable.items[itemId])
   return useMemo<ItemKeyframesApi>(() => {
-    const list = (prop: AnimatableProp) => item?.keyframes?.[prop] ?? [];
+    const list = (prop: AnimatableProp) => item?.keyframes?.[prop] ?? []
     return {
-      has: (prop) => list(prop).length > 0,
+      has: prop => list(prop).length > 0,
       at: (prop, f) => !!keyframeAt(list(prop), f),
       toggle: (prop, f) => toggleKeyframe(api, itemId, prop, f),
       setValue: (prop, f, v, commit = true) => setKeyframeValue(api, itemId, prop, f, v, commit),
       setEasing: (prop, f, e) => setKeyframeEasing(api, itemId, prop, f, e),
       move: (prop, from, to, commit = true) => moveKeyframe(api, itemId, prop, from, to, commit),
-      clear: (prop) => clearKeyframes(api, itemId, prop),
-      applyPreset: (id) => applyAnimationPreset(api, itemId, id),
-      nextFrame: (prop, f) => list(prop).find((k) => k.frame > f)?.frame ?? null,
-      prevFrame: (prop, f) => [...list(prop)].reverse().find((k) => k.frame < f)?.frame ?? null,
-      seekToItemFrame: (f) => refs.player.current?.seekTo((item?.from ?? 0) + f),
-    };
-  }, [api, refs, itemId, item]);
-};
+      clear: prop => clearKeyframes(api, itemId, prop),
+      applyPreset: id => applyAnimationPreset(api, itemId, id),
+      nextFrame: (prop, f) => list(prop).find(k => k.frame > f)?.frame ?? null,
+      prevFrame: (prop, f) => [...list(prop)].reverse().find(k => k.frame < f)?.frame ?? null,
+      seekToItemFrame: f => refs.player.current?.seekTo((item?.from ?? 0) + f),
+    }
+  }, [api, refs, itemId, item])
+}
 ```
 
 > 确认 `useEditorApi`/`useEditorRefs`/`useEditor` 的导入路径(集成图:定义在 `state/context.tsx`)。`refs.player` 为 Remotion PlayerRef(`instance-refs.ts:12`)。
@@ -697,38 +733,66 @@ export const useItemKeyframes = (itemId: string): ItemKeyframesApi => {
 - [ ] **Step 2: KeyframeToggle** — `inspector/KeyframeToggle.tsx`:
 
 ```tsx
-import type React from 'react';
-import { Diamond } from 'lucide-react';
-import type { AnimatableProp, EditorStarterItem } from '@gedatou/shared';
-import { usePlayerFrameDerived } from '../canvas/player-ref';
-import { cn } from '../lib/utils'; // 若无 cn,用现有工具或直接拼 className
-import type { ItemKeyframesApi } from './use-item-keyframes';
+import type { AnimatableProp, EditorStarterItem } from '@gedatou/shared'
+import type React from 'react'
+import type { ItemKeyframesApi } from './use-item-keyframes'
+import { Diamond } from 'lucide-react'
+import { usePlayerFrameDerived } from '../canvas/player-ref'
+import { cn } from '../lib/utils' // 若无 cn,用现有工具或直接拼 className
 
-const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
+const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n))
 
-export const KeyframeToggle: React.FC<{ item: EditorStarterItem; prop: AnimatableProp; kf: ItemKeyframesApi }> = ({ item, prop, kf }) => {
-  const frameInItem = usePlayerFrameDerived((f) => clamp(f - item.from, 0, item.durationInFrames));
-  const active = kf.at(prop, frameInItem);
-  const has = kf.has(prop);
-  const go = (target: number | null) => target != null && kf.seekToItemFrame(target);
+export const KeyframeToggle: React.FC<{ item: EditorStarterItem, prop: AnimatableProp, kf: ItemKeyframesApi }> = ({ item, prop, kf }) => {
+  const frameInItem = usePlayerFrameDerived(f => clamp(f - item.from, 0, item.durationInFrames))
+  const active = kf.at(prop, frameInItem)
+  const has = kf.has(prop)
+  const go = (target: number | null) => target != null && kf.seekToItemFrame(target)
   return (
     <span className="inline-flex items-center gap-0.5">
       {has && (
-        <button type="button" aria-label="prev keyframe" className="text-muted-foreground disabled:opacity-30"
-          disabled={kf.prevFrame(prop, frameInItem) == null} onClick={() => go(kf.prevFrame(prop, frameInItem))}>◀</button>
+        <button
+          type="button"
+          aria-label="prev keyframe"
+          className="
+            text-muted-foreground
+            disabled:opacity-30
+          "
+          disabled={kf.prevFrame(prop, frameInItem) == null}
+          onClick={() => go(kf.prevFrame(prop, frameInItem))}
+        >
+          ◀
+        </button>
       )}
-      <button type="button" aria-label="toggle keyframe"
-        className={cn('rounded p-0.5', active ? 'text-primary' : 'text-muted-foreground hover:text-foreground')}
-        onClick={() => kf.toggle(prop, frameInItem)}>
-        <Diamond className={cn('size-3', active && 'fill-current')} />
+      <button
+        type="button"
+        aria-label="toggle keyframe"
+        className={cn(`rounded-sm p-0.5`, active
+          ? `text-primary`
+          : `
+            text-muted-foreground
+            hover:text-foreground
+          `)}
+        onClick={() => kf.toggle(prop, frameInItem)}
+      >
+        <Diamond className={cn('block-3 inline-3', active && 'fill-current')} />
       </button>
       {has && (
-        <button type="button" aria-label="next keyframe" className="text-muted-foreground disabled:opacity-30"
-          disabled={kf.nextFrame(prop, frameInItem) == null} onClick={() => go(kf.nextFrame(prop, frameInItem))}>▶</button>
+        <button
+          type="button"
+          aria-label="next keyframe"
+          className="
+            text-muted-foreground
+            disabled:opacity-30
+          "
+          disabled={kf.nextFrame(prop, frameInItem) == null}
+          onClick={() => go(kf.nextFrame(prop, frameInItem))}
+        >
+          ▶
+        </button>
       )}
     </span>
-  );
-};
+  )
+}
 ```
 
 > `lucide-react` 已是依赖(库内置原语用它)。`cn`:检查 editor 里现有 className 合并工具(多半有 `lib/utils`);无则内联字符串。`usePlayerFrameDerived` 只在派生原语变化时重渲,不会每帧刷。
@@ -736,9 +800,10 @@ export const KeyframeToggle: React.FC<{ item: EditorStarterItem; prop: Animatabl
 - [ ] **Step 3: 接 ItemPanel** — 在 `Inspector.tsx` 的 `ItemPanel`(取 `patch = useItemPatch(item.id)` 处,:655)旁加 `const kf = useItemKeyframes(item.id);`,并把 `kf` 传入 `LayoutSection`/`FillSection`(给这两个 section 组件加 `kf: ItemKeyframesApi` prop)。同时在 section 内取当前 item 内帧:
 
 ```tsx
-const frameInItem = usePlayerFrameDerived((f) => Math.max(0, Math.min(item.durationInFrames, f - item.from)));
-const animPatch = (prop: AnimatableProp, v: number, commit?: boolean) =>
-  kf.has(prop) ? kf.setValue(prop, frameInItem, v, commit) : patch({ [prop]: v } as Partial<EditorStarterItem>, commit);
+const frameInItem = usePlayerFrameDerived(f => Math.max(0, Math.min(item.durationInFrames, f - item.from)))
+function animPatch(prop: AnimatableProp, v: number, commit?: boolean) {
+  return kf.has(prop) ? kf.setValue(prop, frameInItem, v, commit) : patch({ [prop]: v } as Partial<EditorStarterItem>, commit)
+}
 ```
 
 - [ ] **Step 4: 每个 transform 行加 ◆ 并改 onChange** — 对以下 6 行(集成图给出确切位置)做同一改造:①X(:381 left)②Y(:382 top)③W(:388 通过 setW → 改成 `animPatch('width', v, c)` 但保留 setW 的 aspect-lock 逻辑时改写 setW 内部用 animPatch)④H(:389 setH 同理)⑤rotation(:411-417)⑥opacity(FillSection :453-461,注意 UI 0-100 → 值 /100)。以 X 为例(其余照此,替换 prop/取值):
@@ -790,49 +855,56 @@ EOF
 - [ ] **Step 1: 选中态 + 合并关键帧帧集** — 在 `ItemBlock` 组件体内(拿到 `item`/`zoom` 后)加:
 
 ```tsx
-const selected = useEditor((s) => s.selected.includes(item.id));
+const selected = useEditor(s => s.selected.includes(item.id))
 const kfFrames = useMemo(() => {
-  const set = new Set<number>();
-  const kfs = item.keyframes;
-  if (kfs) for (const p of Object.keys(kfs)) for (const k of kfs[p as keyof typeof kfs]!) set.add(k.frame);
-  return [...set].sort((a, b) => a - b);
-}, [item.keyframes]);
+  const set = new Set<number>()
+  const kfs = item.keyframes
+  if (kfs) {
+    for (const p of Object.keys(kfs)) {
+      for (const k of kfs[p as keyof typeof kfs]!) set.add(k.frame)
+    }
+  }
+  return [...set].sort((a, b) => a - b)
+}, [item.keyframes])
 ```
 
 - [ ] **Step 2: 关键帧轨 overlay** — 仅 `selected && kfFrames.length > 0` 时,在块内底部渲染一条 8px 高的轨,每帧一个可拖点(`frameInItem * zoom` 定位)。放在块内容层、避开 trim(z-30)/fade(z-40)/volume(z-20)——用块底部一条 `z-10` 的 strip:
 
 ```tsx
-{selected && kfFrames.length > 0 && (
-  <div className="absolute inset-x-0 bottom-0 h-2 z-10" data-kf-lane>
-    {kfFrames.map((f) => (
+{ selected && kfFrames.length > 0 && (
+  <div className="absolute inset-x-0 inset-be-0 z-10 block-2" data-kf-lane>
+    {kfFrames.map(f => (
       <button
         key={f}
         type="button"
         data-kf-dot
-        className="absolute bottom-0 size-2 -translate-x-1/2 rotate-45 bg-primary border border-background"
+        className="
+          absolute inset-be-0 -translate-x-1/2 rotate-45 border
+          border-background bg-primary block-2 inline-2
+        "
         style={{ left: f * zoom }}
-        onPointerDown={(e) => onKeyframeDotDown(e, f)}
+        onPointerDown={e => onKeyframeDotDown(e, f)}
       />
     ))}
   </div>
-)}
+) }
 ```
 
 - [ ] **Step 3: 拖拽移动** — 用 `startHandleDrag` 骨架(:141-160,捕获指针、move 时 commit:false、up 时 commitPending),把落点像素换算成帧并 `moveKeyframesAtFrame`。在组件内定义:
 
 ```tsx
-const api = useEditorApi();
-const onKeyframeDotDown = (e: React.PointerEvent, fromFrame: number) => {
-  e.stopPropagation(); // 别触发块 move
-  const startX = e.clientX;
+const api = useEditorApi()
+function onKeyframeDotDown(e: React.PointerEvent, fromFrame: number) {
+  e.stopPropagation() // 别触发块 move
+  const startX = e.clientX
   startHandleDrag(e, {
     onMove: (ev) => {
-      const to = Math.round(fromFrame + (ev.clientX - startX) / zoom);
-      moveKeyframesAtFrame(api, item.id, fromFrame, Math.max(0, Math.min(item.durationInFrames, to)), false);
+      const to = Math.round(fromFrame + (ev.clientX - startX) / zoom)
+      moveKeyframesAtFrame(api, item.id, fromFrame, Math.max(0, Math.min(item.durationInFrames, to)), false)
     },
     onCommit: () => api.getState().commitPending(),
-  });
-};
+  })
+}
 ```
 
 > `startHandleDrag` 的实际签名以 `ItemBlock.tsx:141-160` 为准(集成图称其"捕获指针、commit:false on move、commitPending on up");若签名不同,按其形状适配 onMove/onCommit。**关键:`e.stopPropagation()` 防止冒泡到块 move 手势(:261)。** 拖拽过程 `fromFrame` 需随每次移动更新为最新落帧(否则第二次 move 找不到原帧)——用一个 `let cur = fromFrame;` 闭包,每次 move 后 `cur = to`,下次以 `cur` 为 from。
@@ -840,14 +912,14 @@ const onKeyframeDotDown = (e: React.PointerEvent, fromFrame: number) => {
 修正 onMove(带 cur 追踪):
 
 ```tsx
-let cur = fromFrame;
+let cur = fromFrame
 startHandleDrag(e, {
   onMove: (ev) => {
-    const to = Math.max(0, Math.min(item.durationInFrames, Math.round(fromFrame + (ev.clientX - startX) / zoom)));
-    if (to !== cur) { moveKeyframesAtFrame(api, item.id, cur, to, false); cur = to; }
+    const to = Math.max(0, Math.min(item.durationInFrames, Math.round(fromFrame + (ev.clientX - startX) / zoom)))
+    if (to !== cur) { moveKeyframesAtFrame(api, item.id, cur, to, false); cur = to }
   },
   onCommit: () => api.getState().commitPending(),
-});
+})
 ```
 
 - [ ] **Step 4: 验证** — editor typecheck 0;`pnpm -r --parallel test` 全绿;`pnpm --filter "@gedatou/*" build` 成功。
@@ -877,17 +949,21 @@ EOF
 - [ ] **Step 1: 预设选择控件** — 在 `ItemPanel` 里(`LayoutSection` 之后合适位置)加一个 `Section`/`Row`(用现有 `inspector/fields.tsx` 的 `Section`/`Row`),内含一个原生 `<select>`(或库里已有的 Select 原语)列出 `PRESET_IDS`,选中即 `kf.applyPreset(id)`:
 
 ```tsx
-import { PRESET_IDS, type PresetId } from '@gedatou/shared/composition';
+import type { PresetId } from '@gedatou/shared/composition'
+import { PRESET_IDS } from '@gedatou/shared/composition'
 // ...
 <Section title={t('inspector.animation') ?? 'Animation'}>
   <Row label={t('inspector.preset') ?? 'Preset'}>
     <select
-      className="h-7 rounded border bg-transparent px-1 text-xs"
+      className="rounded-sm border bg-transparent px-1 text-xs block-7"
       value=""
-      onChange={(e) => { const v = e.target.value as PresetId; if (v) kf.applyPreset(v); e.currentTarget.value = ''; }}
+      onChange={(e) => {
+        const v = e.target.value as PresetId; if (v)
+          kf.applyPreset(v); e.currentTarget.value = ''
+      }}
     >
       <option value="">…</option>
-      {PRESET_IDS.map((id) => <option key={id} value={id}>{id}</option>)}
+      {PRESET_IDS.map(id => <option key={id} value={id}>{id}</option>)}
     </select>
   </Row>
 </Section>

@@ -1,4 +1,4 @@
-import { defineConfig } from 'bumpp';
+import { defineConfig } from 'bumpp'
 
 // `pnpm release`（= bumpp --no-verify）读此文件：同步改这几个 package.json 到同一版本，
 // 一个 commit（chore: release vX）+ 一个 tag（vX）+ push，触发 .github/workflows/release.yml。
@@ -10,4 +10,4 @@ export default defineConfig({
     'packages/shared/package.json',
     'packages/editor/package.json',
   ],
-});
+})

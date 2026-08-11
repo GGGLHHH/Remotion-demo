@@ -17,11 +17,12 @@
  *   filename* 走百分号编码，故不可能折行注入响应头
  * 返回空串表示客户端没给出可用名字，调用方应回退到自己的默认名。
  */
-export const sanitizeFileName = (name: string): string =>
-  name.replace(/[\\/]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 150);
+export function sanitizeFileName(name: string): string {
+  return name.replace(/[\\/]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 150)
+}
 
 /** RFC 5987/6266：ASCII 回退名给老客户端，filename* 携带 UTF-8 原名（中文地址） */
-export const contentDisposition = (filename: string): string => {
-  const ascii = filename.replace(/[^ -~]/g, '_').replace(/"/g, "'");
-  return `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
-};
+export function contentDisposition(filename: string): string {
+  const ascii = filename.replace(/[^\x20-\x7E]/g, '_').replace(/"/g, '\'')
+  return `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(filename)}`
+}

@@ -31,14 +31,14 @@
 
 ```ts
 // @gedatou/editor/state
-export type EditorStoreApi = StoreApi<EditorStore>          // vanilla store（zustand/vanilla createStore）
+export type EditorStoreApi = StoreApi<EditorStore> // vanilla store（zustand/vanilla createStore）
 export function createEditorStore(init?: Partial<EditorInitialState>): EditorStoreApi
 //   pendingBase 从模块级 let 挪进工厂闭包，也变每实例
 ```
 
 ```tsx
 // @gedatou/editor/context
-export interface EditorInstanceRefs { player, pan, fitScale, stageEl }   // canvas 那几个模块单例的新家
+export interface EditorInstanceRefs { player, pan, fitScale, stageEl } // canvas 那几个模块单例的新家
 export function EditorProvider(props: {
   children
   initialState?: Partial<EditorInitialState>
@@ -50,10 +50,10 @@ export function EditorProvider(props: {
 //         const refs  = useRef<EditorInstanceRefs>({ ... }).current
 //         把 store / refs / deps 一起放进 EditorContext
 
-export function useEditor<T>(selector: (s: EditorStore) => T): T   // 替换 useEditorStore；越界即 throw
-export function useEditorApi(): EditorStoreApi                     // 拿裸 store，供组件内命令式 getState()/subscribe()（性能敏感的直写 DOM 路径用）
-export function useEditorRefs(): EditorInstanceRefs                // 替换 playerRef/panRef/fitScaleRef/stageElRef
-export function useEditorDeps(): { transport; storage; onNotify }  // 组件内拿注入依赖
+export function useEditor<T>(selector: (s: EditorStore) => T): T // 替换 useEditorStore；越界即 throw
+export function useEditorApi(): EditorStoreApi // 拿裸 store，供组件内命令式 getState()/subscribe()（性能敏感的直写 DOM 路径用）
+export function useEditorRefs(): EditorInstanceRefs // 替换 playerRef/panRef/fitScaleRef/stageElRef
+export function useEditorDeps(): { transport, storage, onNotify } // 组件内拿注入依赖
 ```
 
 **越界 throw 文案**统一：`useEditor 必须在 <EditorProvider> 内使用`（照 shadcn `useSidebar` 同款守卫）。
@@ -78,21 +78,21 @@ export function importFiles(store: EditorStoreApi, deps: EditorDeps, files: File
 ## 4. 注入接口（冻结形状；精确签名在竖切阶段照原文件定稿）
 
 ```ts
-export interface EditorTransport {                      // 替换写死的 /api/*
-  uploadAsset(file: File, opts?: { signal?: AbortSignal; onProgress?(pct: number): void }): Promise<UploadedAsset>
-  deleteAsset(assetId: string): Promise<void>
-  startRender(input: RenderInput): Promise<{ renderId: string }>
-  subscribeRenderProgress(renderId: string, cb: (p: RenderProgress) => void): () => void   // 保持现有轮询语义
-  renderDownloadUrl(renderId: string): string
-  generateCaptions(input: { assetId: string; language?: string }): Promise<Caption[]>
+export interface EditorTransport { // 替换写死的 /api/*
+  uploadAsset: (file: File, opts?: { signal?: AbortSignal, onProgress?: (pct: number) => void }) => Promise<UploadedAsset>
+  deleteAsset: (assetId: string) => Promise<void>
+  startRender: (input: RenderInput) => Promise<{ renderId: string }>
+  subscribeRenderProgress: (renderId: string, cb: (p: RenderProgress) => void) => () => void // 保持现有轮询语义
+  renderDownloadUrl: (renderId: string) => string
+  generateCaptions: (input: { assetId: string, language?: string }) => Promise<Caption[]>
 }
-export interface EditorStorage {                        // 替换 localStorage/IndexedDB/location.hash
-  loadProject(): Promise<PersistedProject | null> | PersistedProject | null
-  saveProject(p: PersistedProject): Promise<void> | void
-  getAsset(assetId: string): Promise<Blob | null>       // 原 IndexedDB 资源缓存
-  putAsset(assetId: string, blob: Blob): Promise<void>
+export interface EditorStorage { // 替换 localStorage/IndexedDB/location.hash
+  loadProject: () => Promise<PersistedProject | null> | PersistedProject | null
+  saveProject: (p: PersistedProject) => Promise<void> | void
+  getAsset: (assetId: string) => Promise<Blob | null> // 原 IndexedDB 资源缓存
+  putAsset: (assetId: string, blob: Blob) => Promise<void>
 }
-export type NotifyFn = (message: string, level?: 'info' | 'success' | 'error') => void   // 替换 sonner
+export type NotifyFn = (message: string, level?: 'info' | 'success' | 'error') => void // 替换 sonner
 ```
 覆盖文件：Transport → `render-client/import-assets/captioning/cleanup-assets`；Storage → `persistence/indexeddb`；Notify → `captioning/import-assets/render-client/persistence`。
 
@@ -102,9 +102,9 @@ export type NotifyFn = (message: string, level?: 'info' | 'success' | 'error') =
 
 ```ts
 // @gedatou/editor（root export）
-export { EditorRoot, EditorProvider, createEditorStore, useEditor, useEditorApi, useEditorRefs, useEditorDeps }
-export { Canvas, Timeline, Inspector, PlaybackBar, useShortcuts }
-export type { EditorTransport, EditorStorage, NotifyFn, EditorInitialState, EditorStoreApi }
+export { createEditorStore, EditorProvider, EditorRoot, useEditor, useEditorApi, useEditorDeps, useEditorRefs }
+export { Canvas, Inspector, PlaybackBar, Timeline, useShortcuts }
+export type { EditorInitialState, EditorStorage, EditorStoreApi, EditorTransport, NotifyFn }
 ```
 公开组件名用友好版：`CanvasView → Canvas`、`TimelinePanel → Timeline`（内部文件名可不改，在 index 里 `export { CanvasView as Canvas }`）。
 每个组件同时给一个 `exports` 子路径（`./canvas`、`./timeline`、`./inspector`、`./playback`）便于 tree-shake。

@@ -1,7 +1,9 @@
 {
-  "files": [],
-  "references": [
-    { "path": "./tsconfig.app.json" },
-    { "path": "./tsconfig.node.json" }
-  ]
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    // vite/client 提供 import.meta.env 与 ?url / .css 等资源导入的类型;
+    // node 供 vite.config.ts 用。pnpm 的隔离布局下 @types 不会被自动发现,得点名。
+    "types": ["vite/client", "node"]
+  },
+  "include": ["src", "vite.config.ts"]
 }

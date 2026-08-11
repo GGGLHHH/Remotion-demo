@@ -5,9 +5,12 @@ on:
     branches: [main, master]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   check:
-    name: typecheck · test · build
+    name: lint · typecheck · test · build
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -19,17 +22,22 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "24"
+          node-version: '24'
           cache: pnpm
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # 两个包以 TS 源码互相消费(exports 指向 src,publishConfig 才切 dist),
+      # 所以类型感知的 lint 不需要先 build —— 类型直接来自源码。
+      - name: Lint
+        run: pnpm lint
+
       - name: Typecheck
         run: pnpm typecheck
 
       - name: Unit tests
-        run: pnpm test
+        run: pnpm test run
 
       - name: Build publishable packages
         run: pnpm build

@@ -1,3 +1,5 @@
+import process from 'node:process'
+
 /** 开发默认值对齐 docker-compose.yml；生产用环境变量覆盖 */
 export const config = {
   port: Number(process.env.PORT ?? 3001),
@@ -10,4 +12,4 @@ export const config = {
     /** 浏览器访问 MinIO 的地址（生产为 CDN/OSS 域名） */
     publicBaseUrl: process.env.S3_PUBLIC_BASE_URL ?? 'http://localhost:9100',
   },
-};
+}

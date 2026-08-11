@@ -1,220 +1,241 @@
-import type React from 'react';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Player } from '@remotion/player';
-import { MainComposition, calcDuration } from '@gedatou/shared/composition';
-import { useEditor, useEditorApi, useEditorDeps, useEditorRefs } from '../state/context';
-import { cn } from '../lib/utils';
-import { importFiles } from '../lib/import-assets';
-import { SelectionOverlay } from './SelectionOverlay';
-import { CompositionResizeHandles } from './CompositionResizeHandles';
-import { CropOverlay } from './CropOverlay';
-import { TextEditOverlay } from './TextEditOverlay';
-import { DrawSolidOverlay } from './DrawSolidOverlay';
-import { TextToolOverlay } from './TextToolOverlay';
+import type React from 'react'
+import { dictValues } from '@gedatou/shared'
+import { calcDuration, MainComposition } from '@gedatou/shared/composition'
+import { Player } from '@remotion/player'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { importFiles } from '#lib/import-assets'
+import { cn } from '#lib/utils'
+import { useEditor, useEditorApi, useEditorDeps, useEditorRefs } from '#state/context'
+import { CompositionResizeHandles } from './CompositionResizeHandles'
+import { CropOverlay } from './CropOverlay'
+import { DrawSolidOverlay } from './DrawSolidOverlay'
+import { SelectionOverlay } from './SelectionOverlay'
+import { TextEditOverlay } from './TextEditOverlay'
+import { TextToolOverlay } from './TextToolOverlay'
 
-export type { CanvasTool } from '../state/store';
+export type { CanvasTool } from '#state/store'
 
 /** 与 store.setCanvasZoom 相同的钳制，光标锚定的平移计算必须用钳制后的值才不漂 */
-const clampZoom = (z: number) => Math.min(4, Math.max(0.1, z));
+const clampZoom = (z: number): number => Math.min(4, Math.max(0.1, z))
 
 export const CanvasView: React.FC<{ className?: string }> = ({ className }) => {
-  const editorApi = useEditorApi();
-  const deps = useEditorDeps();
-  const refs = useEditorRefs();
-  const undoable = useEditor((s) => s.undoable);
-  const canvasZoom = useEditor((s) => s.canvasZoom);
-  const localUrls = useEditor((s) => s.localUrls);
-  const fontHoverPreview = useEditor((s) => s.fontHoverPreview);
-  const cropMode = useEditor((s) => s.itemSelectedForCrop !== null);
-  const loop = useEditor((s) => s.loop);
+  const editorApi = useEditorApi()
+  const deps = useEditorDeps()
+  const refs = useEditorRefs()
+  const undoable = useEditor(s => s.undoable)
+  const canvasZoom = useEditor(s => s.canvasZoom)
+  const localUrls = useEditor(s => s.localUrls)
+  const fontHoverPreview = useEditor(s => s.fontHoverPreview)
+  const cropMode = useEditor(s => s.itemSelectedForCrop !== null)
+  const loop = useEditor(s => s.loop)
   // 工具模式移入 store（原 EditorShell 本地态）：工具栏按钮写、画布读
-  const tool = useEditor((s) => s.canvasTool);
-  const setCanvasTool = useEditor((s) => s.setCanvasTool);
+  const tool = useEditor(s => s.canvasTool)
+  const setCanvasTool = useEditor(s => s.setCanvasTool)
 
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [fitScale, setFitScale] = useState(0.1);
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [fitScale, setFitScale] = useState(0.1)
 
-  const durationInFrames = useMemo(() => calcDuration(undoable.items), [undoable.items]);
+  const durationInFrames = useMemo(() => calcDuration(undoable.items), [undoable.items])
 
   // inputProps 引用稳定（仅真实编辑时变化）：播放中 Player 子树不因包装对象换新而重渲
   const inputProps = useMemo(
     () => ({ state: undoable, assetUrlOverrides: localUrls, textFontOverride: fontHoverPreview }),
     [undoable, localUrls, fontHoverPreview],
-  );
+  )
 
-  const scale = canvasZoom === 'fit' ? fitScale : canvasZoom;
+  const scale = canvasZoom === 'fit' ? fitScale : canvasZoom
 
   // 适配缩放：始终跟随容器尺寸重算（手动缩放下也更新 fitScaleRef，作"适应"对比与相对缩放基准）；
   // "适应"模式下同时把舞台平移到居中——居中只是 pan 的派生值
   useLayoutEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const update = () => {
-      const PADDING = 48;
-      const w = el.clientWidth - PADDING;
-      const h = el.clientHeight - PADDING;
-      const s = Math.max(0.02, Math.min(w / undoable.compositionWidth, h / undoable.compositionHeight));
-      refs.fitScale.current = s;
-      setFitScale(s);
+    const el = containerRef.current
+    if (!el)
+      return
+    const update = (): void => {
+      const PADDING = 48
+      const w = el.clientWidth - PADDING
+      const h = el.clientHeight - PADDING
+      const s = Math.max(0.02, Math.min(w / undoable.compositionWidth, h / undoable.compositionHeight))
+      refs.fitScale.current = s
+      // 适配缩放只能测完 DOM 才知道,渲染期算不出来 —— 这正是 useLayoutEffect 的用途,
+      // 浏览器绘制前就会写回,不会闪。
+      // eslint-disable-next-line react/set-state-in-effect
+      setFitScale(s)
       if (editorApi.getState().canvasZoom === 'fit') {
         refs.setPan(
           (el.clientWidth - undoable.compositionWidth * s) / 2,
           (el.clientHeight - undoable.compositionHeight * s) / 2,
-        );
+        )
       }
-    };
-    update();
-    const observer = new ResizeObserver(update);
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [undoable.compositionWidth, undoable.compositionHeight]);
+    }
+    update()
+    const observer = new ResizeObserver(update)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [editorApi, refs, undoable.compositionWidth, undoable.compositionHeight])
 
   // 缩放变化 → 平移锚定：进入"适应"= 重新居中；数字缩放（工具栏 ± / 快捷键）= 视口中心锚定，
   // 避免舞台跳走。滚轮/捏合缩放已自带光标锚定，置位 zoomPanHandledRef 跳过本效果
-  const prevScaleRef = useRef(scale);
-  const zoomPanHandledRef = useRef(false);
+  const prevScaleRef = useRef(scale)
+  const zoomPanHandledRef = useRef(false)
   useLayoutEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
+    const el = containerRef.current
+    if (!el)
+      return
     if (canvasZoom === 'fit') {
       refs.setPan(
         (el.clientWidth - undoable.compositionWidth * scale) / 2,
         (el.clientHeight - undoable.compositionHeight * scale) / 2,
-      );
-    } else if (!zoomPanHandledRef.current && prevScaleRef.current !== scale) {
-      const k = scale / prevScaleRef.current;
-      const cx = el.clientWidth / 2;
-      const cy = el.clientHeight / 2;
-      refs.setPan(cx - (cx - refs.pan.current.x) * k, cy - (cy - refs.pan.current.y) * k);
+      )
     }
-    zoomPanHandledRef.current = false;
-    prevScaleRef.current = scale;
-  }, [scale, canvasZoom, undoable.compositionWidth, undoable.compositionHeight]);
+    else if (!zoomPanHandledRef.current && prevScaleRef.current !== scale) {
+      const k = scale / prevScaleRef.current
+      const cx = el.clientWidth / 2
+      const cy = el.clientHeight / 2
+      refs.setPan(cx - (cx - refs.pan.current.x) * k, cy - (cy - refs.pan.current.y) * k)
+    }
+    zoomPanHandledRef.current = false
+    prevScaleRef.current = scale
+  }, [refs, scale, canvasZoom, undoable.compositionWidth, undoable.compositionHeight])
 
   // 滚轮：平移视口（触控板双指自然平移）；Cmd/Ctrl+滚轮（含触控板捏合）：以光标为锚缩放
   useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const onWheel = (e: WheelEvent) => {
-      e.preventDefault();
-      const store = editorApi.getState();
-      const cur = store.canvasZoom === 'fit' ? refs.fitScale.current : store.canvasZoom;
+    const el = containerRef.current
+    if (!el)
+      return
+    const onWheel = (e: WheelEvent): void => {
+      e.preventDefault()
+      const store = editorApi.getState()
+      const cur = store.canvasZoom === 'fit' ? refs.fitScale.current : store.canvasZoom
       if (e.metaKey || e.ctrlKey) {
-        const next = clampZoom(cur * Math.exp(-e.deltaY * 0.002));
-        const rect = el.getBoundingClientRect();
-        const mx = e.clientX - rect.left;
-        const my = e.clientY - rect.top;
-        const k = next / cur;
+        const next = clampZoom(cur * Math.exp(-e.deltaY * 0.002))
+        const rect = el.getBoundingClientRect()
+        const mx = e.clientX - rect.left
+        const my = e.clientY - rect.top
+        const k = next / cur
         // 光标下的合成点保持不动：pan' = 光标 − (光标 − pan)×k
-        refs.setPan(mx - (mx - refs.pan.current.x) * k, my - (my - refs.pan.current.y) * k);
-        zoomPanHandledRef.current = true;
-        store.setCanvasZoom(next);
-      } else {
-        // 手动平移退出"适应"自动模式（转为等值数字缩放，pan 交还给用户）
-        if (store.canvasZoom === 'fit') store.setCanvasZoom(cur);
-        refs.setPan(refs.pan.current.x - e.deltaX, refs.pan.current.y - e.deltaY);
+        refs.setPan(mx - (mx - refs.pan.current.x) * k, my - (my - refs.pan.current.y) * k)
+        zoomPanHandledRef.current = true
+        store.setCanvasZoom(next)
       }
-    };
-    el.addEventListener('wheel', onWheel, { passive: false });
-    return () => el.removeEventListener('wheel', onWheel);
-  }, []);
+      else {
+        // 手动平移退出"适应"自动模式（转为等值数字缩放，pan 交还给用户）
+        if (store.canvasZoom === 'fit')
+          store.setCanvasZoom(cur)
+        refs.setPan(refs.pan.current.x - e.deltaX, refs.pan.current.y - e.deltaY)
+      }
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, [editorApi, refs])
 
   // 中键拖拽平移（Figma 手感）；起点可在舞台/元素上（事件冒泡到容器，左键行为不受影响）
-  const onPanPointerDown = (e: React.PointerEvent) => {
-    e.preventDefault(); // 抑制中键自动滚动
-    const store = editorApi.getState();
-    if (store.canvasZoom === 'fit') store.setCanvasZoom(refs.fitScale.current); // 手动平移退出"适应"
-    const el = containerRef.current;
-    if (!el) return;
-    el.setPointerCapture(e.pointerId);
-    el.style.cursor = 'grabbing';
-    const sx = e.clientX;
-    const sy = e.clientY;
-    const p0 = { ...refs.pan.current };
-    const onMove = (ev: PointerEvent) => refs.setPan(p0.x + ev.clientX - sx, p0.y + ev.clientY - sy);
-    const onUp = () => {
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onUp);
-      el.style.cursor = '';
-    };
-    window.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', onUp);
-  };
+  const onPanPointerDown = (e: React.PointerEvent): void => {
+    e.preventDefault() // 抑制中键自动滚动
+    const store = editorApi.getState()
+    if (store.canvasZoom === 'fit')
+      store.setCanvasZoom(refs.fitScale.current) // 手动平移退出"适应"
+    const el = containerRef.current
+    if (!el)
+      return
+    el.setPointerCapture(e.pointerId)
+    el.style.cursor = 'grabbing'
+    const sx = e.clientX
+    const sy = e.clientY
+    const p0 = { ...refs.pan.current }
+    const onMove = (ev: PointerEvent): void => refs.setPan(p0.x + ev.clientX - sx, p0.y + ev.clientY - sy)
+    const onUp = (): void => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      el.style.cursor = ''
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+  }
 
   // 合成外空白区域：单击取消选择，拖拽 = 框选（触碰即预选中，与合成内框选一致）
-  const [voidMarquee, setVoidMarquee] = useState<{ x: number; y: number; w: number; h: number } | null>(
+  const [voidMarquee, setVoidMarquee] = useState<{ x: number, y: number, w: number, h: number } | null>(
     null,
-  );
-  const onVoidPointerDown = (e: React.PointerEvent) => {
-    if (e.button !== 0 || e.target !== e.currentTarget) return;
-    const container = e.currentTarget as HTMLElement;
-    const stage = container.querySelector('[data-stage]');
-    if (!stage) return;
-    editorApi.getState().setSelected([]);
-    const start = { x: e.clientX, y: e.clientY };
-    const onMove = (ev: PointerEvent) => {
-      const cRect = container.getBoundingClientRect();
-      const x1 = Math.min(start.x, ev.clientX);
-      const x2 = Math.max(start.x, ev.clientX);
-      const y1 = Math.min(start.y, ev.clientY);
-      const y2 = Math.max(start.y, ev.clientY);
+  )
+  const onVoidPointerDown = (e: React.PointerEvent): void => {
+    if (e.button !== 0 || e.target !== e.currentTarget)
+      return
+    const container = e.currentTarget as HTMLElement
+    const stage = container.querySelector('[data-stage]')
+    if (!stage)
+      return
+    editorApi.getState().setSelected([])
+    const start = { x: e.clientX, y: e.clientY }
+    const onMove = (ev: PointerEvent): void => {
+      const cRect = container.getBoundingClientRect()
+      const x1 = Math.min(start.x, ev.clientX)
+      const x2 = Math.max(start.x, ev.clientX)
+      const y1 = Math.min(start.y, ev.clientY)
+      const y2 = Math.max(start.y, ev.clientY)
       setVoidMarquee({
         x: x1 - cRect.left,
         y: y1 - cRect.top,
         w: x2 - x1,
         h: y2 - y1,
-      });
-      const sRect = stage.getBoundingClientRect();
-      const cx1 = (x1 - sRect.left) / scale;
-      const cx2 = (x2 - sRect.left) / scale;
-      const cy1 = (y1 - sRect.top) / scale;
-      const cy2 = (y2 - sRect.top) / scale;
-      const st = editorApi.getState();
-      const f = refs.getPlayerFrame();
-      const hits: string[] = [];
-      for (const item of Object.values(st.undoable.items)) {
-        if (item.type === 'audio') continue;
-        if (f < item.from || f >= item.from + item.durationInFrames) continue;
+      })
+      const sRect = stage.getBoundingClientRect()
+      const cx1 = (x1 - sRect.left) / scale
+      const cx2 = (x2 - sRect.left) / scale
+      const cy1 = (y1 - sRect.top) / scale
+      const cy2 = (y2 - sRect.top) / scale
+      const st = editorApi.getState()
+      const f = refs.getPlayerFrame()
+      const hits: string[] = []
+      for (const item of dictValues(st.undoable.items)) {
+        if (item.type === 'audio')
+          continue
+        if (f < item.from || f >= item.from + item.durationInFrames)
+          continue
         if (item.left < cx2 && cx1 < item.left + item.width && item.top < cy2 && cy1 < item.top + item.height) {
-          hits.push(item.id);
+          hits.push(item.id)
         }
       }
-      st.setSelected(hits);
-    };
-    const onUp = () => {
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onUp);
-      setVoidMarquee(null);
-    };
-    window.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', onUp);
-  };
+      st.setSelected(hits)
+    }
+    const onUp = (): void => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      setVoidMarquee(null)
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+  }
 
   return (
-    <div className={cn('relative flex min-h-0 min-w-0 flex-1 flex-col bg-canvas-void', className)}>
+    <div className={cn(`
+      relative flex flex-1 flex-col bg-canvas-void min-block-0 min-inline-0
+    `, className)}
+    >
       <div
         ref={containerRef}
-        className="relative min-h-0 min-w-0 flex-1 overflow-hidden"
+        className="relative flex-1 overflow-hidden min-block-0 min-inline-0"
         onPointerDown={(e) => {
-          if (e.button === 1) onPanPointerDown(e);
-          else onVoidPointerDown(e);
+          if (e.button === 1)
+            onPanPointerDown(e)
+          else onVoidPointerDown(e)
         }}
-        onDragOver={(e) => e.preventDefault()}
+        onDragOver={e => e.preventDefault()}
         onDrop={(e) => {
-          e.preventDefault();
-          const files = Array.from(e.dataTransfer.files);
-          if (!files.length) return;
-          const stage = e.currentTarget.querySelector('[data-stage]')?.getBoundingClientRect();
+          e.preventDefault()
+          const files = Array.from(e.dataTransfer.files)
+          if (!files.length)
+            return
+          const stage = e.currentTarget.querySelector('[data-stage]')?.getBoundingClientRect()
           const dropAt = stage
             ? { x: (e.clientX - stage.left) / scale, y: (e.clientY - stage.top) / scale }
-            : undefined;
-          void importFiles(editorApi, deps, files, dropAt, undefined, refs.getPlayerFrame());
+            : undefined
+          void importFiles(editorApi, deps, files, dropAt, undefined, refs.getPlayerFrame())
         }}
       >
         <div
           data-stage
           ref={(el) => {
-            refs.stageEl.current = el;
+            refs.stageEl.current = el
           }}
           className="absolute shadow-2xl ring-1 ring-border"
           style={{
@@ -242,18 +263,23 @@ export const CanvasView: React.FC<{ className?: string }> = ({ className }) => {
           {tool === 'solid' ? <DrawSolidOverlay scale={scale} onDone={() => setCanvasTool(null)} /> : null}
           {tool === 'text' ? <TextToolOverlay scale={scale} onDone={() => setCanvasTool(null)} /> : null}
         </div>
-        {voidMarquee ? (
-          <div
-            className="pointer-events-none absolute z-40 border border-[#0B84F3] bg-[#0B84F3]/10"
-            style={{
-              left: voidMarquee.x,
-              top: voidMarquee.y,
-              width: voidMarquee.w,
-              height: voidMarquee.h,
-            }}
-          />
-        ) : null}
+        {voidMarquee
+          ? (
+              <div
+                className="
+                  pointer-events-none absolute z-40 border border-[#0B84F3]
+                  bg-[#0B84F3]/10
+                "
+                style={{
+                  left: voidMarquee.x,
+                  top: voidMarquee.y,
+                  width: voidMarquee.w,
+                  height: voidMarquee.h,
+                }}
+              />
+            )
+          : null}
       </div>
     </div>
-  );
-};
+  )
+}

@@ -1,92 +1,97 @@
-import type React from 'react';
-import { useEffect, useRef } from 'react';
+import type React from 'react'
+import { useEffect, useRef } from 'react'
 
 /** 每素材计算一次峰值（1000 桶），渲染时按块宽重采样；null = 无音轨/解码失败（缓存住避免重试） */
-const peaksCache = new Map<string, Promise<Float32Array | null>>();
-const BUCKETS = 1000;
+const peaksCache = new Map<string, Promise<Float32Array | null>>()
+const BUCKETS = 1000
 
-const computePeaks = async (url: string): Promise<Float32Array | null> => {
+async function computePeaks(url: string): Promise<Float32Array | null> {
   try {
-    const buf = await (await fetch(url)).arrayBuffer();
-    const audioCtx = new OfflineAudioContext(1, 1, 44100);
+    const buf = await (await fetch(url)).arrayBuffer()
+    const audioCtx = new OfflineAudioContext(1, 1, 44100)
     // 视频容器同样可解（浏览器自动抽音轨，同 extract-audio 的做法）
-    const decoded = await audioCtx.decodeAudioData(buf);
-    const data = decoded.getChannelData(0);
-    const peaks = new Float32Array(BUCKETS);
-    const per = Math.max(1, Math.floor(data.length / BUCKETS));
+    const decoded = await audioCtx.decodeAudioData(buf)
+    const data = decoded.getChannelData(0)
+    const peaks = new Float32Array(BUCKETS)
+    const per = Math.max(1, Math.floor(data.length / BUCKETS))
     for (let i = 0; i < BUCKETS; i++) {
-      let max = 0;
-      const start = i * per;
+      let max = 0
+      const start = i * per
       for (let j = start; j < Math.min(start + per, data.length); j += 16) {
-        const v = Math.abs(data[j]);
-        if (v > max) max = v;
+        const v = Math.abs(data[j])
+        if (v > max)
+          max = v
       }
-      peaks[i] = max;
+      peaks[i] = max
     }
-    return peaks;
-  } catch {
-    return null;
+    return peaks
   }
-};
+  catch {
+    return null
+  }
+}
 
 export const Waveform: React.FC<{
-  assetId: string;
-  url: string;
-  widthPx: number;
+  assetId: string
+  url: string
+  widthPx: number
   /** 素材总时长（秒）——时间锚定：波形对应素材时间窗口，修剪只平移不重算 */
-  assetDurationSec: number;
+  assetDurationSec: number
   /** 块起点对应的素材偏移（秒） */
-  trimBeforeSec: number;
+  trimBeforeSec: number
   /** 块覆盖的素材时长（秒） */
-  visibleSec: number;
+  visibleSec: number
   /** 当前音量增益（官方行为：波形随音量实时缩放，削波峰值画珊瑚色） */
-  gain?: number;
+  gain?: number
   /** 波形条带高度（px） */
-  heightPx?: number;
+  heightPx?: number
 }> = ({ assetId, url, widthPx, assetDurationSec, trimBeforeSec, visibleSec, gain = 1, heightPx = 20 }) => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null)
 
   useEffect(() => {
     // key 含 url：远程解码失败的 null 不会挡住随后恢复的 blob URL 重试
-    const key = `${assetId}:${url}`;
-    if (!peaksCache.has(key)) peaksCache.set(key, computePeaks(url));
-    let alive = true;
+    const key = `${assetId}:${url}`
+    if (!peaksCache.has(key))
+      peaksCache.set(key, computePeaks(url))
+    let alive = true
     void peaksCache.get(key)!.then((peaks) => {
-      if (!alive || !peaks) return;
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-      const w = Math.max(1, Math.floor(widthPx));
-      canvas.width = w;
-      canvas.height = heightPx;
-      const ctx = canvas.getContext('2d')!;
+      if (!alive || !peaks)
+        return
+      const canvas = canvasRef.current
+      if (!canvas)
+        return
+      const w = Math.max(1, Math.floor(widthPx))
+      canvas.width = w
+      canvas.height = heightPx
+      const ctx = canvas.getContext('2d')!
       for (let x = 0; x < w; x += 2) {
         // 像素 → 素材秒 → 峰值桶（时间锚定），幅度随增益缩放
-        const sec = trimBeforeSec + (x / w) * visibleSec;
-        const p = peaks[Math.floor((sec / Math.max(0.001, assetDurationSec)) * BUCKETS)] ?? 0;
-        const amp = p * gain;
-        const clipped = amp > 1;
-        const h = Math.max(1, Math.min(1, amp) * (heightPx - 4));
-        const y = (heightPx - h) / 2;
-        ctx.fillStyle = 'rgba(255,255,255,0.55)';
-        ctx.fillRect(x, y, 1.5, h);
+        const sec = trimBeforeSec + (x / w) * visibleSec
+        const p = peaks[Math.floor((sec / Math.max(0.001, assetDurationSec)) * BUCKETS)] ?? 0
+        const amp = p * gain
+        const clipped = amp > 1
+        const h = Math.max(1, Math.min(1, amp) * (heightPx - 4))
+        const y = (heightPx - h) / 2
+        ctx.fillStyle = 'rgba(255,255,255,0.55)'
+        ctx.fillRect(x, y, 1.5, h)
         if (clipped) {
           // 削波峰值：上下端画珊瑚色小帽（官方 coral）
-          ctx.fillStyle = 'rgb(255,127,80)';
-          ctx.fillRect(x, y, 1.5, 1.5);
-          ctx.fillRect(x, y + h - 1.5, 1.5, 1.5);
+          ctx.fillStyle = 'rgb(255,127,80)'
+          ctx.fillRect(x, y, 1.5, 1.5)
+          ctx.fillRect(x, y + h - 1.5, 1.5, 1.5)
         }
       }
-    });
+    })
     return () => {
-      alive = false;
-    };
-  }, [assetId, url, widthPx, heightPx, assetDurationSec, trimBeforeSec, visibleSec, gain]);
+      alive = false
+    }
+  }, [assetId, url, widthPx, heightPx, assetDurationSec, trimBeforeSec, visibleSec, gain])
 
   return (
     <canvas
       ref={canvasRef}
-      className="pointer-events-none absolute bottom-0 left-0 w-full"
+      className="pointer-events-none absolute inset-s-0 inset-be-0 inline-full"
       style={{ height: heightPx }}
     />
-  );
-};
+  )
+}

@@ -1,7 +1,19 @@
 {
   "name": "@gedatou/editor",
+  "type": "module",
   "version": "0.5.2",
   "description": "Embeddable Remotion video editor React components — timeline, canvas, inspector; shadcn-authored, theme-able",
+  "author": "ge Datou (https://github.com/GGGLHHH)",
+  "license": "MIT",
+  "homepage": "https://github.com/GGGLHHH/Remotion-demo#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GGGLHHH/Remotion-demo.git",
+    "directory": "packages/editor"
+  },
+  "bugs": {
+    "url": "https://github.com/GGGLHHH/Remotion-demo/issues"
+  },
   "keywords": [
     "remotion",
     "video-editor",
@@ -10,90 +22,84 @@
     "shadcn",
     "tailwind"
   ],
-  "homepage": "https://github.com/GGGLHHH/Remotion-demo#readme",
-  "bugs": {
-    "url": "https://github.com/GGGLHHH/Remotion-demo/issues"
-  },
-  "license": "MIT",
-  "author": "ge Datou (https://github.com/GGGLHHH)",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/GGGLHHH/Remotion-demo.git",
-    "directory": "packages/editor"
-  },
-  "type": "module",
   "sideEffects": [
     "**/*.css"
   ],
-  "files": [
-    "dist",
-    "src/styles.css",
-    "README.md"
-  ],
-  "exports": {
-    ".": "./src/index.ts",
-    "./adapters": "./src/lib/adapters/index.ts",
-    "./styles.css": "./src/styles.css"
+  "imports": {
+    "#lib/*": "./src/lib/*.ts",
+    "#components/*": "./src/components/*.tsx",
+    "#state/context": "./src/state/context.tsx",
+    "#state/*": "./src/state/*.ts"
   },
   "publishConfig": {
     "access": "public",
     "exports": {
       ".": {
-        "types": "./dist/index.d.ts",
-        "import": "./dist/index.js",
-        "default": "./dist/index.js"
+        "types": "./dist/index.d.mts",
+        "import": "./dist/index.mjs",
+        "default": "./dist/index.mjs"
       },
       "./adapters": {
-        "types": "./dist/adapters.d.ts",
-        "import": "./dist/adapters.js",
-        "default": "./dist/adapters.js"
+        "types": "./dist/adapters.d.mts",
+        "import": "./dist/adapters.mjs",
+        "default": "./dist/adapters.mjs"
       },
       "./styles.css": "./src/styles.css"
     }
   },
+  "exports": {
+    ".": "./src/index.ts",
+    "./adapters": "./src/lib/adapters/index.ts",
+    "./styles.css": "./src/styles.css"
+  },
+  "files": [
+    "README.md",
+    "dist",
+    "src/styles.css"
+  ],
   "scripts": {
-    "build": "tsup",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "build": "tsdown",
+    "typecheck": "tsc",
+    "prepack": "pnpm run build"
   },
   "peerDependencies": {
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "@base-ui/react": "^1.6.0",
-    "lucide-react": "^1.25.0",
-    "zustand": "^5.0.0",
-    "mediabunny": "^1.50.0",
-    "remotion": "4.0.491",
-    "@remotion/player": "4.0.491",
-    "@remotion/media": "4.0.491",
-    "@remotion/gif": "4.0.491",
-    "@remotion/google-fonts": "4.0.491",
-    "@remotion/captions": "4.0.491"
-  },
-  "dependencies": {
-    "@gedatou/shared": "workspace:*",
-    "class-variance-authority": "^0.7.1",
-    "clsx": "^2.1.1",
-    "cmdk": "^1.1.1",
-    "tailwind-merge": "^3.6.0"
-  },
-  "devDependencies": {
     "@base-ui/react": "^1.6.0",
     "@remotion/captions": "4.0.491",
     "@remotion/gif": "4.0.491",
     "@remotion/google-fonts": "4.0.491",
     "@remotion/media": "4.0.491",
     "@remotion/player": "4.0.491",
-    "@types/react": "^19.2.17",
-    "@types/react-dom": "^19.2.3",
     "lucide-react": "^1.25.0",
-    "mediabunny": "^1.50.8",
-    "react": "^19.2.7",
-    "react-dom": "^19.2.7",
+    "mediabunny": "^1.50.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
     "remotion": "4.0.491",
-    "tsup": "^8.5.0",
-    "typescript": "~6.0.2",
-    "vitest": "^3.2.7",
-    "zustand": "^5.0.14"
+    "zustand": "^5.0.0"
+  },
+  "dependencies": {
+    "@gedatou/shared": "workspace:*",
+    "class-variance-authority": "catalog:ui",
+    "clsx": "catalog:ui",
+    "cmdk": "catalog:ui",
+    "tailwind-merge": "catalog:ui"
+  },
+  "devDependencies": {
+    "@base-ui/react": "catalog:ui",
+    "@remotion/captions": "catalog:remotion",
+    "@remotion/gif": "catalog:remotion",
+    "@remotion/google-fonts": "catalog:remotion",
+    "@remotion/media": "catalog:remotion",
+    "@remotion/player": "catalog:remotion",
+    "@types/node": "catalog:types",
+    "@types/react": "catalog:types",
+    "@types/react-dom": "catalog:types",
+    "lucide-react": "catalog:ui",
+    "mediabunny": "catalog:remotion",
+    "react": "catalog:react",
+    "react-dom": "catalog:react",
+    "remotion": "catalog:remotion",
+    "tsdown": "catalog:cli",
+    "typescript": "catalog:cli",
+    "zustand": "catalog:ui"
   }
 }

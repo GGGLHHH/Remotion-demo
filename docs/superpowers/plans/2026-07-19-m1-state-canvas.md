@@ -22,21 +22,21 @@
 
 **Interfaces (Produces):**
 ```ts
-export type EditorStore = {
-  undoable: UndoableState;
-  past: UndoableState[];       // 最近的在末尾
-  future: UndoableState[];
-  selectedItemIds: string[];
+export interface EditorStore {
+  undoable: UndoableState
+  past: UndoableState[] // 最近的在末尾
+  future: UndoableState[]
+  selectedItemIds: string[]
   /** commit=true（默认）：先把当前快照推入 past 再应用；commit=false：应用但记住首次变更前的基线 */
-  updateUndoable: (updater: (s: UndoableState) => UndoableState, opts?: { commit?: boolean }) => void;
+  updateUndoable: (updater: (s: UndoableState) => UndoableState, opts?: { commit?: boolean }) => void
   /** 把 pending 基线提交为一条撤销记录（拖拽松手时调用） */
-  commitPending: () => void;
-  undo: () => void;
-  redo: () => void;
-  setSelected: (ids: string[]) => void;
-  deleteSelected: () => void;
-};
-export const useEditorStore: UseBoundStore<StoreApi<EditorStore>>;
+  commitPending: () => void
+  undo: () => void
+  redo: () => void
+  setSelected: (ids: string[]) => void
+  deleteSelected: () => void
+}
+export const useEditorStore: UseBoundStore<StoreApi<EditorStore>>
 ```
 
 **测试用例（全部先写、先红后绿）:**
@@ -55,13 +55,13 @@ export const useEditorStore: UseBoundStore<StoreApi<EditorStore>>;
 
 **Interfaces (Produces):**
 ```ts
-export type Rect = { left: number; top: number; width: number; height: number };
+export interface Rect { left: number, top: number, width: number, height: number }
 /** 点是否命中（考虑 rotation，角度制，绕矩形中心） */
-export const hitTest: (rect: Rect, rotationDeg: number, px: number, py: number) => boolean;
+export const hitTest: (rect: Rect, rotationDeg: number, px: number, py: number) => boolean
 /** 当前帧可见且可命中的最上层 item（getOrderedItems 逆序找） */
-export const topmostItemAt: (state: UndoableState, frame: number, px: number, py: number) => EditorStarterItem | null;
+export const topmostItemAt: (state: UndoableState, frame: number, px: number, py: number) => EditorStarterItem | null
 /** 8 向手柄缩放：返回新 rect；corner 保持宽高比，edge 单轴；最小尺寸 20 */
-export const resizeRect: (start: Rect, handle: 'n'|'s'|'e'|'w'|'nw'|'ne'|'sw'|'se', dx: number, dy: number, keepAspect: boolean) => Rect;
+export const resizeRect: (start: Rect, handle: 'n' | 's' | 'e' | 'w' | 'nw' | 'ne' | 'sw' | 'se', dx: number, dy: number, keepAspect: boolean) => Rect
 ```
 
 **测试用例:** 未旋转命中/未命中；旋转 90° 命中翻转点；上层轨道优先命中；时间范围外不命中；隐藏轨道不命中；`se` 角等比缩放；`e` 边单轴；最小尺寸钳制。

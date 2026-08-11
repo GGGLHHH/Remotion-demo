@@ -1,0 +1,22 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`shadcn 组件层的内容被钉住,整体改写会在这里暴露 1`] = `
+{
+  "alert-dialog.tsx": "5f7cf9bb85078548",
+  "badge.tsx": "415406372ff0527c",
+  "button.tsx": "08be89f9a2d9d2ba",
+  "checkbox.tsx": "f5b0fb6b74136c79",
+  "collapsible.tsx": "c2b1fdf538c43241",
+  "command.tsx": "7d9c17700af9729e",
+  "context-menu.tsx": "0550ba0bca51be68",
+  "input-group.tsx": "b3a347ef65f922d8",
+  "input.tsx": "dbe284f5c118961f",
+  "popover.tsx": "0e27aa31f7a42ab9",
+  "select.tsx": "218a6d8b0a32a403",
+  "slider.tsx": "67845fa900c42b02",
+  "spinner.tsx": "8fffcb3855d99e01",
+  "switch.tsx": "05722e7f4376a16e",
+  "textarea.tsx": "433824e7880dbff6",
+  "tooltip.tsx": "5cec4a74ddcb4ba9",
+}
+`;
