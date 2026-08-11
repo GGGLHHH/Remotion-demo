@@ -1,8 +1,9 @@
-import type React from 'react';
-import { useState } from 'react';
-import { useEditor, useEditorApi, useEditorRefs } from '../state/context';
-import { CORNERS, EDGES, SizeBadge } from './handle-primitives';
-import type { ResizeHandle } from './geometry';
+import type React from 'react'
+import type { ResizeHandle } from './geometry'
+import { dictEntries, dictValues } from '@gedatou/shared'
+import { useState } from 'react'
+import { useEditor, useEditorApi, useEditorRefs } from '../state/context'
+import { CORNERS, EDGES, SizeBadge } from './handle-primitives'
 
 /**
  * 画布（合成）缩放手柄：空选中时显示，与画布内元素完全同款——
@@ -14,102 +15,112 @@ import type { ResizeHandle } from './geometry';
  * 同时按 Figma 语义改写元素坐标，内容在屏幕上纹丝不动。松手无任何跳变。
  */
 export const CompositionResizeHandles: React.FC<{ scale: number }> = ({ scale }) => {
-  const editorApi = useEditorApi();
-  const refs = useEditorRefs();
-  const empty = useEditor((s) => s.selectedItemIds.length === 0);
-  const w = useEditor((s) => s.undoable.compositionWidth);
-  const h = useEditor((s) => s.undoable.compositionHeight);
-  const [dragging, setDragging] = useState(false);
-  if (!empty) return null;
+  const editorApi = useEditorApi()
+  const refs = useEditorRefs()
+  const empty = useEditor(s => s.selectedItemIds.length === 0)
+  const w = useEditor(s => s.undoable.compositionWidth)
+  const h = useEditor(s => s.undoable.compositionHeight)
+  const [dragging, setDragging] = useState(false)
+  if (!empty)
+    return null
 
-  const start = (e: React.PointerEvent, handle: ResizeHandle) => {
-    if (e.button !== 0) return;
-    e.stopPropagation();
-    e.preventDefault();
-    const el = e.currentTarget as HTMLElement;
-    el.setPointerCapture(e.pointerId);
-    const store = editorApi.getState();
+  const start = (e: React.PointerEvent, handle: ResizeHandle): void => {
+    if (e.button !== 0)
+      return
+    e.stopPropagation()
+    e.preventDefault()
+    const el = e.currentTarget as HTMLElement
+    el.setPointerCapture(e.pointerId)
+    const store = editorApi.getState()
     // 拖拽开始即把"适应"转为等值数字缩放：拖拽中适配值重算不再影响比例，行为可预期
-    if (store.canvasZoom === 'fit') store.setCanvasZoom(scale);
-    const s0 = scale;
-    const startX = e.clientX;
-    const startY = e.clientY;
-    const st0 = store.undoable;
-    const w0 = st0.compositionWidth;
-    const h0 = st0.compositionHeight;
-    const pan0 = { ...refs.pan.current };
+    if (store.canvasZoom === 'fit')
+      store.setCanvasZoom(scale)
+    const s0 = scale
+    const startX = e.clientX
+    const startY = e.clientY
+    const st0 = store.undoable
+    const w0 = st0.compositionWidth
+    const h0 = st0.compositionHeight
+    const pan0 = { ...refs.pan.current }
     // 元素起始坐标快照：左/上拖拽的补偿基于快照计算，避免取偶累积漂移
-    const items0 = new Map(Object.values(st0.items).map((i) => [i.id, { left: i.left, top: i.top }]));
-    setDragging(true);
-    const even = (n: number) => Math.max(2, Math.round(n / 2) * 2);
-    const onMove = (ev: PointerEvent) => {
-      const dx = (ev.clientX - startX) / s0;
-      const dy = (ev.clientY - startY) / s0;
-      const newW = handle.includes('e') ? even(w0 + dx) : handle.includes('w') ? even(w0 - dx) : w0;
-      const newH = handle.includes('s') ? even(h0 + dy) : handle.includes('n') ? even(h0 - dy) : h0;
+    const items0 = new Map(dictValues(st0.items).map(i => [i.id, { left: i.left, top: i.top }]))
+    setDragging(true)
+    const even = (n: number): number => Math.max(2, Math.round(n / 2) * 2)
+    const onMove = (ev: PointerEvent): void => {
+      const dx = (ev.clientX - startX) / s0
+      const dy = (ev.clientY - startY) / s0
+      const newW = handle.includes('e') ? even(w0 + dx) : handle.includes('w') ? even(w0 - dx) : w0
+      const newH = handle.includes('s') ? even(h0 + dy) : handle.includes('n') ? even(h0 - dy) : h0
       // Figma 式标准：拖左/上边 = 原点移动，改写元素坐标让内容在屏幕上纹丝不动；
       // 拖右/下边坐标天然不变
-      const shiftX = handle.includes('w') ? newW - w0 : 0;
-      const shiftY = handle.includes('n') ? newH - h0 : 0;
+      const shiftX = handle.includes('w') ? newW - w0 : 0
+      const shiftY = handle.includes('n') ? newH - h0 : 0
       editorApi.getState().updateUndoable(
-        (st) => ({
+        st => ({
           ...st,
           compositionWidth: newW,
           compositionHeight: newH,
           items:
             shiftX || shiftY
               ? Object.fromEntries(
-                  Object.entries(st.items).map(([id, it]) => {
-                    const base = items0.get(id);
+                  dictEntries(st.items).map(([id, it]) => {
+                    const base = items0.get(id)
                     return [
                       id,
                       base ? { ...it, left: base.left + shiftX, top: base.top + shiftY } : it,
-                    ];
+                    ]
                   }),
                 )
               : st.items,
         }),
         { commit: false },
-      );
+      )
       // 左/上拖拽：pan 反向平移，被拖边跟手、内容与对边在屏幕上不动
       if (handle.includes('w') || handle.includes('n')) {
-        refs.setPan(pan0.x - shiftX * s0, pan0.y - shiftY * s0);
+        refs.setPan(pan0.x - shiftX * s0, pan0.y - shiftY * s0)
       }
-    };
-    const onUp = () => {
-      el.removeEventListener('pointermove', onMove);
-      el.removeEventListener('pointerup', onUp);
-      setDragging(false);
-      editorApi.getState().commitPending();
-    };
-    el.addEventListener('pointermove', onMove);
-    el.addEventListener('pointerup', onUp);
-  };
+    }
+    const onUp = (): void => {
+      el.removeEventListener('pointermove', onMove)
+      el.removeEventListener('pointerup', onUp)
+      setDragging(false)
+      editorApi.getState().commitPending()
+    }
+    el.addEventListener('pointermove', onMove)
+    el.addEventListener('pointerup', onUp)
+  }
 
   return (
     <>
-      {dragging ? (
-        <div className="pointer-events-none absolute inset-0 z-20 border border-[#0B84F3]" />
-      ) : null}
+      {dragging
+        ? (
+            <div className="
+              pointer-events-none absolute inset-0 z-20 border border-[#0B84F3]
+            "
+            />
+          )
+        : null}
       {EDGES.map(({ handle, cursor, style }) => (
         <div
           key={handle}
           data-comp-resize={handle}
           className="absolute z-30"
           style={{ ...style, cursor }}
-          onPointerDown={(e) => start(e, handle)}
+          onPointerDown={e => start(e, handle)}
         />
       ))}
       {CORNERS.map(({ handle, x, y, cursor }) => (
         <div
           key={handle}
           data-comp-resize={handle}
-          className="absolute z-30 size-2 border border-[#0B84F3] bg-white"
+          className="
+            absolute z-30 border border-[#0B84F3] bg-white block-2 inline-2
+          "
           style={{ left: `calc(${x * 100}% - 4px)`, top: `calc(${y * 100}% - 4px)`, cursor }}
-          onPointerDown={(e) => start(e, handle)}
+          onPointerDown={e => start(e, handle)}
         />
       ))}
       {dragging ? <SizeBadge width={w} height={h} /> : null}
     </>
-  );
-};
+  )
+}

@@ -1,5 +1,5 @@
-import type React from 'react';
-import { useState } from 'react';
+import type { TextItem } from '@gedatou/shared'
+import type React from 'react'
 import {
   AlignCenterIcon,
   AlignLeftIcon,
@@ -12,26 +12,33 @@ import {
   PilcrowRightIcon,
   SquareRoundCornerIcon,
   TypeIcon,
-} from 'lucide-react';
-import type { TextItem } from '@gedatou/shared';
-import { Button } from '../../components/ui/button';
-import { Checkbox } from '../../components/ui/checkbox';
-import { Command, CommandItem, CommandList } from '../../components/ui/command';
-import { Popover, PopoverContent, PopoverTrigger } from '../../components/ui/popover';
-import { Textarea } from '../../components/ui/textarea';
-import { useEditor } from '../../state/context';
-import { useItemPatch } from '../patch';
-import { useT } from '../../lib/i18n';
-import { NumberField } from '../NumberField';
-import { ColorField, Row, Section } from '../fields';
-import { FontPicker } from '../FontPicker';
+} from 'lucide-react'
+import { useState } from 'react'
+import { Button } from '../../components/ui/button'
+import { Checkbox } from '../../components/ui/checkbox'
+import { Command, CommandItem, CommandList } from '../../components/ui/command'
+import { Popover, PopoverContent, PopoverTrigger } from '../../components/ui/popover'
+import { Textarea } from '../../components/ui/textarea'
+import { useT } from '../../lib/i18n'
+import { useEditor } from '../../state/context'
+import { ColorField, Row, Section } from '../fields'
+import { FontPicker } from '../FontPicker'
+import { NumberField } from '../NumberField'
+import { useItemPatch } from '../patch'
+
+// 希伯来/阿拉伯/叙利亚 + 两段表现形式。原先这里写的是 `ִ-﷽`(U+05B4–U+FDFD)——
+// 一个横跨到 CJK 的巨型区间,把中日韩也算成了 RTL 候选,只是碰巧被下面的 LTR 判断兜回来。
+const STRONG_RTL = /[\u0590-\u05FF\u0600-\u06FF\u0700-\u074F\u0750-\u077F\uFB1D-\uFDFF\uFE70-\uFEFF]/
+// 强方向字符:拉丁 + CJK(视作 LTR)与上面的 RTL 区段。
+const STRONG_DIRECTIONAL = /[A-Z\u4E00-\u9FFF\u0590-\u05FF\u0600-\u06FF\u0700-\u074F\u0750-\u077F\uFB1D-\uFDFF\uFE70-\uFEFF]/i
 
 /** 首个强方向字符判断 RTL（阿拉伯/希伯来等区段） */
-export const detectDirection = (text: string): 'ltr' | 'rtl' => {
-  const strong = text.match(/[֐-޿ࢠ-ࣿיִ-﷽ﹰ-ﻼ]|[A-Za-z一-鿿]/);
-  if (!strong) return 'ltr';
-  return /[A-Za-z一-鿿]/.test(strong[0]) ? 'ltr' : 'rtl';
-};
+export function detectDirection(text: string): 'ltr' | 'rtl' {
+  const strong = text.match(STRONG_DIRECTIONAL)
+  if (!strong)
+    return 'ltr'
+  return STRONG_RTL.test(strong[0]) ? 'rtl' : 'ltr'
+}
 
 /** 官方字重命名（Thin…Black + Italic 变体），单下拉同时携带 fontWeight 与 fontStyle */
 const WEIGHT_NAMES: [string, string][] = [
@@ -44,41 +51,43 @@ const WEIGHT_NAMES: [string, string][] = [
   ['700', 'Bold'],
   ['800', 'Extra Bold'],
   ['900', 'Black'],
-];
-const WEIGHT_OPTIONS = (['normal', 'italic'] as const).flatMap((style) =>
+]
+const WEIGHT_OPTIONS = (['normal', 'italic'] as const).flatMap(style =>
   WEIGHT_NAMES.map(([weight, name]) => ({
     weight,
     style,
     label: style === 'italic' ? (weight === '400' ? 'Italic' : `Italic ${name}`) : name,
   })),
-);
+)
 
-const weightLabel = (weight: string, style: 'normal' | 'italic'): string =>
-  WEIGHT_OPTIONS.find((o) => o.weight === weight && o.style === style)?.label ??
-  `${style === 'italic' ? 'Italic ' : ''}${weight}`;
+function weightLabel(weight: string, style: 'normal' | 'italic'): string {
+  return WEIGHT_OPTIONS.find(o => o.weight === weight && o.style === style)?.label
+    ?? `${style === 'italic' ? 'Italic ' : ''}${weight}`
+}
 
 /** 选中态按钮高亮（outline Button 之上叠加） */
-const activeCls = (active: boolean) => (active ? 'border-primary text-primary' : '');
+const activeCls = (active: boolean): string => (active ? 'border-primary text-primary' : '')
 /** 拼接式按钮组（官方 joined segmented group） */
-const groupCls = (i: number, len: number) =>
-  `flex-1 rounded-none ${i === 0 ? 'rounded-l-lg' : '-ml-px'} ${i === len - 1 ? 'rounded-r-lg' : ''}`;
+function groupCls(i: number, len: number): string {
+  return `flex-1 rounded-none ${i === 0 ? 'rounded-l-lg' : '-ml-px'} ${i === len - 1 ? 'rounded-r-lg' : ''}`
+}
 
-const ALIGN_ICONS = { left: AlignLeftIcon, center: AlignCenterIcon, right: AlignRightIcon } as const;
-const DIR_ICONS = { ltr: PilcrowLeftIcon, rtl: PilcrowRightIcon } as const;
+const ALIGN_ICONS = { left: AlignLeftIcon, center: AlignCenterIcon, right: AlignRightIcon } as const
+const DIR_ICONS = { ltr: PilcrowLeftIcon, rtl: PilcrowRightIcon } as const
 
 /** 排版（官方 Typography）：字体/字重/字号/行高/字距/文本/对齐/方向 */
 export const TypographySection: React.FC<{ item: TextItem }> = ({ item }) => {
-  const previewItemStyle = useEditor((s) => s.previewItemStyle);
-  const cancelItemStylePreview = useEditor((s) => s.cancelItemStylePreview);
-  const commitPending = useEditor((s) => s.commitPending);
-  const [weightOpen, setWeightOpen] = useState(false);
-  const patch = useItemPatch<TextItem>(item.id);
-  const t = useT();
+  const previewItemStyle = useEditor(s => s.previewItemStyle)
+  const cancelItemStylePreview = useEditor(s => s.cancelItemStylePreview)
+  const commitPending = useEditor(s => s.commitPending)
+  const [weightOpen, setWeightOpen] = useState(false)
+  const patch = useItemPatch<TextItem>(item.id)
+  const t = useT()
 
   return (
     <Section title={t('textPanel.typography')} collapsible defaultOpen>
       <Row label={t('textPanel.fontFamily')}>
-        <FontPicker itemId={item.id} value={item.fontFamily} onCommit={(f) => patch({ fontFamily: f })} />
+        <FontPicker itemId={item.id} value={item.fontFamily} onCommit={f => patch({ fontFamily: f })} />
       </Row>
       <Row label={t('textPanel.fontWeight')}>
         {/* Popover + Command 下拉：悬停即在画布实时预览字重/斜体（commit:false），点击才提交；
@@ -86,38 +95,56 @@ export const TypographySection: React.FC<{ item: TextItem }> = ({ item }) => {
         <Popover
           open={weightOpen}
           onOpenChange={(o) => {
-            setWeightOpen(o);
-            if (!o) cancelItemStylePreview(); // 关闭（点外部/Esc）时撤掉悬停预览
+            setWeightOpen(o)
+            if (!o)
+              cancelItemStylePreview() // 关闭（点外部/Esc）时撤掉悬停预览
           }}
         >
-          <PopoverTrigger className="flex h-7 w-full min-w-0 items-center justify-between gap-1.5 rounded-lg border border-input bg-transparent px-2 text-left text-xs transition-colors outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30 dark:hover:bg-input/50">
+          <PopoverTrigger className="
+            flex items-center justify-between gap-1.5 rounded-lg border
+            border-input bg-transparent px-2 text-start text-xs
+            transition-colors outline-none select-none block-7 inline-full
+            min-inline-0
+            focus-visible:border-ring focus-visible:ring-3
+            focus-visible:ring-ring/50
+            dark:bg-input/30
+            dark:hover:bg-input/50
+          "
+          >
             <span className="truncate">{weightLabel(item.fontWeight, item.fontStyle)}</span>
-            <ChevronDownIcon className="size-3.5 shrink-0 text-muted-foreground" />
+            <ChevronDownIcon className="
+              shrink-0 text-muted-foreground block-3.5 inline-3.5
+            "
+            />
           </PopoverTrigger>
-          <PopoverContent align="start" className="w-(--anchor-width) p-0">
+          <PopoverContent align="start" className="p-0 inline-(--anchor-width)">
             <Command className="rounded-lg!">
-              <CommandList className="max-h-64" onMouseLeave={cancelItemStylePreview}>
+              <CommandList className="max-block-64" onMouseLeave={cancelItemStylePreview}>
                 {WEIGHT_OPTIONS.map((o) => {
-                  const checked = o.weight === item.fontWeight && o.style === item.fontStyle;
+                  const checked = o.weight === item.fontWeight && o.style === item.fontStyle
                   return (
                     <CommandItem
                       key={o.label}
                       value={o.label}
                       data-checked={checked || undefined}
-                      className={`py-1 text-xs ${checked ? 'bg-accent text-accent-foreground' : ''}`}
+                      className={`
+                        py-1 text-xs
+                        ${checked
+                      ? `bg-accent text-accent-foreground`
+                      : ''}
+                      `}
                       style={{ fontFamily: item.fontFamily, fontWeight: o.weight, fontStyle: o.style }}
                       onMouseEnter={() =>
-                        previewItemStyle(item.id, { fontWeight: o.weight, fontStyle: o.style })
-                      }
+                        previewItemStyle(item.id, { fontWeight: o.weight, fontStyle: o.style })}
                       onSelect={() => {
-                        previewItemStyle(item.id, { fontWeight: o.weight, fontStyle: o.style });
-                        commitPending();
-                        setWeightOpen(false);
+                        previewItemStyle(item.id, { fontWeight: o.weight, fontStyle: o.style })
+                        commitPending()
+                        setWeightOpen(false)
                       }}
                     >
                       {o.label}
                     </CommandItem>
-                  );
+                  )
                 })}
               </CommandList>
             </Command>
@@ -155,11 +182,15 @@ export const TypographySection: React.FC<{ item: TextItem }> = ({ item }) => {
         <span className="text-xs text-muted-foreground">{t('textPanel.text')}</span>
         <Textarea
           key={item.id}
-          className="min-h-16 resize-y text-xs md:text-xs"
+          className="
+            resize-y text-xs min-block-16
+            md:text-xs
+          "
           defaultValue={item.text}
           onBlur={(e) => {
-            const text = e.target.value;
-            if (text !== item.text) patch({ text, direction: detectDirection(text) });
+            const text = e.target.value
+            if (text !== item.text)
+              patch({ text, direction: detectDirection(text) })
           }}
         />
       </div>
@@ -169,18 +200,21 @@ export const TypographySection: React.FC<{ item: TextItem }> = ({ item }) => {
           <span className="text-xs text-muted-foreground">{t('textPanel.align')}</span>
           <div className="flex">
             {(['left', 'center', 'right'] as const).map((a, i) => {
-              const Icon = ALIGN_ICONS[a];
+              const Icon = ALIGN_ICONS[a]
               return (
                 <Button
                   key={a}
                   variant="outline"
                   size="icon-sm"
-                  className={`${groupCls(i, 3)} ${activeCls(item.textAlign === a)}`}
+                  className={`
+                    ${groupCls(i, 3)}
+                    ${activeCls(item.textAlign === a)}
+                  `}
                   onClick={() => patch({ textAlign: a })}
                 >
                   <Icon />
                 </Button>
-              );
+              )
             })}
           </div>
         </label>
@@ -188,31 +222,34 @@ export const TypographySection: React.FC<{ item: TextItem }> = ({ item }) => {
           <span className="text-xs text-muted-foreground">{t('textPanel.direction')}</span>
           <div className="flex">
             {(['ltr', 'rtl'] as const).map((d, i) => {
-              const Icon = DIR_ICONS[d];
+              const Icon = DIR_ICONS[d]
               return (
                 <Button
                   key={d}
                   variant="outline"
                   size="icon-sm"
                   title={d.toUpperCase()}
-                  className={`${groupCls(i, 2)} ${activeCls(item.direction === d)}`}
+                  className={`
+                    ${groupCls(i, 2)}
+                    ${activeCls(item.direction === d)}
+                  `}
                   onClick={() => patch({ direction: d })}
                 >
                   <Icon />
                 </Button>
-              );
+              )
             })}
           </div>
         </label>
       </div>
     </Section>
-  );
-};
+  )
+}
 
 /** 描边（官方 Stroke，默认折叠）：宽度 + 颜色始终可见 */
 export const StrokeSection: React.FC<{ item: TextItem }> = ({ item }) => {
-  const patch = useItemPatch<TextItem>(item.id);
-  const t = useT();
+  const patch = useItemPatch<TextItem>(item.id)
+  const t = useT()
   return (
     <Section title={t('textPanel.stroke')} collapsible defaultOpen={false}>
       <NumberField
@@ -223,56 +260,59 @@ export const StrokeSection: React.FC<{ item: TextItem }> = ({ item }) => {
         max={100}
         onChange={(v, c) => patch({ strokeWidth: v }, c)}
       />
-      <ColorField label={t('textPanel.color')} value={item.strokeColor} onChange={(v) => patch({ strokeColor: v })} />
+      <ColorField label={t('textPanel.color')} value={item.strokeColor} onChange={v => patch({ strokeColor: v })} />
     </Section>
-  );
-};
+  )
+}
 
-/** 背景（官方 Background）。启用 checkbox 是 e2e 钩子（verify-m4），保留；
- * 启用时写入官方默认值：#808080 / 圆角 20 / 内边距 40 */
+/**
+ * 背景（官方 Background）。启用 checkbox 是 e2e 钩子（verify-m4），保留；
+ * 启用时写入官方默认值：#808080 / 圆角 20 / 内边距 40
+ */
 export const BackgroundSection: React.FC<{ item: TextItem }> = ({ item }) => {
-  const patch = useItemPatch<TextItem>(item.id);
-  const t = useT();
+  const patch = useItemPatch<TextItem>(item.id)
+  const t = useT()
   return (
     <Section title={t('textPanel.background')} collapsible defaultOpen>
       <Row label={t('textPanel.enable')}>
         <Checkbox
           checked={item.backgroundColor !== null}
-          onCheckedChange={(checked) =>
+          onCheckedChange={checked =>
             patch(
               checked
                 ? { backgroundColor: '#808080', backgroundBorderRadius: 20, backgroundPadding: 40 }
                 : { backgroundColor: null },
-            )
-          }
+            )}
         />
       </Row>
-      {item.backgroundColor !== null ? (
-        <>
-          <ColorField
-            label={t('textPanel.color')}
-            value={item.backgroundColor}
-            onChange={(v) => patch({ backgroundColor: v })}
-          />
-          <div className="grid grid-cols-2 gap-2">
-            <NumberField
-              label={t('textPanel.borderRadius')}
-              icon={SquareRoundCornerIcon}
-              value={item.backgroundBorderRadius}
-              min={0}
-              onChange={(v, c) => patch({ backgroundBorderRadius: v }, c)}
-            />
-            <NumberField
-              label={t('textPanel.padding')}
-              icon={MoveHorizontalIcon}
-              value={item.backgroundPadding}
-              min={0}
-              max={100}
-              onChange={(v, c) => patch({ backgroundPadding: v }, c)}
-            />
-          </div>
-        </>
-      ) : null}
+      {item.backgroundColor !== null
+        ? (
+            <>
+              <ColorField
+                label={t('textPanel.color')}
+                value={item.backgroundColor}
+                onChange={v => patch({ backgroundColor: v })}
+              />
+              <div className="grid grid-cols-2 gap-2">
+                <NumberField
+                  label={t('textPanel.borderRadius')}
+                  icon={SquareRoundCornerIcon}
+                  value={item.backgroundBorderRadius}
+                  min={0}
+                  onChange={(v, c) => patch({ backgroundBorderRadius: v }, c)}
+                />
+                <NumberField
+                  label={t('textPanel.padding')}
+                  icon={MoveHorizontalIcon}
+                  value={item.backgroundPadding}
+                  min={0}
+                  max={100}
+                  onChange={(v, c) => patch({ backgroundPadding: v }, c)}
+                />
+              </div>
+            </>
+          )
+        : null}
     </Section>
-  );
-};
+  )
+}

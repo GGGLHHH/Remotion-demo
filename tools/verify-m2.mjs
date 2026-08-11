@@ -1,169 +1,190 @@
 /* M2 时间轴验证：条块显示/拖动落点/吸附/顶开占位/跨轨/新轨道/修剪/分割/框选/标尺 seek/undo
    拖拽模型 = 官方 editor-starter：拖拽中不改 store，松手一次性落到落位槽位置，永不回弹 */
-import { chromium } from 'playwright';
+import { chromium } from 'playwright'
 
-const fail = (msg) => {
-  console.error('FAIL:', msg);
-  process.exit(1);
-};
+function fail(msg) {
+  console.error('FAIL:', msg)
+  process.exit(1)
+}
 
-const browser = await chromium.launch();
-const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
-const errors = [];
-page.on('pageerror', (e) => errors.push(e.message));
+const browser = await chromium.launch()
+const page = await browser.newPage({ viewport: { width: 1440, height: 900 } })
+const errors = []
+page.on('pageerror', e => errors.push(e.message))
 
-const getStore = () =>
-  page.evaluate(() => {
-    const s = window.__editorStore.getState();
+function getStore() {
+  return page.evaluate(() => {
+    const s = window.__editorStore.getState()
     return {
       items: s.undoable.items,
       tracks: s.undoable.tracks,
       selected: s.selectedItemIds,
       past: s.past.length,
       zoom: s.timelineZoom,
-    };
-  });
+    }
+  })
+}
 
-const ids = async () => {
-  const s = await getStore();
-  const solidId = Object.keys(s.items).find((k) => s.items[k].type === 'solid');
-  const textId = Object.keys(s.items).find((k) => s.items[k].type === 'text');
-  return { s, solidId, textId };
-};
+async function ids() {
+  const s = await getStore()
+  const solidId = Object.keys(s.items).find(k => s.items[k].type === 'solid')
+  const textId = Object.keys(s.items).find(k => s.items[k].type === 'text')
+  return { s, solidId, textId }
+}
 
-const blockBox = async (id) => {
-  const b = await page.locator(`[data-item-block="${id}"]`).boundingBox();
-  if (!b) fail(`no block ${id}`);
-  return b;
-};
+async function blockBox(id) {
+  const b = await page.locator(`[data-item-block="${id}"]`).boundingBox()
+  if (!b)
+    fail(`no block ${id}`)
+  return b
+}
 
-const dragBy = async (x, y, dx, dy) => {
-  await page.mouse.move(x, y);
-  await page.mouse.down();
-  await page.mouse.move(x + dx / 2, y + dy / 2, { steps: 3 });
-  await page.mouse.move(x + dx, y + dy, { steps: 3 });
-  await page.mouse.up();
-};
+async function dragBy(x, y, dx, dy) {
+  await page.mouse.move(x, y)
+  await page.mouse.down()
+  await page.mouse.move(x + dx / 2, y + dy / 2, { steps: 3 })
+  await page.mouse.move(x + dx, y + dy, { steps: 3 })
+  await page.mouse.up()
+}
 
-await page.goto('http://localhost:5173', { waitUntil: 'networkidle' });
+await page.goto('http://localhost:5173', { waitUntil: 'networkidle' })
 
 // 默认缩放是 'fit'（自动适配）；本脚本的像素↔帧换算全部按 zoom=2 写，先固定
-await page.evaluate(() => window.__editorStore.getState().setTimelineZoom(2));
+await page.evaluate(() => window.__editorStore.getState().setTimelineZoom(2))
 
 // 非媒体轨道行高（timeline/constants.ts TRACK_HEIGHT）
-const ROW_H = 34;
+const ROW_H = 34
 
 // 1) 条块显示
-if ((await page.locator('[data-item-block]').count()) !== 2) fail('expected 2 item blocks');
+if ((await page.locator('[data-item-block]').count()) !== 2)
+  fail('expected 2 item blocks')
 
 // 2) 拖动 solid +100px（zoom=2 ⇒ 50 帧）：空位落在光标位置，一次拖拽 = 一条撤销
 {
-  const { solidId } = await ids();
-  const b = await blockBox(solidId);
-  await dragBy(b.x + b.width / 2, b.y + b.height / 2, 100, 0);
-  const s = await getStore();
-  if (s.items[solidId].from !== 50) fail(`drag: from=${s.items[solidId].from}, want 50`);
-  if (s.past !== 1) fail(`drag should add 1 undo entry, past=${s.past}`);
-  await page.keyboard.press('Meta+z');
-  if ((await getStore()).items[solidId].from !== 0) fail('drag undo failed');
+  const { solidId } = await ids()
+  const b = await blockBox(solidId)
+  await dragBy(b.x + b.width / 2, b.y + b.height / 2, 100, 0)
+  const s = await getStore()
+  if (s.items[solidId].from !== 50)
+    fail(`drag: from=${s.items[solidId].from}, want 50`)
+  if (s.past !== 1)
+    fail(`drag should add 1 undo entry, past=${s.past}`)
+  await page.keyboard.press('Meta+z')
+  if ((await getStore()).items[solidId].from !== 0)
+    fail('drag undo failed')
 }
 
 // 3) 吸附：拖 text 使左端接近 solid 右端 150 帧（300px）⇒ 吸附到 150
 {
-  const { textId } = await ids();
-  const b = await blockBox(textId);
+  const { textId } = await ids()
+  const b = await blockBox(textId)
   // text.from=15 ⇒ 目标 raw≈148（+133 帧=+266px），容差 4 帧内吸到 150
-  await dragBy(b.x + 10, b.y + b.height / 2, 266, 0);
-  const s = await getStore();
-  if (s.items[textId].from !== 150) fail(`snap: from=${s.items[textId].from}, want 150`);
-  await page.keyboard.press('Meta+z');
+  await dragBy(b.x + 10, b.y + b.height / 2, 266, 0)
+  const s = await getStore()
+  if (s.items[textId].from !== 150)
+    fail(`snap: from=${s.items[textId].from}, want 150`)
+  await page.keyboard.press('Meta+z')
 }
 
 // 4) 拖到被占位置 ⇒ 紧贴占位块之后（不回弹！）
 //    text（from=15）下移一行到 solid 轨道：期望位置与 solid(0..150) 重叠 ⇒ 顶到 150
 {
-  const { s: s0, solidId, textId } = await ids();
-  const solidTrack = s0.items[solidId].trackId;
-  const b = await blockBox(textId);
-  await dragBy(b.x + b.width / 2, b.y + b.height / 2, 0, ROW_H);
-  const s = await getStore();
-  if (s.items[textId].trackId !== solidTrack) fail('butt-after: text not on solid track');
+  const { s: s0, solidId, textId } = await ids()
+  const solidTrack = s0.items[solidId].trackId
+  const b = await blockBox(textId)
+  await dragBy(b.x + b.width / 2, b.y + b.height / 2, 0, ROW_H)
+  const s = await getStore()
+  if (s.items[textId].trackId !== solidTrack)
+    fail('butt-after: text not on solid track')
   if (s.items[textId].from !== 150) {
-    fail(`butt-after: from=${s.items[textId].from}, want 150 (butt after solid)`);
+    fail(`butt-after: from=${s.items[textId].from}, want 150 (butt after solid)`)
   }
-  await page.keyboard.press('Meta+z');
+  await page.keyboard.press('Meta+z')
 }
 
 // 5) 跨轨拖到 solid 轨道的空位 ⇒ 换轨且落在光标位置（+400px ⇒ from 15+200=215）
 {
-  const { s: s0, solidId, textId } = await ids();
-  const solidTrack = s0.items[solidId].trackId;
-  const b = await blockBox(textId);
-  await dragBy(b.x + b.width / 2, b.y + b.height / 2, 400, ROW_H);
-  const s = await getStore();
-  if (s.items[textId].trackId !== solidTrack) fail('cross-track: text not moved to solid track');
-  if (s.items[textId].from !== 215) fail(`cross-track: from=${s.items[textId].from}, want 215`);
+  const { s: s0, solidId, textId } = await ids()
+  const solidTrack = s0.items[solidId].trackId
+  const b = await blockBox(textId)
+  await dragBy(b.x + b.width / 2, b.y + b.height / 2, 400, ROW_H)
+  const s = await getStore()
+  if (s.items[textId].trackId !== solidTrack)
+    fail('cross-track: text not moved to solid track')
+  if (s.items[textId].from !== 215)
+    fail(`cross-track: from=${s.items[textId].from}, want 215`)
   // 原轨道已空 ⇒ 自动清理
-  if (s.tracks.length !== 1) fail(`cross-track: emptied track not cleaned up (${s.tracks.length})`);
-  await page.keyboard.press('Meta+z');
-  const s2 = await getStore();
-  if (s2.items[textId].trackId === solidTrack) fail('cross-track undo failed');
+  if (s.tracks.length !== 1)
+    fail(`cross-track: emptied track not cleaned up (${s.tracks.length})`)
+  await page.keyboard.press('Meta+z')
+  const s2 = await getStore()
+  if (s2.items[textId].trackId === solidTrack)
+    fail('cross-track undo failed')
 }
 
 // 6) 拖出下边缘 ⇒ 新建底部轨道，原空轨道被自动清理
 {
-  const { s: s0, textId } = await ids();
-  const trackBefore = s0.items[textId].trackId;
-  const b = await blockBox(textId);
-  await dragBy(b.x + b.width / 2, b.y + b.height / 2, 0, 2 * ROW_H + 10);
-  const s = await getStore();
-  const newTrack = s.tracks[s.tracks.length - 1];
-  if (s.items[textId].trackId === trackBefore) fail('text did not change track');
-  if (s.items[textId].trackId !== newTrack.id) fail('text not on last (new) track');
-  if (s.tracks.some((t) => t.id === trackBefore)) fail('emptied track not cleaned up');
-  await page.keyboard.press('Meta+z');
-  const s2 = await getStore();
-  if (s2.items[textId].trackId !== trackBefore) fail('cross-track undo failed');
+  const { s: s0, textId } = await ids()
+  const trackBefore = s0.items[textId].trackId
+  const b = await blockBox(textId)
+  await dragBy(b.x + b.width / 2, b.y + b.height / 2, 0, 2 * ROW_H + 10)
+  const s = await getStore()
+  const newTrack = s.tracks[s.tracks.length - 1]
+  if (s.items[textId].trackId === trackBefore)
+    fail('text did not change track')
+  if (s.items[textId].trackId !== newTrack.id)
+    fail('text not on last (new) track')
+  if (s.tracks.some(t => t.id === trackBefore))
+    fail('emptied track not cleaned up')
+  await page.keyboard.press('Meta+z')
+  const s2 = await getStore()
+  if (s2.items[textId].trackId !== trackBefore)
+    fail('cross-track undo failed')
 }
 
 // 7) 修剪 solid 末端 -60px ⇒ 120 帧（避开 text 末端 135 的吸附范围，阈值约 10px）
 {
-  const { solidId } = await ids();
-  const b = await blockBox(solidId);
-  await dragBy(b.x + b.width - 2, b.y + b.height / 2, -60, 0);
-  const s = await getStore();
+  const { solidId } = await ids()
+  const b = await blockBox(solidId)
+  await dragBy(b.x + b.width - 2, b.y + b.height / 2, -60, 0)
+  const s = await getStore()
   if (s.items[solidId].durationInFrames !== 120) {
-    fail(`trim end: dur=${s.items[solidId].durationInFrames}, want 120`);
+    fail(`trim end: dur=${s.items[solidId].durationInFrames}, want 120`)
   }
-  await page.keyboard.press('Meta+z');
+  await page.keyboard.press('Meta+z')
 }
 
 // 8) 标尺 seek + S 分割
 {
-  const { solidId } = await ids();
-  const ruler = await page.locator('[data-ruler]').boundingBox();
-  await page.mouse.click(ruler.x + 120, ruler.y + 12); // 120px ⇒ 60 帧
-  await page.locator(`[data-item-block="${solidId}"]`).click();
-  await page.keyboard.press('s');
-  const s = await getStore();
-  const solids = Object.values(s.items).filter((i) => i.type === 'solid');
-  if (solids.length !== 2) fail(`split: ${solids.length} solids, want 2`);
-  const durs = solids.map((i) => i.durationInFrames).sort((a, b) => a - b);
-  if (durs[0] + durs[1] !== 150) fail(`split durations ${durs} sum != 150`);
-  await page.keyboard.press('Meta+z');
-  const s2 = await getStore();
-  if (Object.values(s2.items).filter((i) => i.type === 'solid').length !== 1) fail('split undo failed');
+  const { solidId } = await ids()
+  const ruler = await page.locator('[data-ruler]').boundingBox()
+  await page.mouse.click(ruler.x + 120, ruler.y + 12) // 120px ⇒ 60 帧
+  await page.locator(`[data-item-block="${solidId}"]`).click()
+  await page.keyboard.press('s')
+  const s = await getStore()
+  const solids = Object.values(s.items).filter(i => i.type === 'solid')
+  if (solids.length !== 2)
+    fail(`split: ${solids.length} solids, want 2`)
+  const durs = solids.map(i => i.durationInFrames).sort((a, b) => a - b)
+  if (durs[0] + durs[1] !== 150)
+    fail(`split durations ${durs} sum != 150`)
+  await page.keyboard.press('Meta+z')
+  const s2 = await getStore()
+  if (Object.values(s2.items).filter(i => i.type === 'solid').length !== 1)
+    fail('split undo failed')
 }
 
 // 9) 框选：在轨道区空白拖出矩形覆盖两条轨道 ⇒ 全选 2 项
 {
-  const scroll = await page.locator('[data-tl-scroll]').boundingBox();
-  await dragBy(scroll.x + 380, scroll.y + 30, -370, 100);
-  const s = await getStore();
-  if (s.selected.length !== 2) fail(`marquee selected ${s.selected.length}, want 2`);
+  const scroll = await page.locator('[data-tl-scroll]').boundingBox()
+  await dragBy(scroll.x + 380, scroll.y + 30, -370, 100)
+  const s = await getStore()
+  if (s.selected.length !== 2)
+    fail(`marquee selected ${s.selected.length}, want 2`)
 }
 
-await page.screenshot({ path: process.argv[2] ?? 'm2.png' });
-await browser.close();
-if (errors.length) fail('page errors: ' + errors.join('; '));
-console.log('M2 VERIFY OK');
+await page.screenshot({ path: process.argv[2] ?? 'm2.png' })
+await browser.close()
+if (errors.length)
+  fail(`page errors: ${errors.join('; ')}`)
+console.log('M2 VERIFY OK')

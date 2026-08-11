@@ -36,40 +36,49 @@ npm install react react-dom @base-ui/react lucide-react zustand mediabunny \
 
 ```tsx
 import {
-  EditorProvider, useEditor, useEditorCommands, useEditorChrome,
-  Canvas, Timeline, Inspector, PlaybackBar,
-} from "@gedatou/editor";
+  Canvas,
+  EditorProvider,
+  Inspector,
+  PlaybackBar,
+  Timeline,
+  useEditor,
+  useEditorChrome,
+  useEditorCommands,
+} from '@gedatou/editor'
 
 // 你自己的工具栏：命令来自 useEditorCommands，状态来自 useEditor —— 文案/样式都归你
 function Toolbar() {
-  const cmd = useEditorCommands();
-  const canUndo = useEditor((s) => s.past.length > 0);
-  const dirty = useEditor((s) => s.undoable !== s.lastSavedState);
+  const cmd = useEditorCommands()
+  const canUndo = useEditor(s => s.past.length > 0)
+  const dirty = useEditor(s => s.undoable !== s.lastSavedState)
   return (
     <header className="flex items-center gap-2">
       <button disabled={!canUndo} onClick={cmd.undo}>Undo</button>
       <button onClick={cmd.togglePlay}>Play/Pause</button>
-      <button onClick={() => cmd.setTool("text")}>Text</button>
-      <input type="file" multiple onChange={(e) => cmd.importAssets([...(e.target.files ?? [])])} />
-      <button onClick={cmd.save}>Save{dirty ? " •" : ""}</button>
-      <button onClick={() => cmd.render("mp4")}>Render</button>
+      <button onClick={() => cmd.setTool('text')}>Text</button>
+      <input type="file" multiple onChange={e => cmd.importAssets([...(e.target.files ?? [])])} />
+      <button onClick={cmd.save}>
+        Save
+        {dirty ? ' •' : ''}
+      </button>
+      <button onClick={() => cmd.render('mp4')}>Render</button>
     </header>
-  );
+  )
 }
 
 function Shell() {
-  useEditorChrome(); // 快捷键 + Esc 退画布工具 + 上传/渲染未完成拦刷新（自绘外壳时手动接回）
+  useEditorChrome() // 快捷键 + Esc 退画布工具 + 上传/渲染未完成拦刷新（自绘外壳时手动接回）
   return (
-    <div className="flex h-screen flex-col">
+    <div className="flex flex-col block-screen">
       <Toolbar />
-      <div className="flex min-h-0 flex-1">
+      <div className="flex flex-1 min-block-0">
         <Canvas />
-        <aside className="w-[349px] overflow-y-auto border-l"><Inspector /></aside>
+        <aside className="overflow-y-auto border-s inline-[349px]"><Inspector /></aside>
       </div>
       <PlaybackBar />
       <Timeline />
     </div>
-  );
+  )
 }
 
 export function MyEditor({ deps }: { deps: EditorDeps }) {
@@ -77,7 +86,7 @@ export function MyEditor({ deps }: { deps: EditorDeps }) {
     <EditorProvider deps={deps}>
       <Shell />
     </EditorProvider>
-  );
+  )
 }
 ```
 
@@ -96,14 +105,14 @@ export function MyEditor({ deps }: { deps: EditorDeps }) {
 编辑器不写死任何后端、也不做 i18n。这些 app 关注点全部注入（有默认适配器）：
 
 ```ts
-type EditorDeps = {
-  transport: EditorTransport; // 服务端 I/O（默认 createHttpTransport 打同源 /api）
-  storage: EditorStorage;     // 持久化 + 素材缓存（默认 createBrowserStorage）
-  notify: NotifyFn;           // 用户提示（默认 sonner；(msg, level) => void）
-  t?: EditorT;                // 文本解析器（可选）：不传用库内置 en 默认，见下
-  exportFileName?: (codec: 'mp4' | 'webm') => string | undefined; // 导出下载名（策略在宿主；不传则渲染服务用默认名）
-  customItemPanels?: Record<string, ComponentType<{ item: CustomItem }>>; // custom item 的检查器面板，按 kind，见「扩展点」
-};
+interface EditorDeps {
+  transport: EditorTransport // 服务端 I/O（默认 createHttpTransport 打同源 /api）
+  storage: EditorStorage // 持久化 + 素材缓存（默认 createBrowserStorage）
+  notify: NotifyFn // 用户提示（默认 sonner；(msg, level) => void）
+  t?: EditorT // 文本解析器（可选）：不传用库内置 en 默认，见下
+  exportFileName?: (codec: 'mp4' | 'webm') => string | undefined // 导出下载名（策略在宿主；不传则渲染服务用默认名）
+  customItemPanels?: Record<string, ComponentType<{ item: CustomItem }>> // custom item 的检查器面板，按 kind，见「扩展点」
+}
 ```
 
 后端契约见默认适配器实现（`@gedatou/editor/adapters` 源码）：`/api/upload`（签名+PUT）、`/api/render`、
@@ -116,11 +125,12 @@ type EditorDeps = {
 自己的 `deps.t`（如接了 react-i18next 的宿主）即可让编辑器跟随宿主语言，**库一行不用改**：
 
 ```ts
-import { enMessages, type EditorT } from "@gedatou/editor";
+import type { EditorT } from '@gedatou/editor'
+import { enMessages } from '@gedatou/editor'
 // enMessages 是完整 key 清单 + en 源文案，拿它当翻译基线。
 const t: EditorT = (key, params) => myI18n.exists(`editor.${key}`)
-  ? myI18n.t(`editor.${key}`, params)   // 命中你的翻译
-  : key;                                 // 未命中 → 返回 key → 库回落内置 en 默认
+  ? myI18n.t(`editor.${key}`, params) // 命中你的翻译
+  : key // 未命中 → 返回 key → 库回落内置 en 默认
 ```
 
 不注入 `t` 时全部走内置 en 默认（standalone / demo 即英文，与官方一致）。
@@ -145,25 +155,31 @@ const t: EditorT = (key, params) => myI18n.exists(`editor.${key}`)
 不想自建 chrome 时，用现成的一站式外壳（它本身就是用下面的 `Editor.*` 零件拼出来的 preset）：
 
 ```tsx
-import { EditorRoot } from "@gedatou/editor";
-export default () => <EditorRoot deps={deps} />;
+import { EditorRoot } from '@gedatou/editor'
+
+export default () => <EditorRoot deps={deps} />
 ```
 
 想改工具栏/布局但又不想全headless，用 `Editor.*` compound 零件（context-connected，摆放即用）自拼：
 
 ```tsx
-import { EditorProvider, EditorContainer, Editor, Canvas, Inspector, Timeline, PlaybackBar } from "@gedatou/editor";
+import { Canvas, Editor, EditorContainer, EditorProvider, Inspector, PlaybackBar, Timeline } from '@gedatou/editor'
 
 <EditorProvider deps={deps}>
   <EditorContainer>
     <Editor.Toolbar>
       <Editor.Title>我的剪辑器</Editor.Title>
-      <Editor.UndoButton /><Editor.RedoButton /><Editor.ImportAssetButton />
-      <div className="ml-auto flex gap-2"><MyButton /><Editor.SaveButton /></div>
+      <Editor.UndoButton />
+      <Editor.RedoButton />
+      <Editor.ImportAssetButton />
+      <div className="ms-auto flex gap-2">
+        <MyButton />
+        <Editor.SaveButton />
+      </div>
     </Editor.Toolbar>
-    <div className="flex min-h-0 flex-1">
+    <div className="flex flex-1 min-block-0">
       <Canvas />
-      <Inspector className="w-80" />
+      <Inspector className="inline-80" />
     </div>
     <PlaybackBar />
     <Timeline />

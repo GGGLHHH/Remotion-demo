@@ -1,8 +1,11 @@
-import { EditorProvider } from './state/context';
-import type { EditorDeps } from './state/runtime';
-import type { EditorInitialState, EditorStoreApi } from './state/store';
-import type { EditorInstanceRefs } from './state/instance-refs';
-import { EditorContainer } from './shell/container';
+import type { ReactElement } from 'react'
+import type { EditorInstanceRefs } from './state/instance-refs'
+import type { EditorDeps } from './state/runtime'
+import type { EditorInitialState, EditorStoreApi } from './state/store'
+import { CanvasView } from './canvas/CanvasView'
+import { Inspector } from './inspector/Inspector'
+import { PlaybackBar } from './playback/PlaybackBar'
+import { EditorContainer } from './shell/container'
 import {
   CaptioningBadge,
   CaptionsToolButton,
@@ -20,24 +23,22 @@ import {
   UndoButton,
   UploadStatusBadge,
   ZoomControls,
-} from './shell/toolbar';
-import { CanvasView } from './canvas/CanvasView';
-import { Inspector } from './inspector/Inspector';
-import { TimelinePanel } from './timeline/TimelinePanel';
-import { PlaybackBar } from './playback/PlaybackBar';
+} from './shell/toolbar'
+import { EditorProvider } from './state/context'
+import { TimelinePanel } from './timeline/TimelinePanel'
 
-export type EditorRootProps = {
+export interface EditorRootProps {
   /** I/O 依赖注入:transport（后端）/ storage（持久化）/ notify（提示）。必填。 */
-  deps: EditorDeps;
+  deps: EditorDeps
   /** 受控 store（宿主自持/暴露句柄）；不传则 Provider 按 initialState 自建 */
-  store?: EditorStoreApi;
+  store?: EditorStoreApi
   /** 受控 refs 袋子（宿主暴露 player 等）；不传则 Provider 自建 */
-  refs?: EditorInstanceRefs;
+  refs?: EditorInstanceRefs
   /** 初始工程状态（非受控 store 时的播种） */
-  initialState?: EditorInitialState;
+  initialState?: EditorInitialState
   /** 内嵌模式:用 h-full 填满父容器（默认 h-screen 占满视口，适合独立整页） */
-  fill?: boolean;
-};
+  fill?: boolean
+}
 
 /**
  * 一站式编辑器根组件（batteries-included preset）:自带 <EditorProvider>（store/refs/deps 隔离），
@@ -45,7 +46,7 @@ export type EditorRootProps = {
  * Timeline）拼出默认布局。TooltipProvider 由 EditorContainer 内部提供，preset 与 compound 通用。
  * 放进去 + 传 deps 即可运行，一页可多个。想改工具栏/布局的照这棵树用同样的零件重拼即可。
  */
-export function EditorRoot({ deps, store, refs, initialState, fill }: EditorRootProps) {
+export function EditorRoot({ deps, store, refs, initialState, fill }: EditorRootProps): ReactElement {
   return (
     <EditorProvider deps={deps} store={store} refs={refs} initialState={initialState}>
       <EditorContainer fill={fill}>
@@ -60,7 +61,7 @@ export function EditorRoot({ deps, store, refs, initialState, fill }: EditorRoot
           <ImportAssetButton />
           <UploadStatusBadge />
           <CaptioningBadge />
-          <div className="ml-auto flex items-center gap-1.5">
+          <div className="ms-auto flex items-center gap-1.5">
             <ZoomControls />
             <CleanupAssetsButton />
             <SaveButton />
@@ -68,9 +69,13 @@ export function EditorRoot({ deps, store, refs, initialState, fill }: EditorRoot
             <ImportStateButton />
           </div>
         </EditorToolbar>
-        <div className="flex min-h-0 flex-1">
+        <div className="flex flex-1 min-block-0">
           <CanvasView />
-          <aside className="w-[349px] shrink-0 overflow-y-auto border-l border-border text-sm">
+          <aside className="
+            shrink-0 overflow-y-auto border-s border-border text-sm
+            inline-[349px]
+          "
+          >
             <Inspector />
           </aside>
         </div>
@@ -78,5 +83,5 @@ export function EditorRoot({ deps, store, refs, initialState, fill }: EditorRoot
         <TimelinePanel />
       </EditorContainer>
     </EditorProvider>
-  );
+  )
 }

@@ -1,25 +1,25 @@
-import type React from 'react';
-import { useEffect, useState } from 'react';
-import { cancelRender, continueRender, delayRender } from 'remotion';
-import type { TextItem } from '../../types';
-import { ensureFontLoaded } from '../fonts';
+import type React from 'react'
+import type { TextItem } from '../../types'
+import { useEffect, useState } from 'react'
+import { cancelRender, continueRender, delayRender } from 'remotion'
+import { ensureFontLoaded } from '../fonts'
 
 /** 字体加载栅栏：渲染端 delayRender 保证字体就绪后才截帧 */
 export const FontGate: React.FC<{ family: string }> = ({ family }) => {
-  const [handle] = useState(() => delayRender(`font: ${family}`));
+  const [handle] = useState(() => delayRender(`font: ${family}`))
   useEffect(() => {
     ensureFontLoaded(family)
       .then(() => continueRender(handle))
-      .catch((err) => cancelRender(err));
-  }, [family, handle]);
-  return null;
-};
+      .catch(err => cancelRender(err))
+  }, [family, handle])
+  return null
+}
 
-export const TextItemRenderer: React.FC<{ item: TextItem; fontFamilyOverride?: string }> = ({
+export const TextItemRenderer: React.FC<{ item: TextItem, fontFamilyOverride?: string }> = ({
   item,
   fontFamilyOverride,
 }) => {
-  const fontFamily = fontFamilyOverride ?? item.fontFamily;
+  const fontFamily = fontFamilyOverride ?? item.fontFamily
   return (
     <div
       style={{
@@ -60,5 +60,5 @@ export const TextItemRenderer: React.FC<{ item: TextItem; fontFamilyOverride?: s
         {item.text}
       </div>
     </div>
-  );
-};
+  )
+}

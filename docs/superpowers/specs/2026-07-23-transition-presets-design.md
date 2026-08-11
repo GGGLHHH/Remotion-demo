@@ -16,17 +16,17 @@ v1 的 `getTransitionRenderProps` 已返回**对象** `{opacity}`——正是为
 `packages/shared/src/types.ts`:
 
 ```ts
-export type TransitionType = 'fade' | 'slide' | 'wipe' | 'zoom';
-export type TransitionDirection = 'left' | 'right' | 'up' | 'down' | 'in' | 'out';
-export type Transition = {
-  id: string;
-  trackId: string;
-  fromItemId: string;
-  toItemId: string;
-  type: TransitionType;         // v1 是单成员 'fade';这里加宽
-  direction?: TransitionDirection; // slide/wipe 用 4 方向;zoom 用 in/out;fade 无
-  durationInFrames: number;
-};
+export type TransitionType = 'fade' | 'slide' | 'wipe' | 'zoom'
+export type TransitionDirection = 'left' | 'right' | 'up' | 'down' | 'in' | 'out'
+export interface Transition {
+  id: string
+  trackId: string
+  fromItemId: string
+  toItemId: string
+  type: TransitionType // v1 是单成员 'fade';这里加宽
+  direction?: TransitionDirection // slide/wipe 用 4 方向;zoom 用 in/out;fade 无
+  durationInFrames: number
+}
 ```
 
 **迁移**:`type` 加宽(旧数据全是 `'fade'`,合法);`direction` 可选(旧数据无 → fade 忽略之)。`transitions ??= {}` load-shim 已在。**零迁移风险**。
@@ -60,7 +60,7 @@ export const presetIdOf = (t: Pick<Transition, 'type' | 'direction'>): string =>
 `getTransitionRenderProps` 返回类型从 `{opacity}` 扩为:
 
 ```ts
-export type TransitionRenderProps = { opacity: number; translate?: string; scale?: string; clipPath?: string };
+export interface TransitionRenderProps { opacity: number, translate?: string, scale?: string, clipPath?: string }
 ```
 
 规则(沿用 v1 的重叠窗口 + live 自愈 `d = min(stored, liveOverlap)`;`p` = 该 item 在窗口内的进度,入场 0→1、出场用其结尾窗口):

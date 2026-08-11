@@ -1,35 +1,39 @@
-import type React from 'react';
-import { useEffect, useMemo, useState } from 'react';
-import { Maximize, Pause, Play, Repeat, SkipBack, SkipForward, Volume2, VolumeX } from 'lucide-react';
-import { Button } from '../components/ui/button';
-import { cn } from '../lib/utils';
-import { Tooltip, TooltipContent, TooltipTrigger } from '../components/ui/tooltip';
-import { useEditor, useEditorRefs } from '../state/context';
-import { usePlayerFrame } from '../canvas/player-ref';
-import { calcDuration } from '@gedatou/shared/composition';
-import { formatTime } from '../timeline/Ruler';
-import { useT } from '../lib/i18n';
+import type React from 'react'
+import { calcDuration } from '@gedatou/shared/composition'
+import { Maximize, Pause, Play, Repeat, SkipBack, SkipForward, Volume2, VolumeX } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { usePlayerFrame } from '../canvas/player-ref'
+import { Button } from '../components/ui/button'
+import { Tooltip, TooltipContent, TooltipTrigger } from '../components/ui/tooltip'
+import { useT } from '../lib/i18n'
+import { cn } from '../lib/utils'
+import { useEditor, useEditorRefs } from '../state/context'
+import { formatTime } from '../timeline/Ruler'
 
 /** M:SS.FF，FF = 帧号 % fps 两位补零 */
-const formatTimecode = (frame: number, fps: number): string =>
-  `${formatTime(frame, fps)}.${String(frame % fps).padStart(2, '0')}`;
+function formatTimecode(frame: number, fps: number): string {
+  return `${formatTime(frame, fps)}.${String(frame % fps).padStart(2, '0')}`
+}
 
 /** 时间码读数：每帧更新但只重渲这一个小 span，不再拖着整条控制条（7 个 Tooltip 按钮）陪跑 */
-const Timecode: React.FC<{ fps: number; durationInFrames: number }> = ({ fps, durationInFrames }) => {
-  const frame = usePlayerFrame();
+const Timecode: React.FC<{ fps: number, durationInFrames: number }> = ({ fps, durationInFrames }) => {
+  const frame = usePlayerFrame()
   return (
-    <span className="mx-2 text-xs tabular-nums text-muted-foreground" data-timecode>
-      {formatTimecode(frame, fps)} / {formatTimecode(durationInFrames, fps)}
+    <span className="mx-2 text-xs text-muted-foreground tabular-nums" data-timecode>
+      {formatTimecode(frame, fps)}
+      {' '}
+      /
+      {formatTimecode(durationInFrames, fps)}
     </span>
-  );
-};
+  )
+}
 
 /** 图标按钮：保留 title（e2e 依赖 getByTitle）+ Tooltip 中文说明 */
 const Btn: React.FC<{
-  title: string;
-  onClick: () => void;
-  active?: boolean;
-  children: React.ReactNode;
+  title: string
+  onClick: () => void
+  active?: boolean
+  children: React.ReactNode
 }> = ({ title, onClick, active, children }) => (
   <Tooltip>
     <TooltipTrigger
@@ -41,45 +45,51 @@ const Btn: React.FC<{
     </TooltipTrigger>
     <TooltipContent>{title}</TooltipContent>
   </Tooltip>
-);
+)
 
 export const PlaybackBar: React.FC<{ className?: string }> = ({ className }) => {
-  const refs = useEditorRefs();
-  const fps = useEditor((s) => s.undoable.fps);
-  const items = useEditor((s) => s.undoable.items);
-  const loop = useEditor((s) => s.loop);
-  const toggleLoop = useEditor((s) => s.toggleLoop);
-  const playerMuted = useEditor((s) => s.playerMuted);
-  const togglePlayerMuted = useEditor((s) => s.togglePlayerMuted);
-  const t = useT();
-  const [playing, setPlaying] = useState(false);
-  const durationInFrames = useMemo(() => calcDuration(items), [items]);
+  const refs = useEditorRefs()
+  const fps = useEditor(s => s.undoable.fps)
+  const items = useEditor(s => s.undoable.items)
+  const loop = useEditor(s => s.loop)
+  const toggleLoop = useEditor(s => s.toggleLoop)
+  const playerMuted = useEditor(s => s.playerMuted)
+  const togglePlayerMuted = useEditor(s => s.togglePlayerMuted)
+  const t = useT()
+  const [playing, setPlaying] = useState(false)
+  const durationInFrames = useMemo(() => calcDuration(items), [items])
 
   useEffect(() => {
-    const p = refs.player.current;
-    if (!p) return;
-    const onPlay = () => setPlaying(true);
-    const onPause = () => setPlaying(false);
-    p.addEventListener('play', onPlay);
-    p.addEventListener('pause', onPause);
+    const p = refs.player.current
+    if (!p)
+      return
+    const onPlay = (): void => setPlaying(true)
+    const onPause = (): void => setPlaying(false)
+    p.addEventListener('play', onPlay)
+    p.addEventListener('pause', onPause)
     return () => {
-      p.removeEventListener('play', onPlay);
-      p.removeEventListener('pause', onPause);
-    };
-  }, []);
+      p.removeEventListener('play', onPlay)
+      p.removeEventListener('pause', onPause)
+    }
+  }, [refs.player])
 
   // 静音是瞬时全局状态，不进 undoable，因此在这里同步给 Player
   useEffect(() => {
-    const p = refs.player.current;
-    if (!p) return;
-    if (playerMuted) p.mute();
-    else p.unmute();
-  }, [playerMuted]);
+    const p = refs.player.current
+    if (!p)
+      return
+    if (playerMuted)
+      p.mute()
+    else p.unmute()
+  }, [playerMuted, refs.player])
 
   return (
     <div
       className={cn(
-        'flex h-10 shrink-0 items-center justify-center gap-1 border-t border-border bg-card px-4 text-sm',
+        `
+          flex shrink-0 items-center justify-center gap-1 border-bs
+          border-border bg-card px-4 text-sm block-10
+        `,
         className,
       )}
     >
@@ -103,5 +113,5 @@ export const PlaybackBar: React.FC<{ className?: string }> = ({ className }) => 
         <Maximize />
       </Btn>
     </div>
-  );
-};
+  )
+}

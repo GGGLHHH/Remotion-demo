@@ -1,17 +1,17 @@
-import { StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
-import './index.css'
 import type { UndoableState } from '@gedatou/shared'
 import {
-  EditorRoot,
   createEditorStore,
   createInstanceRefs,
+  EditorRoot,
   restoreLocalUrls,
 } from '@gedatou/editor'
-import { createHttpTransport, createBrowserStorage } from '@gedatou/editor/adapters'
+import { createBrowserStorage, createHttpTransport } from '@gedatou/editor/adapters'
+import { StrictMode } from 'react'
+import { createRoot } from 'react-dom/client'
+import { buildDemoState } from './demo-state'
 import { sonnerNotify } from './notify'
 import { Toaster } from './toaster'
-import { buildDemoState } from './demo-state'
+import './index.css'
 
 // demo 消费方：组装默认适配器（同源 /api + localStorage/IndexedDB + sonner）
 const transport = createHttpTransport()

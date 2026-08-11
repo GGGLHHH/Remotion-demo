@@ -1,18 +1,46 @@
 {
   "name": "remotion-editor",
+  "type": "module",
   "version": "0.5.2",
   "private": true,
-  "type": "module",
+  "packageManager": "pnpm@11.15.1",
+  "description": "Embeddable Remotion video editor — timeline, canvas, inspector",
+  "license": "MIT",
   "scripts": {
     "dev": "pnpm -F editor dev",
     "build": "pnpm --filter \"@gedatou/*\" build",
-    "typecheck": "pnpm -r --parallel typecheck",
-    "test": "pnpm -r --parallel test",
-    "release": "bumpp --no-verify"
+    "lint": "eslint",
+    "fix": "eslint --fix",
+    "test": "vitest",
+    "typecheck": "tsc && pnpm -r run typecheck",
+    "release": "bumpp --no-verify",
+    "prepare": "git config core.hooksPath .githooks && simple-git-hooks"
   },
-  "packageManager": "pnpm@10.18.3",
   "devDependencies": {
-    "bumpp": "^11.0.1",
-    "playwright": "^1.61.1"
+    "@antfu/eslint-config": "catalog:cli",
+    "@eslint-react/eslint-plugin": "catalog:cli",
+    "@types/node": "catalog:types",
+    "@types/react": "catalog:types",
+    "@types/react-dom": "catalog:types",
+    "bumpp": "catalog:cli",
+    "eslint": "catalog:cli",
+    "eslint-plugin-better-tailwindcss": "catalog:cli",
+    "eslint-plugin-react-hooks": "catalog:cli",
+    "eslint-plugin-react-refresh": "catalog:cli",
+    "nano-staged": "catalog:cli",
+    "playwright": "catalog:testing",
+    "publint": "catalog:cli",
+    "simple-git-hooks": "catalog:cli",
+    "tailwindcss": "catalog:ui",
+    "tsdown": "catalog:cli",
+    "tsx": "catalog:cli",
+    "typescript": "catalog:cli",
+    "vitest": "catalog:testing"
+  },
+  "simple-git-hooks": {
+    "pre-commit": "pnpm i --frozen-lockfile --ignore-scripts --offline && npx nano-staged"
+  },
+  "nano-staged": {
+    "*": "eslint --fix --no-error-on-unmatched-pattern"
   }
 }

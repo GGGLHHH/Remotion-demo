@@ -24,9 +24,9 @@
 ## 数据模型(`packages/shared/src/types.ts`)
 
 ```ts
-export type Group = { id: string; itemIds: string[] }; // v1:无名字、无嵌套
+export interface Group { id: string, itemIds: string[] } // v1:无名字、无嵌套
 // UndoableState 增字段:
-groups: Record<string, Group>;
+groups: Record<string, Group>
 ```
 
 - **单一真相源**只放 `groups`。item **不加** `groupId`(避免双写不一致);item→组反查用纯函数 `findGroupOfItem(groups, itemId)`(组数量少,扫描即可)。

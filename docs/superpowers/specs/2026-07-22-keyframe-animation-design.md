@@ -25,11 +25,11 @@
 新增类型(`packages/shared/src/types.ts`):
 
 ```ts
-export type KeyframeEasing = 'linear' | 'easeIn' | 'easeOut' | 'easeInOut' | 'hold';
-export type Keyframe = { frame: number; value: number; easing: KeyframeEasing };
+export type KeyframeEasing = 'linear' | 'easeIn' | 'easeOut' | 'easeInOut' | 'hold'
+export interface Keyframe { frame: number, value: number, easing: KeyframeEasing }
 // frame 相对 item 起点(0 = item.from),与 fade 同基准;范围 [0, durationInFrames]
-export type AnimatableProp = 'left' | 'top' | 'width' | 'height' | 'rotation' | 'opacity';
-export const ANIMATABLE_PROPS: readonly AnimatableProp[] = ['left','top','width','height','rotation','opacity'];
+export type AnimatableProp = 'left' | 'top' | 'width' | 'height' | 'rotation' | 'opacity'
+export const ANIMATABLE_PROPS: readonly AnimatableProp[] = ['left', 'top', 'width', 'height', 'rotation', 'opacity']
 ```
 
 加到 `BaseItem`:
