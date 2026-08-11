@@ -1,7 +1,7 @@
 {
   "name": "@gedatou/shared",
   "type": "module",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "description": "Shared data model and Remotion composition for the @gedatou/editor video editor",
   "author": "ge Datou (https://github.com/GGGLHHH)",
   "license": "MIT",

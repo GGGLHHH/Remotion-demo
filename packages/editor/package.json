@@ -1,7 +1,7 @@
 {
   "name": "@gedatou/editor",
   "type": "module",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "description": "Embeddable Remotion video editor React components — timeline, canvas, inspector; shadcn-authored, theme-able",
   "author": "ge Datou (https://github.com/GGGLHHH)",
   "license": "MIT",

@@ -1,7 +1,7 @@
 {
   "name": "remotion-editor",
   "type": "module",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "private": true,
   "packageManager": "pnpm@11.15.1",
   "description": "Embeddable Remotion video editor — timeline, canvas, inspector",
