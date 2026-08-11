@@ -1,4 +1,6 @@
 /* M5 验证：持久化(Cmd+S/reload/URL hash)/播放控制条(时间码/跳转/循环)/素材清理端到端 */
+import { Buffer } from 'node:buffer'
+import process from 'node:process'
 import { chromium } from 'playwright'
 
 function fail(msg) {

@@ -1,4 +1,5 @@
 /* M1-T4 验证：Inspector 改 X → 画布移动可撤销；交换尺寸 → 合成比例变化 */
+import process from 'node:process'
 import { chromium } from 'playwright'
 
 function fail(msg) {

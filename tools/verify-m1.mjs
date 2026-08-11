@@ -1,4 +1,5 @@
 /* M1 交互验证：点选 → 拖拽 → 撤销 → 手柄缩放 → 画布缩放 */
+import process from 'node:process'
 import { chromium } from 'playwright'
 
 function fail(msg) {

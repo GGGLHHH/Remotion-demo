@@ -1,5 +1,6 @@
-/* M8 对齐验证：时间线音量线/淡入手柄/最大裁剪指示器/文件拖放时间线 + 源信息/裁剪数值 + 拖拽绘制色块 */
 import { readFileSync } from 'node:fs'
+/* M8 对齐验证：时间线音量线/淡入手柄/最大裁剪指示器/文件拖放时间线 + 源信息/裁剪数值 + 拖拽绘制色块 */
+import process from 'node:process'
 import { chromium } from 'playwright'
 
 function fail(msg) {

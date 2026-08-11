@@ -1,3 +1,4 @@
+import process from 'node:process'
 import { chromium } from 'playwright'
 
 const browser = await chromium.launch()

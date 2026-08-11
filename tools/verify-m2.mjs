@@ -1,5 +1,6 @@
 /* M2 时间轴验证：条块显示/拖动落点/吸附/顶开占位/跨轨/新轨道/修剪/分割/框选/标尺 seek/undo
    拖拽模型 = 官方 editor-starter：拖拽中不改 store，松手一次性落到落位槽位置，永不回弹 */
+import process from 'node:process'
 import { chromium } from 'playwright'
 
 function fail(msg) {

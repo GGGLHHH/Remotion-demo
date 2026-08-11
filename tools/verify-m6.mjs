@@ -1,4 +1,5 @@
 /* M6 验证：一键导出——渲染按钮 → 服务端 bundle+渲染 → MinIO 产物可下载 */
+import process from 'node:process'
 import { chromium } from 'playwright'
 
 function fail(msg) {

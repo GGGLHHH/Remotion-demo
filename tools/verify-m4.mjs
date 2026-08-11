@@ -1,4 +1,5 @@
 /* M4 验证：文本面板/字体/行内编辑/媒体面板变速/裁剪模式/画布框选/右键置底/剪贴板/滚动编辑 */
+import process from 'node:process'
 import { chromium } from 'playwright'
 
 function fail(msg) {

@@ -1,8 +1,9 @@
-/* M7 验证：导入语音 → whisper 转录 → CaptionsItem 渲染逐词高亮 → 面板逐词修正 */
 import { execSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+/* M7 验证：导入语音 → whisper 转录 → CaptionsItem 渲染逐词高亮 → 面板逐词修正 */
+import process from 'node:process'
 import { chromium } from 'playwright'
 
 function fail(msg) {

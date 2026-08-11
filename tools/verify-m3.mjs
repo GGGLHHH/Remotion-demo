@@ -1,4 +1,5 @@
 /* M3 素材管线验证：导入 mp4/wav/png → item 创建 → 上传 MinIO → 远端可读 → 缩略图/波形出现 */
+import process from 'node:process'
 import { chromium } from 'playwright'
 
 function fail(msg) {

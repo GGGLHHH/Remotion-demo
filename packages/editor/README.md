@@ -157,7 +157,9 @@ const t: EditorT = (key, params) => myI18n.exists(`editor.${key}`)
 ```tsx
 import { EditorRoot } from '@gedatou/editor'
 
-export default () => <EditorRoot deps={deps} />
+export default function App() {
+  return <EditorRoot deps={deps} />
+}
 ```
 
 想改工具栏/布局但又不想全headless，用 `Editor.*` compound 零件（context-connected，摆放即用）自拼：

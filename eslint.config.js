@@ -29,31 +29,23 @@ export default antfu(
       'apps/server/.whisper',
       // 一次性验证脚本的产物与截图
       'tools/fixtures',
-      // 设计文档与 agent 生成的报告。里面的代码块是示意片段(常年是半截函数、
-      // 顶层 hook 调用),按真代码检查只会产出噪声。
-      'docs',
+      // superpowers 工作流生成的归档(plan/spec/任务报告):写下时是什么样就是什么样的快照,
+      // 不是持续维护的文档。里面的代码块大多是半截片段和伪代码,连解析都过不去。
+      // 只圈这两个目录 —— docs/ 下手写的 ui-glossary.md、arch-review-*.md 照常受检。
+      'docs/superpowers',
       '.superpowers',
     ],
   },
 ).append({
-  name: 'remotion-editor/verify-scripts',
-  files: ['tools/**/*.mjs'],
+  name: 'remotion-editor/executables',
+  files: ['tools/**/*.mjs', 'apps/server/src/index.ts'],
   rules: {
-    // 一次性的人工验证脚本:node 直接跑,顶层 await 是它们的正常形态,
-    // 输出到 stdout 就是它们的产品。库那套规矩不适用。
+    // 这两条是 type:'lib' 带来的,针对的是「会被 import 的库代码」:顶层 await 会
+    // 逼消费方的 bundler 走 ESM 并阻塞加载,console 会污染宿主输出。
+    // 这里的文件都是入口 —— tools/*.mjs 由 node 直接执行(全仓 0 处 import),
+    // fastify 的 listen 也只有顶层 await 一种写法,stdout 就是脚本的产品。
     'antfu/no-top-level-await': 'off',
     'no-console': 'off',
-    // 同理,这些脚本不值得为 process/Buffer 逐个补 import —— apps/server 那边补了,
-    // 因为那是长期维护的服务代码。
-    'node/prefer-global/buffer': 'off',
-    'node/prefer-global/process': 'off',
-  },
-}).append({
-  name: 'remotion-editor/server-entry',
-  files: ['apps/server/src/index.ts'],
-  rules: {
-    // fastify 服务的入口:listen 就是顶层 await,没有别的写法。
-    'antfu/no-top-level-await': 'off',
   },
 }).append({
   name: 'remotion-editor/env-checks',
@@ -103,13 +95,5 @@ export default antfu(
       // sonner 自己的钩子类,样式由它的 CSS 提供,不经 tailwind
       ignore: ['toaster'],
     }],
-  },
-}).append({
-  name: 'remotion-editor/markdown-snippets',
-  files: ['**/*.md/**'],
-  rules: {
-    // README 里的示例片段是给人读的,不参与 Fast Refresh,也不必凑齐可运行上下文
-    'react-refresh/only-export-components': 'off',
-    'ts/explicit-function-return-type': 'off',
   },
 })
